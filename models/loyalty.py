@@ -183,7 +183,7 @@ class ACNActivity(Base, TimestampMixin):
     )  # 'moderation', 'engagement', 'loyalty'
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     points_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    metadata: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string
+    extra_data: Mapped[str | None] = mapped_column(Text, nullable=True)  # JSON string
 
     # Relationships
     user: Mapped[User] = relationship()

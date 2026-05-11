@@ -113,6 +113,8 @@ class Settings(BaseSettings):
             return ()
         if isinstance(value, str):
             return tuple(int(part.strip()) for part in value.split(",") if part.strip())
+        if isinstance(value, int):
+            return (value,)
         if isinstance(value, list | tuple | set):
             return tuple(int(part) for part in value)
         raise TypeError(

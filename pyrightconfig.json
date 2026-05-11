@@ -1,13 +1,17 @@
 {
-  "venvPath": ".",
+  "venvPath": "d:/Nico Robin Bot ACN",
   "venv": ".venv",
   "typeCheckingMode": "basic",
-  "pythonVersion": "3.11",
+  "pythonVersion": "3.12",
+  "include": [
+    "."
+  ],
   "extraPaths": [
-    "./.venv/Lib/site-packages"
+    "d:/Nico Robin Bot ACN/.venv/Lib/site-packages"
   ],
   "exclude": [
     "**/node_modules",
-    "**/__pycache__"
+    "**/__pycache__",
+    ".venv"
   ]
 }

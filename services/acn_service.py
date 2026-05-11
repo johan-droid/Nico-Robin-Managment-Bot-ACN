@@ -202,7 +202,7 @@ class ACNService:
             activity_type=activity_type,
             action=action,
             points_earned=points,
-            metadata=metadata,
+            extra_data=metadata,
         )
         session.add(activity)
 
