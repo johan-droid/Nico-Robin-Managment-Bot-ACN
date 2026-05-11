@@ -68,7 +68,9 @@ async def rate_limit_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             ttl = await redis.ttl(cooldown_key)
             if message:
                 try:
-                    await message.reply_text(f"🛡️ You're on cooldown. Try again in {ttl}s.")
+                    await message.reply_text(
+                        f"🛡️ You're on cooldown. Try again in {ttl}s."
+                    )
                 except Exception:
                     pass
             return True
