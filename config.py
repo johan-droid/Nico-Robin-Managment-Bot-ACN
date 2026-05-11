@@ -49,7 +49,12 @@ class _CommaSeparatedIntTupleMixin:
     ) -> Any:
         if field_name in _INT_TUPLE_FIELDS:
             return self._parse_int_tuple(value)
-        return super().prepare_field_value(field_name, field, value, value_is_complex)
+        # Fallback to the next class in MRO (e.g., EnvSettingsSource)
+        # We use getattr to satisfy the linter if the base is not explicitly defined in the mixin
+        prepare = getattr(super(), "prepare_field_value", None)
+        if prepare:
+            return prepare(field_name, field, value, value_is_complex)
+        return value
 
 
 class _CommaSeparatedIntTupleEnvSource(_CommaSeparatedIntTupleMixin, EnvSettingsSource):
@@ -212,41 +217,54 @@ class Settings(BaseSettings):
     def normalize_database_url(cls, value: object) -> str:
         if not isinstance(value, str):
             raise TypeError("DATABASE_URL must be a string")
-        if value.startswith("postgres://"):
-            return value.replace("postgres://", "postgresql+asyncpg://", 1)
-        if value.startswith("postgresql://"):
-            return value.replace("postgresql://", "postgresql+asyncpg://", 1)
-        return value
+        
+        # Strip whitespace and handle postgres:// to postgresql:// conversion
+        url = value.strip()
+        if url.startswith("postgres://"):
+            url = url.replace("postgres://", "postgresql://", 1)
+        
+        # Ensure it has the asyncpg driver for internal use if not already specified
+        # but keep the base URL clean for the sync property
+        return url
 
     @property
     def async_database_url(self) -> str:
         """SQLAlchemy async URL without libpq-only query parameters."""
-
         url = make_url(self.database_url)
+        
+        # Inject asyncpg driver if missing
+        drivername = url.drivername
+        if drivername == "postgresql":
+            drivername = "postgresql+asyncpg"
+        elif not drivername.endswith("+asyncpg"):
+            drivername = f"{drivername}+asyncpg"
+            
         query = dict(url.query)
+        # Remove libpq-only parameters that asyncpg doesn't support
         query.pop("sslmode", None)
         query.pop("channel_binding", None)
-        if url.drivername.endswith("+asyncpg"):
-            return str(url.set(query=query))
-        return str(url.set(drivername="postgresql+asyncpg", query=query))
+        
+        return url.set(drivername=drivername, query=query).render_as_string(hide_password=False)
 
     @property
     def async_database_ssl_required(self) -> bool:
         """Whether the async driver should connect over SSL."""
-
         url = make_url(self.database_url)
         sslmode = url.query.get("sslmode")
-        return bool(
+        
+        return (
             self.db_ssl_required
             or self.environment == "production"
             or sslmode in {"require", "verify-ca", "verify-full"}
+            or (url.host is not None and "neon.tech" in url.host)  # Neon always requires SSL
         )
 
     @property
     def sync_database_url(self) -> str:
         """SQLAlchemy sync URL for Alembic migrations."""
-
-        return self.database_url.replace("+asyncpg", "")
+        url = make_url(self.database_url)
+        drivername = url.drivername.replace("+asyncpg", "")
+        return url.set(drivername=drivername).render_as_string(hide_password=False)
 
 
 @lru_cache(maxsize=1)

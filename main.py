@@ -103,7 +103,10 @@ async def main() -> None:
         await initialize_websocket_client(ptb_app)
 
         if settings.webhook_url and settings.webhook_url.startswith("https://"):
-            webhook_url = f"{settings.webhook_url.rstrip('/')}/webhook"
+            webhook_url = settings.webhook_url
+            if not webhook_url.endswith("/webhook"):
+                webhook_url = f"{webhook_url.rstrip('/')}/webhook"
+                
             await ptb_app.bot.set_webhook(
                 url=webhook_url,
                 secret_token=settings.webhook_secret or None,

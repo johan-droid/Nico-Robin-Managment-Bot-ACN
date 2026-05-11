@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import logging
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -47,13 +50,20 @@ class BotWebSocketClient:
             return
 
         try:
-            # Connect to WebSocket server (Socket.IO is mounted on the same HTTP port)
+            # Generate HMAC token for authentication
+            timestamp = str(int(time.time()))
+            secret = settings.webhook_secret or settings.bot_token
+            payload = f"{bot_user_id}:{timestamp}".encode()
+            token = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
+
+            # Connect to WebSocket server
             await self.sio.connect(
                 f"http://127.0.0.1:{settings.port}",
                 auth={
                     "bot_id": bot_user_id,
-                    "token": "bot_token",
-                },  # TODO: Use proper auth
+                    "token": token,
+                    "timestamp": timestamp,
+                }
             )
 
             # Authenticate as bot
@@ -61,7 +71,8 @@ class BotWebSocketClient:
                 "authenticate",
                 {
                     "user_id": bot_user_id,
-                    "token": "bot_token",  # TODO: Use proper JWT token
+                    "token": token,
+                    "timestamp": timestamp,
                 },
             )
 

@@ -21,20 +21,28 @@ def create_engine(url: str | None = None) -> AsyncEngine:
     - Reduced pool size to prevent connection exhaustion attacks
     - Query timeout to prevent long-running malicious queries
     - Connection recycling to prevent stale/hijacked connections
-    - SSL enforcement in production
+    - SSL enforcement in production and for known cloud providers
     - Pool pre-ping to detect dead connections
+    - Statement cache disabled for connection poolers (PgBouncer/Neon)
     """
+    db_url = url or settings.async_database_url
     connect_args: dict = {}
 
     # Query timeout (prevents hung queries from exhausting pool)
     connect_args["command_timeout"] = settings.db_query_timeout
 
-    # SSL enforcement in production
+    # SSL enforcement
     if settings.async_database_ssl_required:
         connect_args["ssl"] = True
 
+    # Connection Pooler Compatibility (Neon / PgBouncer)
+    # PgBouncer in transaction mode does not support prepared statements.
+    # We detect the '-pooler' suffix which is common in Neon URLs.
+    if "-pooler" in db_url:
+        connect_args["statement_cache_size"] = 0
+
     return create_async_engine(
-        url or settings.async_database_url,
+        db_url,
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
         pool_pre_ping=True,
