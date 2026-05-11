@@ -5,8 +5,6 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
-)
-from telegram.ext import (
     filters as tg_filters,
 )
 
