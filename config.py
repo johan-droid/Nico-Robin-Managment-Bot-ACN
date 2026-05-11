@@ -154,7 +154,6 @@ class Settings(BaseSettings):
         alias="DATABASE_URL",
     )
 
-
     llm_provider: Literal["disabled", "openai", "traditional_ml"] = Field(
         default="disabled",
         alias="LLM_PROVIDER",
@@ -207,12 +206,12 @@ class Settings(BaseSettings):
     def normalize_database_url(cls, value: object) -> str:
         if not isinstance(value, str):
             raise TypeError("DATABASE_URL must be a string")
-        
+
         # Strip whitespace and handle postgres:// to postgresql:// conversion
         url = value.strip()
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql://", 1)
-        
+
         # Ensure it has the asyncpg driver for internal use if not already specified
         # but keep the base URL clean for the sync property
         return url
@@ -221,32 +220,36 @@ class Settings(BaseSettings):
     def async_database_url(self) -> str:
         """SQLAlchemy async URL without libpq-only query parameters."""
         url = make_url(self.database_url)
-        
+
         # Inject asyncpg driver if missing
         drivername = url.drivername
         if drivername == "postgresql":
             drivername = "postgresql+asyncpg"
         elif not drivername.endswith("+asyncpg"):
             drivername = f"{drivername}+asyncpg"
-            
+
         query = dict(url.query)
         # Remove libpq-only parameters that asyncpg doesn't support
         query.pop("sslmode", None)
         query.pop("channel_binding", None)
-        
-        return url.set(drivername=drivername, query=query).render_as_string(hide_password=False)
+
+        return url.set(drivername=drivername, query=query).render_as_string(
+            hide_password=False
+        )
 
     @property
     def async_database_ssl_required(self) -> bool:
         """Whether the async driver should connect over SSL."""
         url = make_url(self.database_url)
         sslmode = url.query.get("sslmode")
-        
+
         return (
             self.db_ssl_required
             or self.environment == "production"
             or sslmode in {"require", "verify-ca", "verify-full"}
-            or (url.host is not None and "neon.tech" in url.host)  # Neon always requires SSL
+            or (
+                url.host is not None and "neon.tech" in url.host
+            )  # Neon always requires SSL
         )
 
     @property

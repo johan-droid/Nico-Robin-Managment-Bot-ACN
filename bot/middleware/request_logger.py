@@ -3,28 +3,31 @@
 from __future__ import annotations
 
 import time
+
 import structlog
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from utils.logging import bind_update_context, clear_update_context
+from utils.logging import bind_update_context
 
 logger = structlog.get_logger(__name__)
 
 
-async def log_update_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def log_update_details(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Log comprehensive details about every update received."""
     start_time = time.time()
-    
+
     try:
         # Extract update details
         user = update.effective_user
         chat = update.effective_chat
         message = update.effective_message
-        
+
         update_type = None
         message_type = None
-        
+
         if update.message:
             update_type = "message"
             message_type = "text" if message.text else "media"
@@ -38,7 +41,7 @@ async def log_update_details(update: Update, context: ContextTypes.DEFAULT_TYPE)
             update_type = "my_chat_member"
         else:
             update_type = type(update).__name__
-        
+
         # Bind context for all logs in this update cycle
         bind_update_context(
             update_id=update.update_id,
@@ -51,47 +54,59 @@ async def log_update_details(update: Update, context: ContextTypes.DEFAULT_TYPE)
             message_id=message.message_id if message else None,
             message_type=message_type,
         )
-        
+
         # Log incoming update
         log_data = {
             "event": "update_received",
             "update_id": update.update_id,
             "update_type": update_type,
         }
-        
+
         if user:
-            log_data.update({
-                "user_id": user.id,
-                "username": f"@{user.username}" if user.username else None,
-                "user_is_bot": user.is_bot,
-                "user_first_name": user.first_name,
-            })
-        
+            log_data.update(
+                {
+                    "user_id": user.id,
+                    "username": f"@{user.username}" if user.username else None,
+                    "user_is_bot": user.is_bot,
+                    "user_first_name": user.first_name,
+                }
+            )
+
         if chat:
-            log_data.update({
-                "chat_id": chat.id,
-                "chat_type": chat.type,
-                "chat_title": chat.title,
-            })
-        
+            log_data.update(
+                {
+                    "chat_id": chat.id,
+                    "chat_type": chat.type,
+                    "chat_title": chat.title,
+                }
+            )
+
         if message:
-            log_data.update({
-                "message_id": message.message_id,
-                "message_text": message.text[:100] if message.text else None,
-                "message_type": message_type,
-                "message_date": message.date.isoformat() if message.date else None,
-            })
-        
+            log_data.update(
+                {
+                    "message_id": message.message_id,
+                    "message_text": message.text[:100] if message.text else None,
+                    "message_type": message_type,
+                    "message_date": message.date.isoformat() if message.date else None,
+                }
+            )
+
         if update.callback_query:
-            log_data.update({
-                "callback_data": update.callback_query.data[:100] if update.callback_query.data else None,
-            })
-        
+            log_data.update(
+                {
+                    "callback_data": (
+                        update.callback_query.data[:100]
+                        if update.callback_query.data
+                        else None
+                    ),
+                }
+            )
+
         logger.info(**log_data)
-        
+
     except Exception as e:
         logger.error("log_update_details_error", error=str(e), exc_info=True)
-    
+
     finally:
         # Store timing info in context for later use
         context.user_data["_update_start_time"] = start_time
@@ -101,7 +116,9 @@ async def log_handler_execution(handler_name: str, start_time: float = None) -> 
     """Log handler execution time and details."""
     if start_time:
         elapsed = (time.time() - start_time) * 1000  # Convert to ms
-        logger.info("handler_executed", handler_name=handler_name, elapsed_ms=f"{elapsed:.2f}")
+        logger.info(
+            "handler_executed", handler_name=handler_name, elapsed_ms=f"{elapsed:.2f}"
+        )
 
 
 def register_logging_middleware(app) -> None:
