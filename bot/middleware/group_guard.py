@@ -60,10 +60,13 @@ async def group_guard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 class _StopProcessing(Exception):
     """Sentinel to halt handler processing via error handler."""
+
     pass
 
 
-async def group_guard_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def group_guard_error_handler(
+    update: object, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Suppress _StopProcessing exceptions raised by the group guard."""
     if isinstance(context.error, _StopProcessing):
         return  # Silently swallow - this is expected behavior

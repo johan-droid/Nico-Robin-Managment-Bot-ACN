@@ -62,10 +62,18 @@ class Group(TimestampMixin, Base):
     log_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     # Swear word settings
-    swear_words_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    default_swear_severity: Mapped[str] = mapped_column(String(20), default="moderate", nullable=False)
-    default_swear_punishment: Mapped[str] = mapped_column(String(20), default="mute", nullable=False)
-    default_swear_duration: Mapped[int] = mapped_column(Integer, default=300, nullable=False)
+    swear_words_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+    default_swear_severity: Mapped[str] = mapped_column(
+        String(20), default="moderate", nullable=False
+    )
+    default_swear_punishment: Mapped[str] = mapped_column(
+        String(20), default="mute", nullable=False
+    )
+    default_swear_duration: Mapped[int] = mapped_column(
+        Integer, default=300, nullable=False
+    )
 
     members: Mapped[list[GroupMember]] = relationship(back_populates="group")
     warns: Mapped[list[Warn]] = relationship(back_populates="group")

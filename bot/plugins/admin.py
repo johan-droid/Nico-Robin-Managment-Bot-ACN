@@ -8,7 +8,7 @@ from telegram.error import TelegramError
 from telegram.ext import CommandHandler, ContextTypes
 
 from database import async_session_factory
-from services.acn_service import admin_captain_commander_only, acn_only
+from services.acn_service import acn_only, admin_captain_commander_only
 from services.audit_service import AuditService
 from services.event_service import emit_user_action
 from services.group_service import GroupService
@@ -149,7 +149,7 @@ async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     target = await resolve_target(update, context)
     if target is None:
         await msg.reply_text(
@@ -157,21 +157,21 @@ async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "Usage: `/ban @username` or reply to a message and use `/ban`"
         )
         return
-    
+
     # Prevent banning admins or the bot itself
     if target.user_id == context.bot.id:
         await msg.reply_text("🌸 I cannot ban myself!")
         return
-    
+
     try:
         if await is_telegram_admin(context, chat.id, target.user_id):
             await msg.reply_text("🌸 I cannot ban an admin user.")
             return
     except TelegramError:
         pass  # Continue if we can't check admin status
-    
+
     reason = reason_from_args(context.args or [], target.consumed_args)
-    
+
     try:
         await context.bot.ban_chat_member(chat.id, target.user_id)
         async with async_session_factory() as session:
@@ -180,7 +180,7 @@ async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 await UserService.increment_ban_count(session, target.user_id)
         await _record_action(update, context, "ban", target, reason)
         await msg.reply_text(ban_message(target.label, reason))
-        
+
         # Emit real-time event
         await emit_user_action(
             action="ban",
@@ -188,7 +188,7 @@ async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             group_id=chat.id,
             actor_id=update.effective_user.id if update.effective_user else None,
             reason=reason,
-            extra_data={"target_label": target.label}
+            extra_data={"target_label": target.label},
         )
     except TelegramError as e:
         await msg.reply_text(f"🌸 Failed to ban user: {str(e)}")
@@ -325,7 +325,7 @@ async def warn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                     warn_action,
                 )
     await msg.reply_text(warn_message(target.label, count, max_warns, reason))
-    
+
     # Emit real-time event
     await emit_user_action(
         action="warn",
@@ -333,9 +333,13 @@ async def warn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         group_id=chat.id,
         actor_id=update.effective_user.id if update.effective_user else None,
         reason=reason,
-        extra_data={"target_label": target.label, "warning_count": count, "max_warns": max_warns}
+        extra_data={
+            "target_label": target.label,
+            "warning_count": count,
+            "max_warns": max_warns,
+        },
     )
-    
+
     if should_auto_action:
         await _auto_action(update, context, warn_action, target)
         await _record_action(

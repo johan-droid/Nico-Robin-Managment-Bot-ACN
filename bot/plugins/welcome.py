@@ -67,7 +67,9 @@ async def welcome_new_members(
     if log_channel_id:
         count = await _member_count(context, chat.id)
         for member in msg.new_chat_members:
-            username_line = f"📛 **Username:** @{member.username}\n" if member.username else ""
+            username_line = (
+                f"📛 **Username:** @{member.username}\n" if member.username else ""
+            )
             join_text = (
                 f"👋 **New Member Joined**\n\n"
                 f"👤 **Name:** {member.first_name or ''} {member.last_name or ''}\n"

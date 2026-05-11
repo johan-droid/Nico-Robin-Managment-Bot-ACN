@@ -20,6 +20,7 @@ from models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from models.group import Group
+    from models.loyalty import LoyaltyPoints
     from models.warn import Warn
 
 

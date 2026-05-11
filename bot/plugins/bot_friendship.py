@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import time
+
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
-from telegram.ext import filters as tg_filters
 
-from database import async_session_factory
 from services.acn_service import acn_only
 from services.bot_friendship_service import bot_friendship_service
-from utils.formatters import telegram_user_label
 
 
 @acn_only
@@ -18,10 +16,10 @@ async def bond_with_yamato(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     # Initialize friendship
     success = await bot_friendship_service.initialize_friendship(chat.id)
-    
+
     if success:
         await msg.reply_text(
             "💕 **Nico Robin & Yamato ACN Friendship Bonded!**\n\n"
@@ -42,7 +40,7 @@ async def yamato_interact(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     if len(args) < 1:
         await msg.reply_text(
@@ -57,16 +55,16 @@ async def yamato_interact(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             "💡 Example: `/yamato_interact waifu`"
         )
         return
-    
+
     interaction_type = args[0].lower()
     interaction_mapping = {
         "waifu": "waifu_grab",
-        "compliment": "compliment", 
+        "compliment": "compliment",
         "moment": "shared_moment",
         "tease": "playful_tease",
-        "deep": "deep_connection"
+        "deep": "deep_connection",
     }
-    
+
     mapped_type = interaction_mapping.get(interaction_type)
     if not mapped_type:
         await msg.reply_text(
@@ -74,18 +72,18 @@ async def yamato_interact(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             "Use `/yamato_interact` to see available options."
         )
         return
-    
+
     # Process interaction
     result = await bot_friendship_service.process_bot_interaction(
         update, context, mapped_type, f"User initiated {interaction_type}"
     )
-    
+
     if result["success"]:
-        response = f"🌸 **Nico Robin & Yamato Sweet Interaction**\n\n"
+        response = "🌸 **Nico Robin & Yamato Sweet Interaction**\n\n"
         response += f"🌸 **Nico Robin:** {result['nico_response']}\n\n"
         response += f"🗾 **Yamato ACN:** {result['yamato_response']}\n\n"
         response += f"💕 *Friendship Points: +{result['friendship_points']}*"
-        
+
         await msg.reply_text(response, parse_mode="Markdown")
     else:
         await msg.reply_text(f"❌ {result.get('error', 'Unknown error')}")
@@ -98,51 +96,55 @@ async def yamato_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     status = await bot_friendship_service.get_friendship_status(chat.id)
-    
+
     if status["status"] == "not_bonded":
         await msg.reply_text(
             "🌸 *looks around* I haven't bonded with Yamato ACN yet in this group!\n\n"
             "🎯 Use `/bond_with_yamato` to start our friendship!"
         )
         return
-    
+
     # Format friendship status
     level_emojis = {
         "acquaintance": "👋",
-        "friend": "🤝", 
+        "friend": "🤝",
         "close_friend": "💕",
-        "best_friend": "💖"
+        "best_friend": "💖",
     }
-    
+
     level_descriptions = {
         "acquaintance": "Just getting to know each other",
         "friend": "Good friends who enjoy time together",
         "close_friend": "Very close with deep connections",
-        "best_friend": "Unbreakable bond, soulmates"
+        "best_friend": "Unbreakable bond, soulmates",
     }
-    
+
     level = status["friendship_level"]
     emoji = level_emojis.get(level, "🌸")
     description = level_descriptions.get(level, "Unknown level")
-    
-    response = f"💕 **Nico Robin & Yamato ACN Friendship**\n\n"
+
+    response = "💕 **Nico Robin & Yamato ACN Friendship**\n\n"
     response += f"{emoji} **Friendship Level:** {level.title()}\n"
     response += f"📝 *{description}*\n\n"
     response += f"📊 **Friendship Score:** {status['friendship_score']}/100\n"
     response += f"🤝 **Interactions:** {status['interaction_count']}\n"
     response += f"💭 **Shared Memories:** {status['shared_memories']}\n"
     response += f"😄 **Inside Jokes:** {status['inside_jokes']}\n"
-    
+
     if status["last_interaction"] > 0:
-        last_time = time.strftime("%Y-%m-%d %H:%M", time.localtime(status["last_interaction"]))
+        last_time = time.strftime(
+            "%Y-%m-%d %H:%M", time.localtime(status["last_interaction"])
+        )
         response += f"🕐 **Last Interaction:** {last_time}\n"
-    
+
     if status["bonded_at"] > 0:
-        bonded_time = time.strftime("%Y-%m-%d %H:%M", time.localtime(status["bonded_at"]))
+        bonded_time = time.strftime(
+            "%Y-%m-%d %H:%M", time.localtime(status["bonded_at"])
+        )
         response += f"💕 **Bonded Since:** {bonded_time}\n"
-    
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -153,36 +155,36 @@ async def yamato_memories(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     limit = int(args[0]) if args and args[0].isdigit() else 10
-    
+
     memories = await bot_friendship_service.get_shared_memories(chat.id, limit)
-    
+
     if not memories:
         await msg.reply_text(
             "🌸 *thinking* Yamato and I haven't created any memories together yet!\n\n"
             "🎯 Use `/yamato_interact` to start making memories!"
         )
         return
-    
-    response = f"💭 **Shared Memories with Yamato ACN**\n\n"
-    
+
+    response = "💭 **Shared Memories with Yamato ACN**\n\n"
+
     memory_emojis = {
         "milestone": "🎯",
         "shared_experience": "🌟",
         "inside_joke": "😄",
-        "adventure": "🗺️"
+        "adventure": "🗺️",
     }
-    
+
     for memory in memories:
         emoji = memory_emojis.get(memory["memory_type"], "💭")
         memory_time = time.strftime("%Y-%m-%d", time.localtime(memory["memory_time"]))
-        
+
         response += f"{emoji} **{memory['title']}**\n"
         response += f"   {memory['content']}\n"
         response += f"   📅 {memory_time} | ⭐ {memory['score']} pts\n\n"
-    
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -194,7 +196,7 @@ async def gift_to_yamato(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     chat = update.effective_chat
     if msg is None or user is None or chat is None:
         return
-    
+
     args = context.args or []
     if len(args) < 2:
         await msg.reply_text(
@@ -210,24 +212,26 @@ async def gift_to_yamato(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "💡 Example: `/gift_to_yamato flower For my dear Yamato`"
         )
         return
-    
+
     gift_type = args[0].lower()
     message = " ".join(args[1:])
-    
+
     valid_gifts = ["flower", "book", "sword", "heart", "star", "treasure"]
     if gift_type not in valid_gifts:
-        await msg.reply_text(f"❌ Invalid gift type. Choose from: {', '.join(valid_gifts)}")
+        await msg.reply_text(
+            f"❌ Invalid gift type. Choose from: {', '.join(valid_gifts)}"
+        )
         return
-    
+
     # Create gift
     success = await bot_friendship_service.create_companion_gift(
         group_id=chat.id,
         user_id=user.id,
         gift_type=gift_type,
         gift_name=f"{gift_type.title()} Gift",
-        message=message
+        message=message,
     )
-    
+
     if success:
         gift_emojis = {
             "flower": "🌸",
@@ -235,11 +239,11 @@ async def gift_to_yamato(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "sword": "⚔️",
             "heart": "❤️",
             "star": "⭐",
-            "treasure": "💎"
+            "treasure": "💎",
         }
-        
+
         emoji = gift_emojis[gift_type]
-        
+
         await msg.reply_text(
             f"🎁 **Gift Sent to Yamato ACN!**\n\n"
             f"{emoji} **{gift_type.title()} Gift**\n"
@@ -258,28 +262,28 @@ async def yamato_activities(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     limit = int(args[0]) if args and args[0].isdigit() else 15
-    
+
     activities = await bot_friendship_service.get_friendship_activities(chat.id, limit)
-    
+
     if not activities:
         await msg.reply_text(
             "🌸 *smiles* No recent activities with Yamato yet!\n\n"
             "🎯 Use `/yamato_interact` to start activities!"
         )
         return
-    
-    response = f"📊 **Recent Activities with Yamato ACN**\n\n"
-    
+
+    response = "📊 **Recent Activities with Yamato ACN**\n\n"
+
     for activity in activities:
         activity_time = time.strftime("%H:%M", time.localtime(activity["timestamp"]))
         response += f"🕐 **{activity_time}** - {activity['interaction_type'].title()}\n"
         response += f"🌸 Robin: {activity['nico_response'][:50]}...\n"
         response += f"🗾 Yamato: {activity['yamato_response'][:50]}...\n"
         response += f"💕 +{activity['friendship_points']} pts\n\n"
-    
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -289,7 +293,7 @@ async def yamato_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     msg = update.effective_message
     if msg is None:
         return
-    
+
     help_text = """
 💕 **Nico Robin & Yamato ACN Friendship Guide**
 
@@ -329,7 +333,7 @@ async def yamato_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 💫 **Note:** This friendship is exclusive to ACN members only!
     """
-    
+
     await msg.reply_text(help_text)
 
 

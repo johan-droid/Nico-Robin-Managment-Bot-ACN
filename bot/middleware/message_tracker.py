@@ -3,9 +3,9 @@
 Runs on every message at handler group=1 (after plugins). Uses Redis
 buffering to batch DB writes for performance.
 """
+
 from __future__ import annotations
 
-import time
 from datetime import UTC, datetime
 
 import structlog
@@ -131,7 +131,9 @@ async def _flush_to_db(redis, user_id: int, group_id: int) -> None:
         async with async_session_factory() as session:
             async with session.begin():
                 await ProfileService.increment_stats(
-                    session, user_id, group_id,
+                    session,
+                    user_id,
+                    group_id,
                     messages=msgs,
                     stickers=type_counts.get("sticker", 0),
                     photos=type_counts.get("photo", 0),

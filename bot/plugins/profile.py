@@ -1,4 +1,5 @@
 """Profile plugin — /profile and /setbio commands with Nico Robin themed output."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -17,8 +18,7 @@ def _days_between(dt: datetime | None) -> int:
         return 0
     now = datetime.now(UTC)
     if dt.tzinfo is None:
-        from datetime import timezone
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return max(0, (now - dt).days)
 
 
@@ -164,12 +164,15 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         # Try to find user by username
         arg = context.args[0].lstrip("@")
         from services.user_service import UserService
+
         async with async_session_factory() as session:
             user_obj = await UserService.find_by_username(session, arg)
             if user_obj:
                 # Build profile for this user
                 async with async_session_factory() as s2:
-                    data = await ProfileService.build_full_profile(s2, user_obj.user_id, chat.id)
+                    data = await ProfileService.build_full_profile(
+                        s2, user_obj.user_id, chat.id
+                    )
                 card = _format_profile_card(data)
                 await msg.reply_text(card)
                 return
@@ -221,9 +224,7 @@ async def setbio_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await ProfileService.set_bio(session, user.id, chat.id, bio_text)
 
     await msg.reply_text(
-        f"🌸 Bio updated!\n\n"
-        f"「{bio_text}」\n\n"
-        f"📖 Your poneglyph has been inscribed."
+        f"🌸 Bio updated!\n\n「{bio_text}」\n\n📖 Your poneglyph has been inscribed."
     )
 
 

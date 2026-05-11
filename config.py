@@ -33,7 +33,9 @@ class Settings(BaseSettings):
     realtime_events_enabled: bool = Field(default=True, alias="REALTIME_EVENTS_ENABLED")
     event_batch_size: int = Field(default=100, alias="EVENT_BATCH_SIZE")
     event_retention_hours: int = Field(default=24, alias="EVENT_RETENTION_HOURS")
-    redis_events_channel: str = Field(default="nico_robin_events", alias="REDIS_EVENTS_CHANNEL")
+    redis_events_channel: str = Field(
+        default="nico_robin_events", alias="REDIS_EVENTS_CHANNEL"
+    )
 
     sudo_users: tuple[int, ...] = Field(default=(), alias="SUDO_USERS")
 
@@ -98,7 +100,13 @@ class Settings(BaseSettings):
         alias="ENVIRONMENT",
     )
 
-    @field_validator("sudo_users", "commander_ids", "allowed_group_ids", "purge_channel_ids", mode="before")
+    @field_validator(
+        "sudo_users",
+        "commander_ids",
+        "allowed_group_ids",
+        "purge_channel_ids",
+        mode="before",
+    )
     @classmethod
     def parse_int_tuple(cls, value: object) -> tuple[int, ...]:
         if value in (None, "", ()):
@@ -107,7 +115,9 @@ class Settings(BaseSettings):
             return tuple(int(part.strip()) for part in value.split(",") if part.strip())
         if isinstance(value, list | tuple | set):
             return tuple(int(part) for part in value)
-        raise TypeError("Value must be a comma-separated string or sequence of integers")
+        raise TypeError(
+            "Value must be a comma-separated string or sequence of integers"
+        )
 
     @field_validator("database_url", mode="before")
     @classmethod

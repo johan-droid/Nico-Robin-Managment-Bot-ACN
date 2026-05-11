@@ -2,14 +2,6 @@
 
 from models.audit import ActionLog, JoinLog, MessageLog
 from models.base import Base
-from models.event import EventAuditLog, EventSubscription, RealtimeEvent, WebSocketConnection
-from models.federation import (
-    Federation,
-    FederationAdmin,
-    FederationBan,
-    FederationGroup,
-)
-from models.features import FeatureToggle, FeaturePermission, FeatureUsage, FeatureLog
 from models.bot_friendship import (
     BotConversation,
     BotEmotion,
@@ -18,7 +10,38 @@ from models.bot_friendship import (
     BotInteraction,
     BotMemory,
 )
+from models.event import (
+    EventAuditLog,
+    EventSubscription,
+    RealtimeEvent,
+    WebSocketConnection,
+)
+from models.features import FeatureLog, FeaturePermission, FeatureToggle, FeatureUsage
+from models.federation import (
+    Federation,
+    FederationAdmin,
+    FederationBan,
+    FederationGroup,
+)
 from models.filter import Filter
+from models.flirting import (
+    FlirtingAchievement,
+    FlirtingAttempt,
+    FlirtingGift,
+    FlirtingPreference,
+    FlirtingRelationship,
+    FlirtingStats,
+)
+from models.group import Group, GroupSettingSnapshot
+from models.loyalty import (
+    ACNActivity,
+    ACNWhitelist,
+    LoyaltyPoints,
+    LoyaltyRedemption,
+    LoyaltyReward,
+)
+from models.managed_channel import ManagedChannel
+from models.note import Note
 from models.points import (
     Apploid,
     PointLeaderboard,
@@ -29,20 +52,8 @@ from models.points import (
     UserApploid,
     UserPoints,
 )
-from models.flirting import (
-    FlirtingAchievement,
-    FlirtingAttempt,
-    FlirtingGift,
-    FlirtingPreference,
-    FlirtingRelationship,
-    FlirtingStats,
-)
-from models.group import Group, GroupSettingSnapshot
-from models.loyalty import ACNActivity, ACNWhitelist, LoyaltyPoints, LoyaltyRedemption, LoyaltyReward
-from models.managed_channel import ManagedChannel
-from models.note import Note
 from models.profile import MemberProfile
-from models.swear_word import SwearWord, SwearViolation
+from models.swear_word import SwearViolation, SwearWord
 from models.user import GroupMember, User
 from models.warn import Warn
 

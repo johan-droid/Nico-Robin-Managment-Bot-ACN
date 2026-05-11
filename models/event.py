@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 class RealtimeEvent(Base, TimestampMixin):
     """Track real-time events for WebSocket broadcasting"""
-    
+
     __tablename__ = "realtime_events"
 
     event_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -39,7 +39,9 @@ class RealtimeEvent(Base, TimestampMixin):
         index=True,
     )
     processed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    broadcast_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    broadcast_at: Mapped[DateTime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     group: Mapped[Group | None] = relationship(foreign_keys=[group_id])
     user: Mapped[User | None] = relationship(foreign_keys=[user_id])
@@ -48,7 +50,7 @@ class RealtimeEvent(Base, TimestampMixin):
 
 class WebSocketConnection(Base):
     """Track active WebSocket connections"""
-    
+
     __tablename__ = "websocket_connections"
 
     connection_id: Mapped[str] = mapped_column(String(255), primary_key=True)
@@ -64,7 +66,9 @@ class WebSocketConnection(Base):
         nullable=True,
         index=True,
     )
-    connected_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False)
+    connected_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
     last_ping: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -76,10 +80,12 @@ class WebSocketConnection(Base):
 
 class EventSubscription(Base, TimestampMixin):
     """Track user subscriptions to specific event types"""
-    
+
     __tablename__ = "event_subscriptions"
 
-    subscription_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    subscription_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
     user_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.user_id", ondelete="CASCADE"),
@@ -101,7 +107,7 @@ class EventSubscription(Base, TimestampMixin):
 
 class EventAuditLog(Base):
     """Audit log for all real-time events"""
-    
+
     __tablename__ = "event_audit_log"
 
     log_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -116,6 +122,8 @@ class EventAuditLog(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     recipients_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     processing_time_ms: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    created_at: Mapped[DateTime] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
 
     event: Mapped[RealtimeEvent] = relationship()

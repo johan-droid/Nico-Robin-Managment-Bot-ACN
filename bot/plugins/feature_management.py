@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
-from telegram.ext import filters as tg_filters
 
 from database import async_session_factory
 from models.features import FeatureToggle
-from services.acn_service import ACNService, captain_commander_only, acn_only
-from services.feature_service import FeatureService, feature_required
+from services.acn_service import ACNService, acn_only, captain_commander_only
+from services.feature_service import FeatureService
 from utils.formatters import telegram_user_label
 
 
@@ -18,7 +17,7 @@ async def enable_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     if len(args) < 1:
         await msg.reply_text(
@@ -26,19 +25,19 @@ async def enable_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "Use `/features` to see all available features."
         )
         return
-    
+
     feature_name = args[0].lower()
     reason = " ".join(args[1:]) if len(args) > 1 else None
-    
+
     # Toggle feature
     success, message = await FeatureService.toggle_feature(
         group_id=chat.id,
         feature_name=feature_name,
         enabled=True,
         user_id=update.effective_user.id if update.effective_user else None,
-        reason=reason
+        reason=reason,
     )
-    
+
     if success:
         await msg.reply_text(f"✅ {message}")
     else:
@@ -52,7 +51,7 @@ async def disable_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     if len(args) < 1:
         await msg.reply_text(
@@ -60,19 +59,19 @@ async def disable_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             "Use `/features` to see all available features."
         )
         return
-    
+
     feature_name = args[0].lower()
     reason = " ".join(args[1:]) if len(args) > 1 else None
-    
+
     # Toggle feature
     success, message = await FeatureService.toggle_feature(
         group_id=chat.id,
         feature_name=feature_name,
         enabled=False,
         user_id=update.effective_user.id if update.effective_user else None,
-        reason=reason
+        reason=reason,
     )
-    
+
     if success:
         await msg.reply_text(f"✅ {message}")
     else:
@@ -86,7 +85,7 @@ async def toggle_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     if len(args) < 1:
         await msg.reply_text(
@@ -94,22 +93,22 @@ async def toggle_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "Use `/features` to see all available features."
         )
         return
-    
+
     feature_name = args[0].lower()
     reason = " ".join(args[1:]) if len(args) > 1 else None
-    
+
     # Check current status
     current_status = await FeatureService.is_feature_enabled(chat.id, feature_name)
-    
+
     # Toggle to opposite
     success, message = await FeatureService.toggle_feature(
         group_id=chat.id,
         feature_name=feature_name,
         enabled=not current_status,
         user_id=update.effective_user.id if update.effective_user else None,
-        reason=reason
+        reason=reason,
     )
-    
+
     if success:
         status_emoji = "✅" if not current_status else "❌"
         await msg.reply_text(f"{status_emoji} {message}")
@@ -124,10 +123,10 @@ async def features(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     # Get feature status
     feature_status = await FeatureService.get_feature_status(chat.id)
-    
+
     # Group by category
     categories = {}
     for feature_name, status in feature_status.items():
@@ -135,10 +134,10 @@ async def features(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if category not in categories:
             categories[category] = []
         categories[category].append((feature_name, status))
-    
+
     # Format response
     response = f"🌸 **Bot Features for {chat.title}**\n\n"
-    
+
     category_emojis = {
         "moderation": "🛡️",
         "ai": "🤖",
@@ -148,23 +147,23 @@ async def features(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "federation": "🌐",
         "acn": "⚓",
         "advanced": "🚀",
-        "security": "🔒"
+        "security": "🔒",
     }
-    
+
     for category, features in categories.items():
         emoji = category_emojis.get(category, "📋")
         response += f"{emoji} **{category.title()} Features:**\n"
-        
+
         for feature_name, status in sorted(features):
             status_emoji = "✅" if status["is_enabled"] else "❌"
             name = status["name"]
             response += f"  {status_emoji} `{feature_name}` - {name}\n"
-        
+
         response += "\n"
-    
-    response += f"💡 **Use:** `/enable <feature>`, `/disable <feature>`, or `/toggle <feature>`\n"
-    response += f"👥 **Only captains and commanders can manage features**"
-    
+
+    response += "💡 **Use:** `/enable <feature>`, `/disable <feature>`, or `/toggle <feature>`\n"
+    response += "👥 **Only captains and commanders can manage features**"
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -175,7 +174,7 @@ async def feature_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     if len(args) < 1:
         await msg.reply_text(
@@ -183,39 +182,41 @@ async def feature_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "Use `/features` to see all available features."
         )
         return
-    
+
     feature_name = args[0].lower()
-    
+
     # Get feature status
     feature_status = await FeatureService.get_feature_status(chat.id)
-    
+
     if feature_name not in feature_status:
         await msg.reply_text(f"❌ Feature '{feature_name}' not found.")
         return
-    
+
     status = feature_status[feature_name]
     all_features = FeatureService.get_all_features()
     feature_info = all_features[feature_name]
-    
+
     # Format detailed response
     response = f"🌸 **Feature Details: {status['name']}**\n\n"
     response += f"📝 **Description:** {status['description']}\n"
     response += f"📂 **Category:** {status['category'].title()}\n"
-    response += f"🔧 **Status:** {'✅ Enabled' if status['is_enabled'] else '❌ Disabled'}\n"
+    response += (
+        f"🔧 **Status:** {'✅ Enabled' if status['is_enabled'] else '❌ Disabled'}\n"
+    )
     response += f"🎯 **Default:** {'✅ Enabled' if status['default_enabled'] else '❌ Disabled'}\n"
-    
+
     if status["toggled_by"]:
         response += f"👤 **Last Modified By:** User {status['toggled_by']}\n"
-    
+
     if status["toggle_reason"]:
         response += f"📝 **Reason:** {status['toggle_reason']}\n"
-    
+
     if status["updated_at"]:
         response += f"🕐 **Last Updated:** {status['updated_at']}\n"
-    
+
     response += f"👥 **Required Roles:** {', '.join(feature_info['permissions'])}\n"
     response += f"🔒 **Owner Only:** {'Yes' if feature_info['owner_only'] else 'No'}\n"
-    
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -226,26 +227,28 @@ async def feature_logs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     feature_name = args[0].lower() if args else None
     limit = int(args[1]) if len(args) > 1 and args[1].isdigit() else 20
-    
+
     # Get logs
     logs = await FeatureService.get_feature_logs(chat.id, feature_name, limit)
-    
+
     if not logs:
         await msg.reply_text("📋 No feature logs found.")
         return
-    
-    response = f"📋 **Feature Toggle Logs**\n\n"
-    
+
+    response = "📋 **Feature Toggle Logs**\n\n"
+
     for log in logs:
         action_emoji = "✅" if log["action"] == "enabled" else "❌"
-        response += f"{action_emoji} **{log['feature_name']}** - {log['action'].title()}\n"
+        response += (
+            f"{action_emoji} **{log['feature_name']}** - {log['action'].title()}\n"
+        )
         response += f"   👤 User {log['user_id']} | 📝 {log['reason'] or 'No reason'}\n"
         response += f"   🕐 {log['created_at'][:19]}\n\n"
-    
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -256,19 +259,19 @@ async def feature_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     feature_name = args[0].lower() if args else None
-    
+
     # Get usage stats
     stats = await FeatureService.get_feature_usage_stats(chat.id, feature_name)
-    
+
     if not stats:
         await msg.reply_text("📊 No feature usage statistics found.")
         return
-    
-    response = f"📊 **Feature Usage Statistics**\n\n"
-    
+
+    response = "📊 **Feature Usage Statistics**\n\n"
+
     # Group by feature
     feature_stats = {}
     for stat in stats:
@@ -276,18 +279,22 @@ async def feature_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         if feature not in feature_stats:
             feature_stats[feature] = []
         feature_stats[feature].append(stat)
-    
+
     for feature, feature_data in feature_stats.items():
         total_usage = sum(item["usage_count"] for item in feature_data)
         response += f"📈 **{feature}** - Total Usage: {total_usage}\n"
-        
+
         # Show top users
-        top_users = sorted(feature_data, key=lambda x: x["usage_count"], reverse=True)[:3]
+        top_users = sorted(feature_data, key=lambda x: x["usage_count"], reverse=True)[
+            :3
+        ]
         for user_stat in top_users:
-            response += f"   👤 User {user_stat['user_id']}: {user_stat['usage_count']} uses\n"
-        
+            response += (
+                f"   👤 User {user_stat['user_id']}: {user_stat['usage_count']} uses\n"
+            )
+
         response += "\n"
-    
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -299,20 +306,20 @@ async def my_features(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     chat = update.effective_chat
     if msg is None or user is None or chat is None:
         return
-    
+
     # Get user role
     user_role = await ACNService.get_user_role(user.id)
-    
+
     # Get all features
     all_features = FeatureService.get_all_features()
-    
+
     # Filter features user can access
     accessible_features = []
     for feature_name, feature_info in all_features.items():
         if user_role in feature_info["permissions"]:
             is_enabled = await FeatureService.is_feature_enabled(chat.id, feature_name)
             accessible_features.append((feature_name, feature_info, is_enabled))
-    
+
     # Group by category
     categories = {}
     for feature_name, feature_info, is_enabled in accessible_features:
@@ -320,11 +327,11 @@ async def my_features(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if category not in categories:
             categories[category] = []
         categories[category].append((feature_name, feature_info, is_enabled))
-    
+
     # Format response
     response = f"🌸 **Available Features for {telegram_user_label(user)}**\n"
     response += f"👤 **Role:** {user_role.title()}\n\n"
-    
+
     category_emojis = {
         "moderation": "🛡️",
         "ai": "🤖",
@@ -334,19 +341,19 @@ async def my_features(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         "federation": "🌐",
         "acn": "⚓",
         "advanced": "🚀",
-        "security": "🔒"
+        "security": "🔒",
     }
-    
+
     for category, features in categories.items():
         emoji = category_emojis.get(category, "📋")
         response += f"{emoji} **{category.title()}:**\n"
-        
+
         for feature_name, feature_info, is_enabled in sorted(features):
             status_emoji = "✅" if is_enabled else "❌"
             response += f"  {status_emoji} `{feature_name}` - {feature_info['name']}\n"
-        
+
         response += "\n"
-    
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -357,20 +364,20 @@ async def reset_features(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     # Confirm action
     args = context.args or []
     if args and args[0].lower() == "confirm":
         # Reset all features to default
         async with async_session_factory() as session:
             from sqlalchemy import delete
-            
+
             # Delete all feature toggles for this group
             await session.execute(
                 delete(FeatureToggle).where(FeatureToggle.group_id == chat.id)
             )
             await session.commit()
-        
+
         await msg.reply_text(
             "✅ **All features reset to default settings!**\n\n"
             "Use `/features` to see current status."
@@ -390,7 +397,7 @@ async def enable_category(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     if len(args) < 1:
         categories = FeatureService.get_categories()
@@ -399,38 +406,37 @@ async def enable_category(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             f"**Available categories:** {', '.join(categories)}"
         )
         return
-    
+
     category = args[0].lower()
     all_features = FeatureService.get_all_features()
-    
+
     # Get features in this category
     category_features = [
-        name for name, info in all_features.items()
-        if info["category"] == category
+        name for name, info in all_features.items() if info["category"] == category
     ]
-    
+
     if not category_features:
         await msg.reply_text(f"❌ Category '{category}' not found.")
         return
-    
+
     # Enable all features in category
     enabled_count = 0
     failed_count = 0
-    
+
     for feature_name in category_features:
         success, _ = await FeatureService.toggle_feature(
             group_id=chat.id,
             feature_name=feature_name,
             enabled=True,
             user_id=update.effective_user.id if update.effective_user else None,
-            reason=f"Enabled all {category} features"
+            reason=f"Enabled all {category} features",
         )
-        
+
         if success:
             enabled_count += 1
         else:
             failed_count += 1
-    
+
     await msg.reply_text(
         f"✅ **Category {category.title()} Updated**\n\n"
         f"✅ Enabled: {enabled_count} features\n"
@@ -445,7 +451,7 @@ async def disable_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     if len(args) < 1:
         categories = FeatureService.get_categories()
@@ -454,38 +460,37 @@ async def disable_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             f"**Available categories:** {', '.join(categories)}"
         )
         return
-    
+
     category = args[0].lower()
     all_features = FeatureService.get_all_features()
-    
+
     # Get features in this category
     category_features = [
-        name for name, info in all_features.items()
-        if info["category"] == category
+        name for name, info in all_features.items() if info["category"] == category
     ]
-    
+
     if not category_features:
         await msg.reply_text(f"❌ Category '{category}' not found.")
         return
-    
+
     # Disable all features in category
     disabled_count = 0
     failed_count = 0
-    
+
     for feature_name in category_features:
         success, _ = await FeatureService.toggle_feature(
             group_id=chat.id,
             feature_name=feature_name,
             enabled=False,
             user_id=update.effective_user.id if update.effective_user else None,
-            reason=f"Disabled all {category} features"
+            reason=f"Disabled all {category} features",
         )
-        
+
         if success:
             disabled_count += 1
         else:
             failed_count += 1
-    
+
     await msg.reply_text(
         f"✅ **Category {category.title()} Updated**\n\n"
         f"❌ Disabled: {disabled_count} features\n"

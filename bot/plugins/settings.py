@@ -32,7 +32,7 @@ async def setwarnlimit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     if not context.args:
         await msg.reply_text(
             "🌸 Please specify a warning limit.\n"
@@ -40,7 +40,7 @@ async def setwarnlimit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "Example: `/setwarnlimit 3`"
         )
         return
-    
+
     try:
         limit = int(context.args[0])
         if limit < 1 or limit > 10:
@@ -51,16 +51,15 @@ async def setwarnlimit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             return
     except ValueError:
         await msg.reply_text(
-            "🌸 Please provide a valid number.\n"
-            "Usage: `/setwarnlimit <number>` (1-10)"
+            "🌸 Please provide a valid number.\nUsage: `/setwarnlimit <number>` (1-10)"
         )
         return
-    
+
     async with async_session_factory() as session:
         async with session.begin():
             await GroupService.ensure_group(session, chat)
             await GroupService.update_settings(session, chat.id, max_warns=limit)
-    
+
     await msg.reply_text(
         f"🌸 Warning limit set to {limit}.\n"
         f"Users will be automatically {'banned' if limit <= 3 else 'kicked' if limit <= 5 else 'muted'} "
@@ -75,7 +74,7 @@ async def setwarnaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     if not context.args:
         await msg.reply_text(
             "🌸 Please specify a warning action.\n"
@@ -86,10 +85,10 @@ async def setwarnaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             "• mute: Silences user temporarily"
         )
         return
-    
+
     action = context.args[0].lower()
     valid_actions = {"ban", "kick", "mute"}
-    
+
     if action not in valid_actions:
         await msg.reply_text(
             f"🌸 Invalid action '{action}'.\n"
@@ -97,18 +96,18 @@ async def setwarnaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"Usage: `/setwarnaction <action>`"
         )
         return
-    
+
     async with async_session_factory() as session:
         async with session.begin():
             await GroupService.ensure_group(session, chat)
             await GroupService.update_settings(session, chat.id, warn_action=action)
-    
+
     action_descriptions = {
         "ban": "permanently banned",
         "kick": "kicked (can rejoin)",
-        "mute": "muted temporarily"
+        "mute": "muted temporarily",
     }
-    
+
     await msg.reply_text(
         f"🌸 Warning action set to {action}.\n"
         f"Users will now be {action_descriptions[action]} when they reach the warning limit."
@@ -119,10 +118,10 @@ async def setwarnaction(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 @admin_only
 async def setlogchannel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Set the log channel for this group.
-    
+
     The log channel receives notifications about member joins, leaves,
     and moderation actions.
-    
+
     Usage: /setlogchannel <channel_id>
     """
     msg = update.effective_message
@@ -147,10 +146,10 @@ async def setlogchannel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     # Verify bot can send to this channel
     try:
-        test_msg = await context.bot.send_message(
+        await context.bot.send_message(
             chat_id=channel_id,
             text=f"🌸 Log channel configured for **{chat.title}**.\n"
-                 f"Member joins, leaves, and moderation actions will appear here.",
+            f"Member joins, leaves, and moderation actions will appear here.",
             parse_mode="Markdown",
         )
     except Exception as exc:
@@ -164,7 +163,9 @@ async def setlogchannel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     async with async_session_factory() as session:
         async with session.begin():
             await GroupService.ensure_group(session, chat)
-            await GroupService.update_settings(session, chat.id, log_channel_id=channel_id)
+            await GroupService.update_settings(
+                session, chat.id, log_channel_id=channel_id
+            )
 
     await msg.reply_text(
         f"🌸 **Log Channel Set!**\n\n"

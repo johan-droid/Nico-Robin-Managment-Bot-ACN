@@ -67,9 +67,7 @@ async def rate_limit_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         ttl = await redis.ttl(cooldown_key)
         if message:
             try:
-                await message.reply_text(
-                    f"🛡️ You're on cooldown. Try again in {ttl}s."
-                )
+                await message.reply_text(f"🛡️ You're on cooldown. Try again in {ttl}s.")
             except Exception:
                 pass
         return True
@@ -153,8 +151,7 @@ async def _handle_violation(
                 )
             else:
                 await message.reply_text(
-                    f"🛡️ Slow down! Rate limit reached.\n"
-                    f"Cooldown: {cooldown_seconds}s."
+                    f"🛡️ Slow down! Rate limit reached.\nCooldown: {cooldown_seconds}s."
                 )
         except Exception:
             pass
@@ -162,6 +159,7 @@ async def _handle_violation(
     # Log security event
     try:
         from services.security_logger import SecurityLogger
+
         await SecurityLogger.log_event(
             event_type="rate_limit_violation",
             user_id=user.id,

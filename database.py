@@ -1,9 +1,16 @@
 """Database engine — hardened with pool limits, SSL, timeouts, and connection recycling."""
+
 from __future__ import annotations
+
 from collections.abc import AsyncIterator
+
 from sqlalchemy.ext.asyncio import (
-    AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine,
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
 )
+
 from config import settings
 
 

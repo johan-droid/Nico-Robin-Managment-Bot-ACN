@@ -8,9 +8,7 @@ from typing import Literal
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.group import Group
-from models.swear_word import SwearWord, SwearViolation
-from models.user import User
+from models.swear_word import SwearViolation, SwearWord
 
 SeverityLevel = Literal["mild", "moderate", "severe"]
 PunishmentType = Literal["mute", "temp_ban", "perm_ban"]
@@ -63,7 +61,7 @@ class SwearWordService:
             )
         )
         existing = result.scalar_one_or_none()
-        
+
         if existing is None:
             swear_word = SwearWord(
                 group_id=group_id,
@@ -82,7 +80,7 @@ class SwearWordService:
             existing.is_regex = is_regex
             existing.created_by = created_by
             swear_word = existing
-        
+
         await session.flush()
         return swear_word
 
@@ -99,7 +97,9 @@ class SwearWordService:
     @staticmethod
     async def list_swear_words(session: AsyncSession, group_id: int) -> list[SwearWord]:
         result = await session.execute(
-            select(SwearWord).where(SwearWord.group_id == group_id).order_by(SwearWord.word)
+            select(SwearWord)
+            .where(SwearWord.group_id == group_id)
+            .order_by(SwearWord.word)
         )
         return list(result.scalars().all())
 
@@ -121,26 +121,30 @@ class SwearWordService:
                 try:
                     match = re.search(swear_word.word, text, flags=re.IGNORECASE)
                     if match:
-                        matches.append(SwearWordMatch(
-                            swear_word=swear_word,
-                            matched_text=match.group(0),
-                            severity=swear_word.severity,
-                            punishment_type=swear_word.punishment_type,
-                            duration=swear_word.duration,
-                        ))
+                        matches.append(
+                            SwearWordMatch(
+                                swear_word=swear_word,
+                                matched_text=match.group(0),
+                                severity=swear_word.severity,
+                                punishment_type=swear_word.punishment_type,
+                                duration=swear_word.duration,
+                            )
+                        )
                 except re.error:
                     continue  # Skip invalid regex patterns
             else:
                 # Word boundary matching for non-regex patterns
-                pattern = r'\b' + re.escape(swear_word.word) + r'\b'
+                pattern = r"\b" + re.escape(swear_word.word) + r"\b"
                 if re.search(pattern, text_lower):
-                    matches.append(SwearWordMatch(
-                        swear_word=swear_word,
-                        matched_text=swear_word.word,
-                        severity=swear_word.severity,
-                        punishment_type=swear_word.punishment_type,
-                        duration=swear_word.duration,
-                    ))
+                    matches.append(
+                        SwearWordMatch(
+                            swear_word=swear_word,
+                            matched_text=swear_word.word,
+                            severity=swear_word.severity,
+                            punishment_type=swear_word.punishment_type,
+                            duration=swear_word.duration,
+                        )
+                    )
 
         return matches
 
@@ -152,7 +156,7 @@ class SwearWordService:
         match: SwearWordMatch,
     ) -> PunishmentResult:
         """Calculate punishment based on severity and user history"""
-        
+
         # Get user's violation history
         result = await session.execute(
             select(SwearViolation).where(
@@ -161,20 +165,21 @@ class SwearWordService:
             )
         )
         violations = list(result.scalars().all())
-        
+
         # Count violations in last 24 hours
         current_time = int(time.time())
         recent_violations = [
-            v for v in violations 
+            v
+            for v in violations
             if current_time - v.created_at <= 86400  # 24 hours
         ]
-        
+
         violation_count = len(recent_violations)
-        
+
         # Base punishment from the word itself
         base_action = match.punishment_type
         base_duration = match.duration
-        
+
         # Escalate based on violation count
         if violation_count >= 3:  # 3+ violations in 24h
             if match.severity == "mild":
@@ -202,7 +207,7 @@ class SwearWordService:
             action = base_action
             duration = base_duration
             escalate = False
-        
+
         return PunishmentResult(
             action=action,
             duration=duration,

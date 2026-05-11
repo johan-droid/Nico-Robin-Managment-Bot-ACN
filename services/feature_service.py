@@ -1,21 +1,19 @@
 from __future__ import annotations
 
 import time
-from typing import Dict, List, Optional
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from database import async_session_factory
-from models.features import FeatureToggle, FeaturePermission, FeatureUsage, FeatureLog
+from models.features import FeatureLog, FeatureToggle, FeatureUsage
 from services.acn_service import ACNService
 
 
 class FeatureService:
     """Comprehensive bot feature management service"""
-    
+
     # Define all available bot features
     AVAILABLE_FEATURES = {
         # Core moderation features
@@ -25,7 +23,7 @@ class FeatureService:
             "category": "moderation",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
         "filters": {
             "name": "Message Filters",
@@ -33,7 +31,7 @@ class FeatureService:
             "category": "moderation",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
         "swear_words": {
             "name": "Swear Word Detection",
@@ -41,7 +39,7 @@ class FeatureService:
             "category": "moderation",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
         "flood_control": {
             "name": "Flood Control",
@@ -49,9 +47,8 @@ class FeatureService:
             "category": "moderation",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
-        
         # AI and smart features
         "ai_moderation": {
             "name": "AI Moderation",
@@ -59,7 +56,7 @@ class FeatureService:
             "category": "ai",
             "default_enabled": False,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
         "smart_filters": {
             "name": "Smart Filters",
@@ -67,9 +64,8 @@ class FeatureService:
             "category": "ai",
             "default_enabled": False,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
-        
         # User engagement features
         "welcome": {
             "name": "Welcome Messages",
@@ -77,7 +73,7 @@ class FeatureService:
             "category": "engagement",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
         "goodbye": {
             "name": "Goodbye Messages",
@@ -85,7 +81,7 @@ class FeatureService:
             "category": "engagement",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
         "user_info": {
             "name": "User Information",
@@ -93,9 +89,8 @@ class FeatureService:
             "category": "engagement",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["member", "admin", "captain", "commander"]
+            "permissions": ["member", "admin", "captain", "commander"],
         },
-        
         # Fun and entertainment features
         "nico_moments": {
             "name": "Nico Robin Moments",
@@ -103,7 +98,7 @@ class FeatureService:
             "category": "entertainment",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["member", "admin", "captain", "commander"]
+            "permissions": ["member", "admin", "captain", "commander"],
         },
         "flirting": {
             "name": "Flirting System",
@@ -111,7 +106,7 @@ class FeatureService:
             "category": "entertainment",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["member", "admin", "captain", "commander"]
+            "permissions": ["member", "admin", "captain", "commander"],
         },
         "fun": {
             "name": "Fun Commands",
@@ -119,9 +114,8 @@ class FeatureService:
             "category": "entertainment",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["member", "admin", "captain", "commander"]
+            "permissions": ["member", "admin", "captain", "commander"],
         },
-        
         # Utility features
         "notes": {
             "name": "Note System",
@@ -129,7 +123,7 @@ class FeatureService:
             "category": "utility",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
         "stats": {
             "name": "Statistics",
@@ -137,7 +131,7 @@ class FeatureService:
             "category": "utility",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
         "scheduler": {
             "name": "Task Scheduler",
@@ -145,9 +139,8 @@ class FeatureService:
             "category": "utility",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
-        
         # Federation features
         "federation": {
             "name": "Federation System",
@@ -155,9 +148,8 @@ class FeatureService:
             "category": "federation",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
-        
         # ACN features
         "acn_loyalty": {
             "name": "ACN Loyalty System",
@@ -165,7 +157,7 @@ class FeatureService:
             "category": "acn",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["member", "admin", "captain", "commander"]
+            "permissions": ["member", "admin", "captain", "commander"],
         },
         "acn_broadcast": {
             "name": "ACN Broadcast System",
@@ -173,9 +165,8 @@ class FeatureService:
             "category": "acn",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["captain", "commander"]
+            "permissions": ["captain", "commander"],
         },
-        
         # Advanced features
         "realtime_events": {
             "name": "Real-time Events",
@@ -183,7 +174,7 @@ class FeatureService:
             "category": "advanced",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
         "captcha": {
             "name": "CAPTCHA System",
@@ -191,7 +182,7 @@ class FeatureService:
             "category": "security",
             "default_enabled": False,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
         "purge": {
             "name": "Message Purge",
@@ -199,7 +190,7 @@ class FeatureService:
             "category": "moderation",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
+            "permissions": ["admin", "captain", "commander"],
         },
         "settings": {
             "name": "Group Settings",
@@ -207,102 +198,105 @@ class FeatureService:
             "category": "utility",
             "default_enabled": True,
             "owner_only": False,
-            "permissions": ["admin", "captain", "commander"]
-        }
+            "permissions": ["admin", "captain", "commander"],
+        },
     }
-    
+
     @staticmethod
     async def is_feature_enabled(
-        group_id: int,
-        feature_name: str,
-        user_id: Optional[int] = None
+        group_id: int, feature_name: str, user_id: int | None = None
     ) -> bool:
         """Check if a feature is enabled for a group"""
-        
+
         # Check if feature exists
         if feature_name not in FeatureService.AVAILABLE_FEATURES:
             return False
-        
+
         async with async_session_factory() as session:
             # Get feature toggle for this group
             result = await session.execute(
                 select(FeatureToggle).where(
                     FeatureToggle.group_id == group_id,
-                    FeatureToggle.feature_name == feature_name
+                    FeatureToggle.feature_name == feature_name,
                 )
             )
             toggle = result.scalar_one_or_none()
-            
+
             # If no toggle exists, use default
             if toggle is None:
-                return FeatureService.AVAILABLE_FEATURES[feature_name]["default_enabled"]
-            
+                return FeatureService.AVAILABLE_FEATURES[feature_name][
+                    "default_enabled"
+                ]
+
             return toggle.is_enabled
-    
+
     @staticmethod
     async def can_use_feature(
-        group_id: int,
-        feature_name: str,
-        user_id: int
+        group_id: int, feature_name: str, user_id: int
     ) -> tuple[bool, str]:
         """Check if user can use a feature"""
-        
+
         # Check if feature exists
         if feature_name not in FeatureService.AVAILABLE_FEATURES:
             return False, "Feature not found"
-        
+
         feature_info = FeatureService.AVAILABLE_FEATURES[feature_name]
-        
+
         # Check if feature is enabled
         if not await FeatureService.is_feature_enabled(group_id, feature_name):
             return False, "Feature is disabled"
-        
+
         # Get user role
         user_role = await ACNService.get_user_role(user_id)
-        
+
         # Check permissions
         if user_role not in feature_info["permissions"]:
-            return False, f"Permission denied. Required: {', '.join(feature_info['permissions'])}"
-        
+            return (
+                False,
+                f"Permission denied. Required: {', '.join(feature_info['permissions'])}",
+            )
+
         return True, "Permission granted"
-    
+
     @staticmethod
     async def toggle_feature(
         group_id: int,
         feature_name: str,
         enabled: bool,
         user_id: int,
-        reason: Optional[str] = None,
-        toggle_level: str = "group"
+        reason: str | None = None,
+        toggle_level: str = "group",
     ) -> tuple[bool, str]:
         """Toggle a feature on/off"""
-        
+
         # Check if feature exists
         if feature_name not in FeatureService.AVAILABLE_FEATURES:
             return False, "Feature not found"
-        
+
         feature_info = FeatureService.AVAILABLE_FEATURES[feature_name]
-        
+
         # Check if user can toggle this feature
         user_role = await ACNService.get_user_role(user_id)
-        
+
         # Only captains and commanders can toggle features
         if user_role not in ["captain", "commander"]:
             return False, "Only captains and commanders can toggle features"
-        
+
         async with async_session_factory() as session:
             async with session.begin():
                 # Get existing toggle
                 result = await session.execute(
                     select(FeatureToggle).where(
                         FeatureToggle.group_id == group_id,
-                        FeatureToggle.feature_name == feature_name
+                        FeatureToggle.feature_name == feature_name,
                     )
                 )
                 toggle = result.scalar_one_or_none()
-                
-                old_value = toggle.is_enabled if toggle else feature_info["default_enabled"]
-                
+
+                old_value = (
+                    toggle.is_enabled if toggle else feature_info["default_enabled"]
+                )
+
                 # Create or update toggle
                 if toggle is None:
                     toggle = FeatureToggle(
@@ -311,7 +305,7 @@ class FeatureService:
                         is_enabled=enabled,
                         toggle_reason=reason,
                         toggled_by=user_id,
-                        toggle_level=toggle_level
+                        toggle_level=toggle_level,
                     )
                     session.add(toggle)
                 else:
@@ -319,7 +313,7 @@ class FeatureService:
                     toggle.toggle_reason = reason
                     toggle.toggled_by = user_id
                     toggle.toggle_level = toggle_level
-                
+
                 # Log the change
                 log = FeatureLog(
                     group_id=group_id,
@@ -329,25 +323,28 @@ class FeatureService:
                     old_value=old_value,
                     new_value=enabled,
                     reason=reason,
-                    toggle_level=toggle_level
+                    toggle_level=toggle_level,
                 )
                 session.add(log)
-                
+
                 await session.flush()
-                
-                return True, f"Feature {feature_name} {'enabled' if enabled else 'disabled'} successfully"
-    
+
+                return (
+                    True,
+                    f"Feature {feature_name} {'enabled' if enabled else 'disabled'} successfully",
+                )
+
     @staticmethod
-    async def get_feature_status(group_id: int) -> Dict[str, Dict]:
+    async def get_feature_status(group_id: int) -> dict[str, dict]:
         """Get status of all features for a group"""
-        
+
         async with async_session_factory() as session:
             # Get all toggles for this group
             result = await session.execute(
                 select(FeatureToggle).where(FeatureToggle.group_id == group_id)
             )
             toggles = {toggle.feature_name: toggle for toggle in result.scalars().all()}
-            
+
             # Build status dictionary
             status = {}
             for feature_name, feature_info in FeatureService.AVAILABLE_FEATURES.items():
@@ -356,34 +353,35 @@ class FeatureService:
                     "name": feature_info["name"],
                     "description": feature_info["description"],
                     "category": feature_info["category"],
-                    "is_enabled": toggle.is_enabled if toggle else feature_info["default_enabled"],
+                    "is_enabled": toggle.is_enabled
+                    if toggle
+                    else feature_info["default_enabled"],
                     "default_enabled": feature_info["default_enabled"],
                     "toggled_by": toggle.toggled_by if toggle else None,
                     "toggle_reason": toggle.toggle_reason if toggle else None,
-                    "updated_at": toggle.updated_at.isoformat() if toggle and toggle.updated_at else None,
+                    "updated_at": toggle.updated_at.isoformat()
+                    if toggle and toggle.updated_at
+                    else None,
                     "permissions": feature_info["permissions"],
-                    "owner_only": feature_info["owner_only"]
+                    "owner_only": feature_info["owner_only"],
                 }
-            
+
             return status
-    
+
     @staticmethod
-    async def get_features_by_category(category: str) -> Dict[str, Dict]:
+    async def get_features_by_category(category: str) -> dict[str, dict]:
         """Get all features in a specific category"""
-        
+
         return {
-            name: info for name, info in FeatureService.AVAILABLE_FEATURES.items()
+            name: info
+            for name, info in FeatureService.AVAILABLE_FEATURES.items()
             if info["category"] == category
         }
-    
+
     @staticmethod
-    async def log_feature_usage(
-        group_id: int,
-        user_id: int,
-        feature_name: str
-    ) -> None:
+    async def log_feature_usage(group_id: int, user_id: int, feature_name: str) -> None:
         """Log feature usage for statistics"""
-        
+
         async with async_session_factory() as session:
             async with session.begin():
                 # Get existing usage record
@@ -391,94 +389,99 @@ class FeatureService:
                     select(FeatureUsage).where(
                         FeatureUsage.group_id == group_id,
                         FeatureUsage.user_id == user_id,
-                        FeatureUsage.feature_name == feature_name
+                        FeatureUsage.feature_name == feature_name,
                     )
                 )
                 usage = result.scalar_one_or_none()
-                
+
                 if usage is None:
                     usage = FeatureUsage(
                         group_id=group_id,
                         user_id=user_id,
                         feature_name=feature_name,
                         usage_count=1,
-                        last_used=int(time.time())
+                        last_used=int(time.time()),
                     )
                     session.add(usage)
                 else:
                     usage.usage_count += 1
                     usage.last_used = int(time.time())
-                
+
                 await session.flush()
-    
+
     @staticmethod
     async def get_feature_usage_stats(
-        group_id: int,
-        feature_name: Optional[str] = None
-    ) -> List[Dict]:
+        group_id: int, feature_name: str | None = None
+    ) -> list[dict]:
         """Get feature usage statistics"""
-        
+
         async with async_session_factory() as session:
             query = select(FeatureUsage).where(FeatureUsage.group_id == group_id)
-            
+
             if feature_name:
                 query = query.where(FeatureUsage.feature_name == feature_name)
-            
-            result = await session.execute(query.order_by(FeatureUsage.usage_count.desc()))
+
+            result = await session.execute(
+                query.order_by(FeatureUsage.usage_count.desc())
+            )
             usages = result.scalars().all()
-            
+
             stats = []
             for usage in usages:
-                stats.append({
-                    "feature_name": usage.feature_name,
-                    "user_id": usage.user_id,
-                    "usage_count": usage.usage_count,
-                    "last_used": usage.last_used
-                })
-            
+                stats.append(
+                    {
+                        "feature_name": usage.feature_name,
+                        "user_id": usage.user_id,
+                        "usage_count": usage.usage_count,
+                        "last_used": usage.last_used,
+                    }
+                )
+
             return stats
-    
+
     @staticmethod
     async def get_feature_logs(
-        group_id: int,
-        feature_name: Optional[str] = None,
-        limit: int = 50
-    ) -> List[Dict]:
+        group_id: int, feature_name: str | None = None, limit: int = 50
+    ) -> list[dict]:
         """Get feature toggle logs"""
-        
+
         async with async_session_factory() as session:
             query = select(FeatureLog).where(FeatureLog.group_id == group_id)
-            
+
             if feature_name:
                 query = query.where(FeatureLog.feature_name == feature_name)
-            
+
             result = await session.execute(
                 query.order_by(FeatureLog.created_at.desc()).limit(limit)
             )
             logs = result.scalars().all()
-            
+
             log_list = []
             for log in logs:
-                log_list.append({
-                    "feature_name": log.feature_name,
-                    "action": log.action,
-                    "old_value": log.old_value,
-                    "new_value": log.new_value,
-                    "reason": log.reason,
-                    "user_id": log.user_id,
-                    "toggle_level": log.toggle_level,
-                    "created_at": log.created_at.isoformat() if log.created_at else None
-                })
-            
+                log_list.append(
+                    {
+                        "feature_name": log.feature_name,
+                        "action": log.action,
+                        "old_value": log.old_value,
+                        "new_value": log.new_value,
+                        "reason": log.reason,
+                        "user_id": log.user_id,
+                        "toggle_level": log.toggle_level,
+                        "created_at": log.created_at.isoformat()
+                        if log.created_at
+                        else None,
+                    }
+                )
+
             return log_list
-    
+
     @staticmethod
-    def get_all_features() -> Dict[str, Dict]:
+    def get_all_features() -> dict[str, dict]:
         """Get all available features"""
         return FeatureService.AVAILABLE_FEATURES.copy()
-    
+
     @staticmethod
-    def get_categories() -> List[str]:
+    def get_categories() -> list[str]:
         """Get all feature categories"""
         categories = set()
         for feature in FeatureService.AVAILABLE_FEATURES.values():
@@ -489,34 +492,34 @@ class FeatureService:
 # Decorator for feature checking
 def feature_required(feature_name: str):
     """Decorator to check if feature is enabled before executing command"""
+
     def decorator(func):
-        async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs):
+        async def wrapper(
+            update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs
+        ):
             if not update.effective_chat or not update.effective_user:
                 return
-            
+
             # Check if feature is enabled
             can_use, message = await FeatureService.can_use_feature(
-                update.effective_chat.id,
-                feature_name,
-                update.effective_user.id
+                update.effective_chat.id, feature_name, update.effective_user.id
             )
-            
+
             if not can_use:
                 if update.message:
                     await update.message.reply_text(f"🚫 {message}")
                 return
-            
+
             # Log feature usage
             await FeatureService.log_feature_usage(
-                update.effective_chat.id,
-                update.effective_user.id,
-                feature_name
+                update.effective_chat.id, update.effective_user.id, feature_name
             )
-            
+
             # Execute the original function
             return await func(update, context, *args, **kwargs)
-        
+
         return wrapper
+
     return decorator
 
 

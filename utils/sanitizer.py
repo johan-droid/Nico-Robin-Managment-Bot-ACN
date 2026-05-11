@@ -113,7 +113,9 @@ def contains_sql_injection(text: str) -> bool:
     return bool(_SQL_PATTERNS.search(text))
 
 
-def validate_numeric_arg(value: str, *, min_val: int | None = None, max_val: int | None = None) -> int | None:
+def validate_numeric_arg(
+    value: str, *, min_val: int | None = None, max_val: int | None = None
+) -> int | None:
     """Safely parse and validate a numeric argument.
 
     Returns None if the value is invalid, instead of raising an exception.
@@ -165,6 +167,7 @@ def sanitize_input(func: Handler) -> Handler:
             combined = " ".join(original_args)
             if contains_sql_injection(combined):
                 import structlog
+
                 logger = structlog.get_logger(__name__)
                 user = update.effective_user
                 logger.warning(
@@ -179,10 +182,13 @@ def sanitize_input(func: Handler) -> Handler:
                 # Log security event
                 try:
                     from services.security_logger import SecurityLogger
+
                     await SecurityLogger.log_event(
                         event_type="sql_injection_attempt",
                         user_id=user.id if user else None,
-                        chat_id=update.effective_chat.id if update.effective_chat else None,
+                        chat_id=update.effective_chat.id
+                        if update.effective_chat
+                        else None,
                         details={"input": combined[:500]},
                     )
                 except Exception:

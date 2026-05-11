@@ -6,7 +6,10 @@ import structlog
 import uvicorn
 
 from bot.app import create_application
-from client.websocket_client import initialize_websocket_client, shutdown_websocket_client
+from client.websocket_client import (
+    initialize_websocket_client,
+    shutdown_websocket_client,
+)
 from config import settings
 from database import engine
 from gateway.webhook import create_combined_app
@@ -18,7 +21,7 @@ logger = structlog.get_logger(__name__)
 
 async def _auto_migrate() -> None:
     """Auto-create database tables on startup.
-    
+
     Uses checkfirst=True so existing tables are never overwritten.
     New models added to models/__init__.py are auto-detected.
     """
@@ -29,7 +32,9 @@ async def _auto_migrate() -> None:
     # Stamp alembic to head so manual migrations stay in sync
     try:
         from alembic.config import Config as AlembicConfig
+
         from alembic import command as alembic_cmd
+
         cfg = AlembicConfig("alembic.ini")
         alembic_cmd.stamp(cfg, "head")
         logger.info("alembic_stamped_head")
@@ -57,7 +62,7 @@ async def main() -> None:
     async with ptb_app:
         # Initialize WebSocket client
         await initialize_websocket_client(ptb_app)
-        
+
         if settings.webhook_url:
             webhook_url = f"{settings.webhook_url.rstrip('/')}/webhook"
             await ptb_app.bot.set_webhook(
@@ -69,10 +74,10 @@ async def main() -> None:
 
         await ptb_app.start()
         logger.info("nico_robin_started", port=settings.port)
-        
+
         if settings.websocket_enabled:
             logger.info("websocket_enabled", port=settings.websocket_port)
-        
+
         try:
             await server.serve()
         finally:

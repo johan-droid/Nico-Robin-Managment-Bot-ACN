@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
-from telegram.ext import filters as tg_filters
 
-from database import async_session_factory
 from services.acn_service import acn_only
 from services.point_service import point_service
 from utils.formatters import telegram_user_label
@@ -18,10 +16,10 @@ async def points(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat = update.effective_chat
     if msg is None or user is None or chat is None:
         return
-    
+
     # Get user points
     points_info = await point_service.get_user_points(user.id, chat.id)
-    
+
     if not points_info:
         await msg.reply_text(
             "🌸 *smiles* Welcome to the ACN Point System!\n\n"
@@ -29,31 +27,41 @@ async def points(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "💫 Start earning points by participating in the group!"
         )
         return
-    
+
     # Format point information
     level_emojis = {
-        1: "📚", 2: "🗺️", 3: "🏺", 4: "📜", 5: "🌺",
-        6: "🎶", 7: "💎", 8: "⭐", 9: "👑", 10: "🏆"
+        1: "📚",
+        2: "🗺️",
+        3: "🏺",
+        4: "📜",
+        5: "🌺",
+        6: "🎶",
+        7: "💎",
+        8: "⭐",
+        9: "👑",
+        10: "🏆",
     }
-    
+
     emoji = level_emojis.get(points_info["level"], "🌸")
-    
+
     response = f"💫 **{telegram_user_label(user)}'s Point Balance**\n\n"
-    response += f"{emoji} **Level {points_info['level']} - {points_info['level_name']}**\n"
+    response += (
+        f"{emoji} **Level {points_info['level']} - {points_info['level_name']}**\n"
+    )
     response += f"💎 **Current Points:** {points_info['current_points']:,}\n"
     response += f"📈 **Total Earned:** {points_info['total_earned']:,}\n"
     response += f"💸 **Total Spent:** {points_info['total_spent']:,}\n"
     response += f"⚡ **Experience:** {points_info['experience']:,}\n"
     response += f"🔥 **Streak Days:** {points_info['streak_days']}\n"
     response += f"💰 **Bonus Multiplier:** {points_info['bonus_multiplier']:.1f}x\n"
-    
+
     if points_info["selected_apploid"]:
         response += f"🎭 **Selected Apploid:** {points_info['selected_apploid']}\n"
-    
+
     if points_info["next_level_points"] > 0:
         needed = points_info["next_level_points"] - points_info["total_earned"]
         response += f"🎯 **Next Level:** {needed:,} points needed\n"
-    
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -64,31 +72,31 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     limit = int(args[0]) if args and args[0].isdigit() else 10
-    
+
     # Get leaderboard
     leaderboard = await point_service.get_leaderboard(chat.id, limit)
-    
+
     if not leaderboard:
         await msg.reply_text(
             "🌸 *looks around* No one has earned points yet!\n\n"
             "🎯 Start participating to earn points and climb the leaderboard!"
         )
         return
-    
-    response = f"🏆 **ACN Point Leaderboard**\n\n"
-    
+
+    response = "🏆 **ACN Point Leaderboard**\n\n"
+
     rank_emojis = {1: "🥇", 2: "🥈", 3: "🥉"}
-    
+
     for entry in leaderboard:
         rank_emoji = rank_emojis.get(entry["rank"], f"#{entry['rank']}")
         apploid_emoji = entry.get("selected_apploid", "🌸")
-        
+
         response += f"{rank_emoji} **{apploid_emoji} User {entry['user_id']}**\n"
         response += f"   💎 {entry['points']:,} pts | Lv.{entry['level']} {entry['level_name']}\n\n"
-    
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -100,15 +108,15 @@ async def apploids(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat = update.effective_chat
     if msg is None or user is None or chat is None:
         return
-    
+
     # Get owned apploids
     owned_apploids = await point_service.get_user_apploids(user.id, chat.id)
-    
+
     # Get available apploids
     available_apploids = await point_service.get_available_apploids(user.id, chat.id)
-    
+
     response = f"🎭 **{telegram_user_label(user)}'s Apploids**\n\n"
-    
+
     # Show owned apploids
     if owned_apploids:
         response += "💎 **Owned Apploids:**\n"
@@ -116,24 +124,29 @@ async def apploids(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             equip_status = "✅ Equipped" if apploid["is_equipped"] else "📦 Owned"
             response += f"  {apploid['emoji']} **{apploid['name']}** - {apploid['rarity']} ({equip_status})\n"
         response += "\n"
-    
+
     # Show available apploids
     if available_apploids:
-        response += f"🛍️ **Available Apploids:**\n"
+        response += "🛍️ **Available Apploids:**\n"
         for apploid in available_apploids[:10]:  # Show top 10
-            rarity_emoji = {"common": "⚪", "rare": "🔵", "epic": "🟣", "legendary": "🟡"}
+            rarity_emoji = {
+                "common": "⚪",
+                "rare": "🔵",
+                "epic": "🟣",
+                "legendary": "🟡",
+            }
             emoji = rarity_emoji.get(apploid["rarity"], "⚪")
-            
+
             response += f"  {emoji} {apploid['emoji']} **{apploid['name']}**\n"
             response += f"     💰 {apploid['required_points']} pts | Lv.{apploid['required_level']}\n"
             response += f"     📝 {apploid['description']}\n\n"
-        
+
         if len(available_apploids) > 10:
             response += f"... and {len(available_apploids) - 10} more apploids!\n"
     else:
         response += "🌸 *smiles* No apploids available for your level.\n"
         response += "🎯 Keep earning points and leveling up to unlock more!\n"
-    
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -145,7 +158,7 @@ async def buy_apploid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     chat = update.effective_chat
     if msg is None or user is None or chat is None:
         return
-    
+
     args = context.args or []
     if len(args) < 1:
         await msg.reply_text(
@@ -154,12 +167,14 @@ async def buy_apploid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             "💡 Use `/apploids` to see available apploids!"
         )
         return
-    
+
     apploid_name = " ".join(args)
-    
+
     # Purchase apploid
-    success, message = await point_service.purchase_apploid(user.id, chat.id, apploid_name)
-    
+    success, message = await point_service.purchase_apploid(
+        user.id, chat.id, apploid_name
+    )
+
     if success:
         await msg.reply_text(f"🎉 **Purchase Successful!**\n\n{message}")
     else:
@@ -174,7 +189,7 @@ async def equip_apploid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     chat = update.effective_chat
     if msg is None or user is None or chat is None:
         return
-    
+
     args = context.args or []
     if len(args) < 1:
         await msg.reply_text(
@@ -183,12 +198,12 @@ async def equip_apploid(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             "💡 Use `/apploids` to see your owned apploids!"
         )
         return
-    
+
     apploid_name = " ".join(args)
-    
+
     # Equip apploid
     success, message = await point_service.equip_apploid(user.id, chat.id, apploid_name)
-    
+
     if success:
         await msg.reply_text(f"✨ **Equipped Successfully!**\n\n{message}")
     else:
@@ -202,11 +217,11 @@ async def point_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     # Get group statistics
     stats = await point_service.get_point_stats(chat.id)
-    
-    response = f"📊 **Group Point Statistics**\n\n"
+
+    response = "📊 **Group Point Statistics**\n\n"
     response += f"👥 **Total Users:** {stats['total_users']}\n"
     response += f"💎 **Total Points:** {stats['total_points']:,}\n"
     response += f"📈 **Total Earned:** {stats['total_earned']:,}\n"
@@ -214,7 +229,7 @@ async def point_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     response += f"📊 **Average Points:** {stats['average_points']:,}\n"
     response += f"🏆 **Highest Level:** {stats['highest_level']}\n"
     response += f"🎭 **Apploids Owned:** {stats['apploids_owned']}\n"
-    
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -224,7 +239,7 @@ async def earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     msg = update.effective_message
     if msg is None:
         return
-    
+
     help_text = """
 💫 **How to Earn Points** 🌸
 
@@ -271,7 +286,7 @@ async def earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 🌸 *Nico Robin*: "Knowledge is power, and points are treasure!"
     """
-    
+
     await msg.reply_text(help_text)
 
 
@@ -281,7 +296,7 @@ async def point_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     msg = update.effective_message
     if msg is None:
         return
-    
+
     help_text = """
 💫 **ACN Point System Help** 🌸
 
@@ -327,7 +342,7 @@ async def point_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 💫 **Note:** Point system is exclusive to ACN members!
     """
-    
+
     await msg.reply_text(help_text)
 
 

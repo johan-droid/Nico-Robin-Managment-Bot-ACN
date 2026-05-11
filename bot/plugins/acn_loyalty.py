@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import time
+
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
-from telegram.ext import filters as tg_filters
 
 from database import async_session_factory
-from services.acn_service import ACNService, acn_only, captain_commander_only, admin_captain_commander_only
-from services.group_service import GroupService
-from services.user_service import UserService
-from utils.formatters import display_user, telegram_user_label
+from services.acn_service import (
+    ACNService,
+    acn_only,
+    admin_captain_commander_only,
+    captain_commander_only,
+)
+from utils.formatters import telegram_user_label
 
 
 @acn_only
@@ -20,15 +23,17 @@ async def acn_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     user = update.effective_user
     if msg is None or chat is None or user is None:
         return
-    
+
     async with async_session_factory() as session:
         async with session.begin():
             # Get user role
             role = await ACNService.get_user_role(user.id)
-            
+
             # Get loyalty points
-            loyalty_points = await ACNService.get_loyalty_points(session, user.id, chat.id)
-            
+            loyalty_points = await ACNService.get_loyalty_points(
+                session, user.id, chat.id
+            )
+
             # Format response
             if role == "captain":
                 role_text = "⚓ **Captain** - Monkey D. Sparrow"
@@ -38,52 +43,62 @@ async def acn_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 role_text = "⭐ **ACN Member**"
             else:
                 role_text = "👤 **Member**"
-            
+
             points_text = f"{loyalty_points.points} pts" if loyalty_points else "0 pts"
             rank_text = loyalty_points.rank if loyalty_points else "Crew Member"
-            
+
             response = f"🌸 **ACN Status for {telegram_user_label(user)}**\n\n"
             response += f"📋 **Role:** {role_text}\n"
             response += f"💎 **Rank:** {rank_text}\n"
             response += f"⭐ **Points:** {points_text}\n"
-            
+
             if loyalty_points and loyalty_points.total_actions > 0:
                 response += f"📊 **Actions:** {loyalty_points.total_actions}\n"
                 response += f"🕐 **Last Activity:** {time.strftime('%Y-%m-%d %H:%M', time.localtime(loyalty_points.last_activity))}\n"
-            
+
             await msg.reply_text(response, parse_mode="Markdown")
 
 
 @acn_only
-async def loyalty_leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def loyalty_leaderboard(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Show loyalty points leaderboard for the group"""
     msg = update.effective_message
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     async with async_session_factory() as session:
         async with session.begin():
             # Get all members with loyalty points
             members = await ACNService.get_group_members(session, chat.id)
-            
+
             if not members:
                 await msg.reply_text("🌸 No ACN members found in this group.")
                 return
-            
+
             # Sort by points
             members.sort(key=lambda x: x["points"], reverse=True)
-            
+
             # Format leaderboard
             response = "🏆 **ACN Loyalty Leaderboard**\n\n"
-            
+
             for i, member in enumerate(members[:10], 1):  # Top 10
-                medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
-                role_icon = "⚓" if member["role"] == "captain" else "🎖️" if member["role"] == "commander" else "⭐"
-                
+                medal = (
+                    "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+                )
+                role_icon = (
+                    "⚓"
+                    if member["role"] == "captain"
+                    else "🎖️"
+                    if member["role"] == "commander"
+                    else "⭐"
+                )
+
                 response += f"{medal} {role_icon} **{member['username']}**\n"
                 response += f"   💎 {member['rank']} • ⭐ {member['points']} pts\n\n"
-            
+
             await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -95,14 +110,14 @@ async def add_acn_group(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user = update.effective_user
     if msg is None or chat is None or user is None:
         return
-    
+
     async with async_session_factory() as session:
         async with session.begin():
             # Check if already whitelisted
             if await ACNService.is_acn_group(chat.id):
                 await msg.reply_text("🌸 This group is already whitelisted for ACN.")
                 return
-            
+
             # Add to whitelist
             await ACNService.add_to_whitelist(
                 session=session,
@@ -111,9 +126,9 @@ async def add_acn_group(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 whitelist_type="group",
                 role="acn_group",
                 added_by=user.id,
-                notes="Added by ACN leadership"
+                notes="Added by ACN leadership",
             )
-            
+
             await msg.reply_text(
                 f"🌸 **Group Whitelisted!**\n\n"
                 f"✅ {chat.title} is now an official ACN group.\n"
@@ -128,7 +143,7 @@ async def add_acn_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     if len(args) < 2:
         await msg.reply_text(
@@ -136,20 +151,22 @@ async def add_acn_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             "Roles: captain, commander, member, ally"
         )
         return
-    
+
     user_identifier = args[0]
     role = args[1].lower()
-    
+
     if role not in ["captain", "commander", "member", "ally"]:
-        await msg.reply_text("🌸 Invalid role. Use: captain, commander, member, or ally")
+        await msg.reply_text(
+            "🌸 Invalid role. Use: captain, commander, member, or ally"
+        )
         return
-    
+
     async with async_session_factory() as session:
         async with session.begin():
             # Try to resolve user
             user_id = None
             username = None
-            
+
             try:
                 # If it's a number, treat as user_id
                 if user_identifier.isdigit():
@@ -165,13 +182,15 @@ async def add_acn_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                         username = f"User {user_id}"
                 else:
                     # Search for user by username in group
-                    username = user_identifier.lstrip('@')
-                    await msg.reply_text("🌸 Please use user ID instead of username for now.")
+                    username = user_identifier.lstrip("@")
+                    await msg.reply_text(
+                        "🌸 Please use user ID instead of username for now."
+                    )
                     return
             except Exception as e:
                 await msg.reply_text(f"🌸 Error resolving user: {str(e)}")
                 return
-            
+
             # Add to whitelist
             await ACNService.add_to_whitelist(
                 session=session,
@@ -180,9 +199,9 @@ async def add_acn_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 whitelist_type="user",
                 role=role,
                 added_by=update.effective_user.id if update.effective_user else None,
-                notes=f"Added by ACN leadership with role: {role}"
+                notes=f"Added by ACN leadership with role: {role}",
             )
-            
+
             await msg.reply_text(
                 f"🌸 **ACN Member Added!**\n\n"
                 f"✅ {username} is now an ACN {role}.\n"
@@ -196,14 +215,14 @@ async def remove_acn_member(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     msg = update.effective_message
     if msg is None:
         return
-    
+
     args = context.args or []
     if len(args) < 1:
         await msg.reply_text("🌸 Usage: `/removeacn <user_id>")
         return
-    
+
     user_identifier = args[0]
-    
+
     try:
         user_id = int(user_identifier) if user_identifier.isdigit() else None
         if not user_id:
@@ -212,16 +231,14 @@ async def remove_acn_member(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     except ValueError:
         await msg.reply_text("🌸 Invalid user ID format.")
         return
-    
+
     async with async_session_factory() as session:
         async with session.begin():
             # Remove from whitelist
             removed = await ACNService.remove_from_whitelist(
-                session=session,
-                entity_id=user_id,
-                whitelist_type="user"
+                session=session, entity_id=user_id, whitelist_type="user"
             )
-            
+
             if removed:
                 await msg.reply_text(
                     f"🌸 **ACN Member Removed!**\n\n"
@@ -239,42 +256,42 @@ async def acn_members(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     async with async_session_factory() as session:
         async with session.begin():
             members = await ACNService.get_group_members(session, chat.id)
-            
+
             if not members:
                 await msg.reply_text("🌸 No ACN members found in this group.")
                 return
-            
+
             # Group members by role
             captains = [m for m in members if m["role"] == "captain"]
             commanders = [m for m in members if m["role"] == "commander"]
             others = [m for m in members if m["role"] not in ["captain", "commander"]]
-            
+
             response = f"🌸 **ACN Members in {chat.title}**\n\n"
-            
+
             if captains:
                 response += "⚓ **Captain:**\n"
                 for captain in captains:
                     response += f"• {captain['username']} - {captain['rank']} ({captain['points']} pts)\n"
                 response += "\n"
-            
+
             if commanders:
                 response += "🎖️ **Commanders:**\n"
                 for commander in commanders:
                     response += f"• {commander['username']} - {commander['rank']} ({commander['points']} pts)\n"
                 response += "\n"
-            
+
             if others:
                 response += "⭐ **Members:**\n"
                 for member in others[:10]:  # Limit to prevent long messages
                     response += f"• {member['username']} - {member['rank']} ({member['points']} pts)\n"
-                
+
                 if len(others) > 10:
                     response += f"... and {len(others) - 10} more members\n"
-            
+
             await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -285,12 +302,12 @@ async def award_points(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     args = context.args or []
     if len(args) < 2:
         await msg.reply_text("🌸 Usage: `/award <user_id> <points> [reason]")
         return
-    
+
     try:
         user_id = int(args[0])
         points = int(args[1])
@@ -298,11 +315,11 @@ async def award_points(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     except ValueError:
         await msg.reply_text("🌸 Invalid user ID or points format.")
         return
-    
+
     if points <= 0:
         await msg.reply_text("🌸 Points must be positive.")
         return
-    
+
     async with async_session_factory() as session:
         async with session.begin():
             # Award points
@@ -313,9 +330,9 @@ async def award_points(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
                 points=points,
                 activity_type="loyalty",
                 action="award",
-                metadata=f"Awarded by {update.effective_user.id if update.effective_user else 'Unknown'}: {reason}"
+                metadata=f"Awarded by {update.effective_user.id if update.effective_user else 'Unknown'}: {reason}",
             )
-            
+
             await msg.reply_text(
                 f"🌸 **Points Awarded!**\n\n"
                 f"✅ User {user_id} received {points} points\n"
@@ -332,33 +349,35 @@ async def acn_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     async with async_session_factory() as session:
         async with session.begin():
             members = await ACNService.get_group_members(session, chat.id)
-            
+
             # Calculate statistics
             total_members = len(members)
             total_points = sum(m["points"] for m in members)
-            active_members = len([m for m in members if m["last_activity"] > time.time() - 86400 * 7])  # Active in last 7 days
-            
+            active_members = len(
+                [m for m in members if m["last_activity"] > time.time() - 86400 * 7]
+            )  # Active in last 7 days
+
             # Count by role
             captains = len([m for m in members if m["role"] == "captain"])
             commanders = len([m for m in members if m["role"] == "commander"])
-            
+
             response = f"🌸 **Anime Crew Network - {chat.title}**\n\n"
-            response += f"📊 **Statistics:**\n"
+            response += "📊 **Statistics:**\n"
             response += f"• Total Members: {total_members}\n"
             response += f"• Active Members: {active_members} (last 7 days)\n"
             response += f"• Total Points: {total_points}\n"
             response += f"• Average Points: {total_points // total_members if total_members > 0 else 0}\n\n"
-            
-            response += f"👥 **Leadership:**\n"
+
+            response += "👥 **Leadership:**\n"
             response += f"• Captain: {captains}\n"
             response += f"• Commanders: {commanders}\n\n"
-            
-            response += f"🎯 **This bot works exclusively for ACN members only!**"
-            
+
+            response += "🎯 **This bot works exclusively for ACN members only!**"
+
             await msg.reply_text(response, parse_mode="Markdown")
 
 

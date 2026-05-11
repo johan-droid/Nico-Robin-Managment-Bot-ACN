@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Boolean, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base, TimestampMixin
@@ -24,9 +31,15 @@ class SwearWord(TimestampMixin, Base):
         index=True,
     )
     word: Mapped[str] = mapped_column(String(255), nullable=False)
-    severity: Mapped[str] = mapped_column(String(20), default="moderate", nullable=False)
-    punishment_type: Mapped[str] = mapped_column(String(20), default="mute", nullable=False)
-    duration: Mapped[int] = mapped_column(Integer, default=300, nullable=False)  # seconds
+    severity: Mapped[str] = mapped_column(
+        String(20), default="moderate", nullable=False
+    )
+    punishment_type: Mapped[str] = mapped_column(
+        String(20), default="mute", nullable=False
+    )
+    duration: Mapped[int] = mapped_column(
+        Integer, default=300, nullable=False
+    )  # seconds
     is_regex: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_by: Mapped[int | None] = mapped_column(
         BigInteger,
@@ -41,7 +54,9 @@ class SwearWord(TimestampMixin, Base):
 class SwearViolation(Base):
     __tablename__ = "swear_violations"
 
-    violation_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    violation_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
     group_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("groups.group_id", ondelete="CASCADE"),

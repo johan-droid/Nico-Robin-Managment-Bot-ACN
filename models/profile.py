@@ -1,12 +1,19 @@
 """MemberProfile model — tracks per-user per-group activity and profile data."""
+
 from __future__ import annotations
 
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
-    JSON, BigInteger, DateTime, ForeignKey, Integer, String, Text,
-    UniqueConstraint, func,
+    JSON,
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Text,
+    UniqueConstraint,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,7 +30,9 @@ class MemberProfile(TimestampMixin, Base):
     __tablename__ = "member_profiles"
     __table_args__ = (UniqueConstraint("user_id", "group_id"),)
 
-    profile_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    profile_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
     user_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.user_id", ondelete="CASCADE"),
@@ -56,8 +65,12 @@ class MemberProfile(TimestampMixin, Base):
     # Activity patterns
     peak_hour: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # 0-23
     active_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    hourly_activity: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)  # {hour: count}
-    last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    hourly_activity: Mapped[dict] = mapped_column(
+        JSON, default=dict, nullable=False
+    )  # {hour: count}
+    last_message_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     # Meta
     profile_views: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

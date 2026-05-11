@@ -2,12 +2,16 @@
 
 Logs to both database and log channel for forensic analysis.
 """
+
 from __future__ import annotations
+
 import time
-import structlog
 from typing import Any
-from config import settings
+
+import structlog
+
 from bot.middleware.rate_limiter import get_redis
+from config import settings
 
 logger = structlog.get_logger(__name__)
 _ALERT_KEY = "sec:alert_times"
@@ -91,8 +95,7 @@ class SecurityLogger:
             redis = get_redis()
             events = await redis.xrevrange("security:events", count=count)
             return [
-                {"id": eid, **{k: v for k, v in data.items()}}
-                for eid, data in events
+                {"id": eid, **{k: v for k, v in data.items()}} for eid, data in events
             ]
         except Exception:
             return []

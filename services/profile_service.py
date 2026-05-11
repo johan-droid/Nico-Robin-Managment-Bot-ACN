@@ -1,4 +1,5 @@
 """ProfileService — aggregates data from 8+ tables into a single profile view."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -8,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.audit import ActionLog
 from models.loyalty import ACNWhitelist, LoyaltyPoints
-from models.points import PointStreak, UserPoints
+from models.points import UserPoints
 from models.profile import MemberProfile
 from models.swear_word import SwearViolation
 from models.user import GroupMember, User
@@ -100,9 +101,7 @@ class ProfileService:
         data: dict = {}
 
         # ── Core user info ──
-        user_result = await session.execute(
-            select(User).where(User.user_id == user_id)
-        )
+        user_result = await session.execute(select(User).where(User.user_id == user_id))
         user = user_result.scalar_one_or_none()
         if user:
             data["first_name"] = user.first_name or "Unknown"

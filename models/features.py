@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Boolean, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base, TimestampMixin
@@ -14,11 +22,13 @@ if TYPE_CHECKING:
 
 class FeatureToggle(Base, TimestampMixin):
     """Feature toggle settings for bot functionality"""
-    
+
     __tablename__ = "feature_toggles"
     __table_args__ = (UniqueConstraint("group_id", "feature_name"),)
 
-    toggle_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    toggle_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
     group_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("groups.group_id", ondelete="CASCADE"),
@@ -33,7 +43,9 @@ class FeatureToggle(Base, TimestampMixin):
         ForeignKey("users.user_id", ondelete="SET NULL"),
         nullable=True,
     )
-    toggle_level: Mapped[str] = mapped_column(String(20), default="group", nullable=False)  # global, network, group
+    toggle_level: Mapped[str] = mapped_column(
+        String(20), default="group", nullable=False
+    )  # global, network, group
 
     # Relationships
     group: Mapped[Group] = relationship()
@@ -42,11 +54,13 @@ class FeatureToggle(Base, TimestampMixin):
 
 class FeaturePermission(Base, TimestampMixin):
     """Feature permissions by user role"""
-    
+
     __tablename__ = "feature_permissions"
     __table_args__ = (UniqueConstraint("feature_name", "user_role"),)
 
-    permission_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    permission_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
     feature_name: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     user_role: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     can_use: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -56,7 +70,7 @@ class FeaturePermission(Base, TimestampMixin):
 
 class FeatureUsage(Base, TimestampMixin):
     """Track feature usage statistics"""
-    
+
     __tablename__ = "feature_usage"
 
     usage_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -83,7 +97,7 @@ class FeatureUsage(Base, TimestampMixin):
 
 class FeatureLog(Base, TimestampMixin):
     """Log feature toggle changes"""
-    
+
     __tablename__ = "feature_logs"
 
     log_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

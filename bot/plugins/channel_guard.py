@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import structlog
-from sqlalchemy import select, delete
+from sqlalchemy import select
 from telegram import Update
 from telegram.error import TelegramError
 from telegram.ext import CommandHandler, ContextTypes, MessageHandler
@@ -20,6 +20,7 @@ logger = structlog.get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Auto-purge handler
 # ---------------------------------------------------------------------------
+
 
 async def auto_purge_channel_post(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -45,7 +46,7 @@ async def auto_purge_channel_post(
             result = await session.execute(
                 select(ManagedChannel).where(
                     ManagedChannel.channel_id == channel_id,
-                    ManagedChannel.auto_purge == True,
+                    ManagedChannel.auto_purge,
                 )
             )
             is_purge_target = result.scalar_one_or_none() is not None
@@ -85,10 +86,9 @@ async def auto_purge_channel_post(
 # Channel management commands
 # ---------------------------------------------------------------------------
 
+
 @captain_commander_only
-async def add_purge_channel(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def add_purge_channel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Add a channel to the purge list (Captain/Commander only)."""
     msg = update.effective_message
     if msg is None:
@@ -114,9 +114,7 @@ async def add_purge_channel(
         async with session.begin():
             # Check if already exists
             result = await session.execute(
-                select(ManagedChannel).where(
-                    ManagedChannel.channel_id == channel_id
-                )
+                select(ManagedChannel).where(ManagedChannel.channel_id == channel_id)
             )
             existing = result.scalar_one_or_none()
 
@@ -130,7 +128,9 @@ async def add_purge_channel(
                     channel_type="purge",
                     auto_purge=True,
                     owner_can_post=True,
-                    added_by=update.effective_user.id if update.effective_user else None,
+                    added_by=update.effective_user.id
+                    if update.effective_user
+                    else None,
                 )
                 session.add(channel)
 
@@ -166,9 +166,7 @@ async def remove_purge_channel(
     async with async_session_factory() as session:
         async with session.begin():
             result = await session.execute(
-                select(ManagedChannel).where(
-                    ManagedChannel.channel_id == channel_id
-                )
+                select(ManagedChannel).where(ManagedChannel.channel_id == channel_id)
             )
             channel = result.scalar_one_or_none()
 
@@ -197,7 +195,7 @@ async def list_purge_channels(
     # Gather from DB
     async with async_session_factory() as session:
         result = await session.execute(
-            select(ManagedChannel).where(ManagedChannel.auto_purge == True)
+            select(ManagedChannel).where(ManagedChannel.auto_purge)
         )
         db_channels = result.scalars().all()
 
@@ -225,10 +223,9 @@ async def list_purge_channels(
 # Owner custom post to channel
 # ---------------------------------------------------------------------------
 
+
 @captain_commander_only
-async def channel_post_cmd(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def channel_post_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Post a custom message to a managed channel (Captain/Commander only).
 
     Usage:
@@ -291,9 +288,7 @@ async def channel_post_cmd(
 
 
 @captain_commander_only
-async def channel_photo_cmd(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def channel_photo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Forward a photo reply to a managed channel (Captain/Commander only).
 
     Usage: Reply to a photo with /channelphoto <channel_id> [caption]
@@ -337,6 +332,7 @@ async def channel_photo_cmd(
 # ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
+
 
 def register(app) -> None:
     """Register channel guard handlers and commands."""

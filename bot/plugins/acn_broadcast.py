@@ -1,27 +1,28 @@
 from __future__ import annotations
 
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import CommandHandler, ContextTypes, MessageHandler
 from telegram.ext import filters as tg_filters
 
-from database import async_session_factory
-from services.acn_service import captain_commander_only, acn_only
+from services.acn_service import acn_only, captain_commander_only
 from services.broadcast_service import (
     BroadcastService,
     add_broadcast_channel,
-    remove_broadcast_channel,
+    add_main_group,
     get_broadcast_channels,
-    add_main_group
+    remove_broadcast_channel,
 )
 
 
 @captain_commander_only
-async def add_broadcast_channel_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def add_broadcast_channel_cmd(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Add channel to ACN broadcast whitelist (Captain/Commander only)"""
     msg = update.effective_message
     if msg is None:
         return
-    
+
     args = context.args or []
     if len(args) < 2:
         await msg.reply_text(
@@ -29,26 +30,26 @@ async def add_broadcast_channel_cmd(update: Update, context: ContextTypes.DEFAUL
             "Types: announcement, update, news, event, general"
         )
         return
-    
+
     try:
         channel_id = int(args[0])
         channel_type = args[1].lower()
         channel_name = " ".join(args[2:]) if len(args) > 2 else f"Channel {channel_id}"
-        
+
         if channel_type not in ["announcement", "update", "news", "event", "general"]:
             await msg.reply_text(
                 "🌸 Invalid channel type. Use: announcement, update, news, event, or general"
             )
             return
-        
+
         # Add channel to whitelist
         success = await add_broadcast_channel(
             channel_id=channel_id,
             channel_name=channel_name,
             channel_type=channel_type,
-            added_by=update.effective_user.id if update.effective_user else None
+            added_by=update.effective_user.id if update.effective_user else None,
         )
-        
+
         if success:
             await msg.reply_text(
                 f"🌸 **Broadcast Channel Added!**\n\n"
@@ -58,32 +59,38 @@ async def add_broadcast_channel_cmd(update: Update, context: ContextTypes.DEFAUL
                 f"🎯 Posts from this channel will be broadcast to all main ACN groups."
             )
         else:
-            await msg.reply_text("🌸 Failed to add broadcast channel. Please check the channel ID.")
-            
+            await msg.reply_text(
+                "🌸 Failed to add broadcast channel. Please check the channel ID."
+            )
+
     except ValueError:
-        await msg.reply_text("🌸 Invalid channel ID. Please provide a valid numeric channel ID.")
+        await msg.reply_text(
+            "🌸 Invalid channel ID. Please provide a valid numeric channel ID."
+        )
     except Exception as e:
         await msg.reply_text(f"🌸 Error: {str(e)}")
 
 
 @captain_commander_only
-async def remove_broadcast_channel_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def remove_broadcast_channel_cmd(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Remove channel from ACN broadcast whitelist (Captain/Commander only)"""
     msg = update.effective_message
     if msg is None:
         return
-    
+
     args = context.args or []
     if len(args) < 1:
         await msg.reply_text("🌸 Usage: `/removebroadcast <channel_id>`")
         return
-    
+
     try:
         channel_id = int(args[0])
-        
+
         # Remove channel from whitelist
         success = await remove_broadcast_channel(channel_id)
-        
+
         if success:
             await msg.reply_text(
                 f"🌸 **Broadcast Channel Removed!**\n\n"
@@ -91,28 +98,32 @@ async def remove_broadcast_channel_cmd(update: Update, context: ContextTypes.DEF
             )
         else:
             await msg.reply_text("🌸 Channel not found in broadcast whitelist.")
-            
+
     except ValueError:
-        await msg.reply_text("🌸 Invalid channel ID. Please provide a valid numeric channel ID.")
+        await msg.reply_text(
+            "🌸 Invalid channel ID. Please provide a valid numeric channel ID."
+        )
     except Exception as e:
         await msg.reply_text(f"🌸 Error: {str(e)}")
 
 
 @captain_commander_only
-async def add_main_group_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def add_main_group_cmd(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Add group as main ACN group for broadcasts (Captain/Commander only)"""
     msg = update.effective_message
     chat = update.effective_chat
     if msg is None or chat is None:
         return
-    
+
     # Add current group as main group
     success = await add_main_group(
         group_id=chat.id,
         group_name=chat.title or f"Group {chat.id}",
-        added_by=update.effective_user.id if update.effective_user else None
+        added_by=update.effective_user.id if update.effective_user else None,
     )
-    
+
     if success:
         await msg.reply_text(
             f"🌸 **Main ACN Group Added!**\n\n"
@@ -124,18 +135,20 @@ async def add_main_group_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 @acn_only
-async def list_broadcast_channels(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def list_broadcast_channels(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """List all ACN broadcast channels"""
     msg = update.effective_message
     if msg is None:
         return
-    
+
     channels = await get_broadcast_channels()
-    
+
     if not channels:
         await msg.reply_text("🌸 No broadcast channels configured.")
         return
-    
+
     # Group channels by type
     type_groups = {}
     for channel in channels:
@@ -143,29 +156,31 @@ async def list_broadcast_channels(update: Update, context: ContextTypes.DEFAULT_
         if channel_type not in type_groups:
             type_groups[channel_type] = []
         type_groups[channel_type].append(channel)
-    
+
     # Format response
     response = "🌸 **ACN Broadcast Channels**\n\n"
-    
+
     type_emojis = {
         "announcement": "📢",
         "update": "🔄",
         "news": "📰",
         "event": "🎉",
-        "general": "📋"
+        "general": "📋",
     }
-    
+
     for channel_type, channels_list in type_groups.items():
         emoji = type_emojis.get(channel_type, "📋")
         response += f"{emoji} **{channel_type.title()} Channels:**\n"
-        
+
         for channel in channels_list:
             response += f"• {channel['channel_name']} (ID: {channel['channel_id']})\n"
-        
+
         response += "\n"
-    
-    response += f"🎯 **Total:** {len(channels)} channels broadcasting to main ACN groups."
-    
+
+    response += (
+        f"🎯 **Total:** {len(channels)} channels broadcasting to main ACN groups."
+    )
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -175,33 +190,39 @@ async def broadcast_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     msg = update.effective_message
     if msg is None:
         return
-    
+
     # Get statistics
     channels = await get_broadcast_channels()
     main_groups = await BroadcastService.get_main_acn_groups()
-    
+
     # Count by type
     type_counts = {}
     for channel in channels:
         channel_type = channel["channel_type"]
         type_counts[channel_type] = type_counts.get(channel_type, 0) + 1
-    
+
     response = "🌸 **ACN Broadcast System Status**\n\n"
     response += f"📺 **Active Channels:** {len(channels)}\n"
     response += f"👥 **Main Groups:** {len(main_groups)}\n\n"
-    
+
     if type_counts:
         response += "📋 **Channel Types:**\n"
         for channel_type, count in type_counts.items():
-            emoji = {"announcement": "📢", "update": "🔄", "news": "📰", "event": "🎉", "general": "📋"}.get(channel_type, "📋")
+            emoji = {
+                "announcement": "📢",
+                "update": "🔄",
+                "news": "📰",
+                "event": "🎉",
+                "general": "📋",
+            }.get(channel_type, "📋")
             response += f"• {emoji} {channel_type.title()}: {count}\n"
-        
+
         response += "\n"
-    
+
     response += "🎯 **System Status:** ✅ Active\n"
     response += "⚡ **Auto-Broadcast:** Enabled\n"
     response += "🌸 **Last Update:** Real-time monitoring"
-    
+
     await msg.reply_text(response, parse_mode="Markdown")
 
 
@@ -211,41 +232,41 @@ async def test_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     msg = update.effective_message
     if msg is None:
         return
-    
+
     args = context.args or []
-    test_message = " ".join(args) if args else "This is a test broadcast from ACN leadership."
-    
+    test_message = (
+        " ".join(args) if args else "This is a test broadcast from ACN leadership."
+    )
+
     # Create test message
-    test_text = f"🧪 **TEST BROADCAST**\n\n"
-    test_text += f"📺 **Source:** ACN Test System\n"
+    test_text = "🧪 **TEST BROADCAST**\n\n"
+    test_text += "📺 **Source:** ACN Test System\n"
     test_text += f"🕐 **Time:** {context.bot_data.get('test_time', 'Now')}\n\n"
     test_text += f"📝 **Message:**\n{test_message}\n\n"
-    test_text += f"—\n🌸 *Test broadcast by Nico Robin Bot*\n"
-    test_text += f"⚓ *Anime Crew Network*"
-    
+    test_text += "—\n🌸 *Test broadcast by Nico Robin Bot*\n"
+    test_text += "⚓ *Anime Crew Network*"
+
     # Get main groups
     main_groups = await BroadcastService.get_main_acn_groups()
-    
+
     if not main_groups:
         await msg.reply_text("🌸 No main ACN groups configured for broadcasting.")
         return
-    
+
     # Send test broadcast
     successful = 0
     failed = 0
-    
+
     for group_id in main_groups:
         try:
             await context.bot.send_message(
-                chat_id=group_id,
-                text=test_text,
-                parse_mode="Markdown"
+                chat_id=group_id, text=test_text, parse_mode="Markdown"
             )
             successful += 1
         except Exception as e:
             failed += 1
             print(f"Failed to send test broadcast to {group_id}: {e}")
-    
+
     await msg.reply_text(
         f"🌸 **Test Broadcast Completed!**\n\n"
         f"✅ **Successful:** {successful} groups\n"
@@ -260,7 +281,7 @@ async def broadcast_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     msg = update.effective_message
     if msg is None:
         return
-    
+
     help_text = """
 🌸 **ACN Broadcast System Help**
 
@@ -295,17 +316,21 @@ async def broadcast_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 🎯 Only Captain and Commanders can manage broadcast settings.
     """
-    
+
     await msg.reply_text(help_text)
 
 
 # Channel post handlers
-async def handle_channel_post(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle_channel_post(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Handle new channel posts for broadcasting"""
     await BroadcastService.handle_channel_post(update, context)
 
 
-async def handle_channel_edited_post(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle_channel_edited_post(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     """Handle edited channel posts for broadcasting"""
     await BroadcastService.handle_channel_edited_post(update, context)
 
@@ -320,13 +345,15 @@ def register(app) -> None:
     app.add_handler(CommandHandler("broadcaststatus", broadcast_status))
     app.add_handler(CommandHandler("testbroadcast", test_broadcast))
     app.add_handler(CommandHandler("broadcasthelp", broadcast_help))
-    
+
     # Channel post handlers (for automatic broadcasting)
     app.add_handler(
         MessageHandler(tg_filters.Update.channel_post, handle_channel_post),
-        group=1  # High priority for channel posts
+        group=1,  # High priority for channel posts
     )
     app.add_handler(
-        MessageHandler(tg_filters.Update.edited_channel_post, handle_channel_edited_post),
-        group=1  # High priority for edited channel posts
+        MessageHandler(
+            tg_filters.Update.edited_channel_post, handle_channel_edited_post
+        ),
+        group=1,  # High priority for edited channel posts
     )

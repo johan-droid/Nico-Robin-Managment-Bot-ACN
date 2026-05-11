@@ -13,6 +13,7 @@ from config import Settings, settings
 
 try:
     from profanity_check import predict_prob
+
     PROFANITY_CHECK_AVAILABLE = True
 except ImportError:
     predict_prob = None
@@ -21,6 +22,7 @@ except ImportError:
 # Import swear word service for integration
 try:
     from services.swear_word_service import SwearWordService
+
     SWEAR_WORD_SERVICE_AVAILABLE = True
 except ImportError:
     SWEAR_WORD_SERVICE_AVAILABLE = False
@@ -77,25 +79,50 @@ class TraditionalMLProvider:
     def __init__(self) -> None:
         # Pre-compile regex patterns for performance
         self.doxxing_patterns = [
-            re.compile(r'\b\d{3}[-.]?\d{3}[-.]?\d{4}\b', re.IGNORECASE),  # Phone numbers
-            re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', re.IGNORECASE),  # Emails
-            re.compile(r'\b\d+\s+[A-Za-z]+\s+(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Way|Place|Pl)\b', re.IGNORECASE),  # Addresses
+            re.compile(
+                r"\b\d{3}[-.]?\d{3}[-.]?\d{4}\b", re.IGNORECASE
+            ),  # Phone numbers
+            re.compile(
+                r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", re.IGNORECASE
+            ),  # Emails
+            re.compile(
+                r"\b\d+\s+[A-Za-z]+\s+(Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Boulevard|Blvd|Court|Ct|Way|Place|Pl)\b",
+                re.IGNORECASE,
+            ),  # Addresses
         ]
-        
+
         self.spam_patterns = [
-            re.compile(r'https?://[^\s]+', re.IGNORECASE),  # URLs
-            re.compile(r'www\.[^\s]+', re.IGNORECASE),  # URLs without protocol
-            re.compile(r'\b(buy|sell|discount|offer|deal|free|win|prize|click|visit|check out|limited time)\b', re.IGNORECASE),  # Promotional words
-            re.compile(r'\b\$\d+\.?\d*\b', re.IGNORECASE),  # Prices
+            re.compile(r"https?://[^\s]+", re.IGNORECASE),  # URLs
+            re.compile(r"www\.[^\s]+", re.IGNORECASE),  # URLs without protocol
+            re.compile(
+                r"\b(buy|sell|discount|offer|deal|free|win|prize|click|visit|check out|limited time)\b",
+                re.IGNORECASE,
+            ),  # Promotional words
+            re.compile(r"\b\$\d+\.?\d*\b", re.IGNORECASE),  # Prices
         ]
-        
+
         self.self_harm_patterns = [
-            re.compile(r'\b(kill|die|suicide|end my life|hurt myself|self.harm|cutting|overdose)\b', re.IGNORECASE),
-            re.compile(r'\b(want to die|don.t want to live|better off dead)\b', re.IGNORECASE),
+            re.compile(
+                r"\b(kill|die|suicide|end my life|hurt myself|self.harm|cutting|overdose)\b",
+                re.IGNORECASE,
+            ),
+            re.compile(
+                r"\b(want to die|don.t want to live|better off dead)\b", re.IGNORECASE
+            ),
         ]
-        
+
         # Performance optimization: quick checks for safe content
-        self.safe_indicators = {'hello', 'hi', 'thanks', 'thank you', 'ok', 'okay', 'good', 'great', 'nice'}
+        self.safe_indicators = {
+            "hello",
+            "hi",
+            "thanks",
+            "thank you",
+            "ok",
+            "okay",
+            "good",
+            "great",
+            "nice",
+        }
         self.max_content_length = 10000  # Prevent processing extremely long messages
 
     def _detect_doxxing(self, text: str) -> float:
@@ -151,33 +178,45 @@ class TraditionalMLProvider:
         # Performance optimization: skip very long messages
         if len(message_text) > self.max_content_length:
             return ModerationResult.safe()
-        
+
         # Performance optimization: quick safe content check
         text_lower = message_text.lower().strip()
-        if text_lower in self.safe_indicators or text_lower.startswith(tuple(self.safe_indicators)):
+        if text_lower in self.safe_indicators or text_lower.startswith(
+            tuple(self.safe_indicators)
+        ):
             return ModerationResult.safe()
-        
+
         # Check for specific patterns first (always available)
         doxxing_score = self._detect_doxxing(message_text)
         spam_score = self._detect_spam(message_text)
         self_harm_score = self._detect_self_harm(message_text)
-        
+
         # Check for swear words if service is available
         swear_word_score = 0.0
         swear_word_category = None
         if SWEAR_WORD_SERVICE_AVAILABLE and context.get("group_id"):
             try:
                 from database import async_session_factory
+
                 async with async_session_factory() as session:
                     matches = await SwearWordService.match_swear_words(
                         session, context["group_id"], message_text
                     )
                     if matches:
                         # Use highest severity match
-                        highest_match = max(matches, key=lambda m: (
-                            0 if m.severity == "mild" else 1 if m.severity == "moderate" else 2
-                        ))
-                        swear_word_score = 0.9 if highest_match.severity == "severe" else 0.7
+                        highest_match = max(
+                            matches,
+                            key=lambda m: (
+                                0
+                                if m.severity == "mild"
+                                else 1
+                                if m.severity == "moderate"
+                                else 2
+                            ),
+                        )
+                        swear_word_score = (
+                            0.9 if highest_match.severity == "severe" else 0.7
+                        )
                         swear_word_category = f"swear_word_{highest_match.severity}"
             except Exception:
                 # Continue without swear word checking if there's an error
@@ -189,30 +228,34 @@ class TraditionalMLProvider:
                 score=self_harm_score,
                 category="self_harm",
                 action="notify_admin",
-                rationale="Self-harm content detected"
+                rationale="Self-harm content detected",
             )
         elif doxxing_score >= 0.8:
             return ModerationResult(
                 score=doxxing_score,
                 category="doxxing",
                 action="delete_warn",
-                rationale="Personal information detected"
+                rationale="Personal information detected",
             )
         elif spam_score >= 0.7:
             return ModerationResult(
                 score=spam_score,
                 category="spam_promo",
                 action="delete",
-                rationale="Spam or promotional content detected"
+                rationale="Spam or promotional content detected",
             )
         elif swear_word_score >= 0.7:
             # Handle swear word detection
-            action = "delete_warn" if swear_word_category and "severe" in swear_word_category else "warn"
+            action = (
+                "delete_warn"
+                if swear_word_category and "severe" in swear_word_category
+                else "warn"
+            )
             return ModerationResult(
                 score=swear_word_score,
                 category=swear_word_category or "swear_word_moderate",
                 action=action,
-                rationale="Swear word detected"
+                rationale="Swear word detected",
             )
 
         # Use SVM for general toxicity if available
@@ -220,12 +263,14 @@ class TraditionalMLProvider:
         if PROFANITY_CHECK_AVAILABLE and predict_prob is not None:
             try:
                 toxicity_prob = float(predict_prob([message_text])[0])
-            except Exception as e:
+            except Exception:
                 # Log error but don't fail completely
                 toxicity_prob = 0.0
-        
+
         # Use the highest score from all detections
-        max_score = max(toxicity_prob, doxxing_score, spam_score, self_harm_score, swear_word_score)
+        max_score = max(
+            toxicity_prob, doxxing_score, spam_score, self_harm_score, swear_word_score
+        )
 
         # If no library and no patterns detected, return safe
         if not PROFANITY_CHECK_AVAILABLE and max_score < 0.5:
@@ -236,12 +281,9 @@ class TraditionalMLProvider:
         rationale = f"Traditional ML detection: {category}"
         if not PROFANITY_CHECK_AVAILABLE:
             rationale += " (regex-only mode)"
-        
+
         return ModerationResult(
-            score=max_score,
-            category=category,
-            action=action,
-            rationale=rationale
+            score=max_score, category=category, action=action, rationale=rationale
         )
 
 

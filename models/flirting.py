@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from sqlalchemy import BigInteger, Boolean, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from models.base import Base, TimestampMixin
@@ -14,11 +22,15 @@ if TYPE_CHECKING:
 
 class FlirtingAttempt(Base, TimestampMixin):
     """Track flirting attempts and their outcomes"""
-    
-    __tablename__ = "flirting_attempts"
-    __table_args__ = (UniqueConstraint("user_id", "group_id", "event_id", "attempt_time"),)
 
-    attempt_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    __tablename__ = "flirting_attempts"
+    __table_args__ = (
+        UniqueConstraint("user_id", "group_id", "event_id", "attempt_time"),
+    )
+
+    attempt_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
     user_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.user_id", ondelete="CASCADE"),
@@ -43,8 +55,12 @@ class FlirtingAttempt(Base, TimestampMixin):
     successful: Mapped[bool] = mapped_column(Boolean, nullable=False, index=True)
     response_given: Mapped[str] = mapped_column(Text, nullable=True)
     points_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    attempt_time: Mapped[int] = mapped_column(Integer, nullable=False, index=True)  # Unix timestamp
-    skill_level: Mapped[str] = mapped_column(String(20), default="beginner", nullable=False)
+    attempt_time: Mapped[int] = mapped_column(
+        Integer, nullable=False, index=True
+    )  # Unix timestamp
+    skill_level: Mapped[str] = mapped_column(
+        String(20), default="beginner", nullable=False
+    )
 
     # Relationships
     user: Mapped[User] = relationship(foreign_keys=[user_id])
@@ -54,7 +70,7 @@ class FlirtingAttempt(Base, TimestampMixin):
 
 class FlirtingStats(Base, TimestampMixin):
     """User flirting statistics and achievements"""
-    
+
     __tablename__ = "flirting_stats"
     __table_args__ = (UniqueConstraint("user_id", "group_id"),)
 
@@ -74,14 +90,22 @@ class FlirtingStats(Base, TimestampMixin):
     total_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     successful_flirts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     failed_flirts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    favorite_category: Mapped[str] = mapped_column(String(20), default="charming", nullable=False)
-    highest_skill_used: Mapped[str] = mapped_column(String(20), default="beginner", nullable=False)
+    favorite_category: Mapped[str] = mapped_column(
+        String(20), default="charming", nullable=False
+    )
+    highest_skill_used: Mapped[str] = mapped_column(
+        String(20), default="beginner", nullable=False
+    )
     points_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    success_rate: Mapped[float] = mapped_column(Integer, default=0.0, nullable=False)  # Stored as integer (percentage * 100)
+    success_rate: Mapped[float] = mapped_column(
+        Integer, default=0.0, nullable=False
+    )  # Stored as integer (percentage * 100)
     current_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     best_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_flirt_time: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    flirt_level: Mapped[str] = mapped_column(String(20), default="novice", nullable=False)
+    flirt_level: Mapped[str] = mapped_column(
+        String(20), default="novice", nullable=False
+    )
 
     # Relationships
     user: Mapped[User] = relationship()
@@ -90,10 +114,12 @@ class FlirtingStats(Base, TimestampMixin):
 
 class FlirtingAchievement(Base, TimestampMixin):
     """Flirting achievements and rewards"""
-    
+
     __tablename__ = "flirting_achievements"
 
-    achievement_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    achievement_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
     user_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.user_id", ondelete="CASCADE"),
@@ -106,7 +132,9 @@ class FlirtingAchievement(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
-    achievement_type: Mapped[str] = mapped_column(String(30), nullable=False, index=True)
+    achievement_type: Mapped[str] = mapped_column(
+        String(30), nullable=False, index=True
+    )
     achievement_name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     icon: Mapped[str] = mapped_column(String(10), default="🌸", nullable=False)
@@ -120,11 +148,13 @@ class FlirtingAchievement(Base, TimestampMixin):
 
 class FlirtingRelationship(Base, TimestampMixin):
     """Track romantic relationships between users"""
-    
+
     __tablename__ = "flirting_relationships"
     __table_args__ = (UniqueConstraint("user_id", "partner_id", "group_id"),)
 
-    relationship_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    relationship_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
     user_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.user_id", ondelete="CASCADE"),
@@ -143,8 +173,12 @@ class FlirtingRelationship(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
-    relationship_status: Mapped[str] = mapped_column(String(20), default="crush", nullable=False, index=True)
-    intimacy_level: Mapped[int] = mapped_column(Integer, default=0, nullable=False)  # 0-100
+    relationship_status: Mapped[str] = mapped_column(
+        String(20), default="crush", nullable=False, index=True
+    )
+    intimacy_level: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False
+    )  # 0-100
     romance_points: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     special_moments: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     started_at: Mapped[int] = mapped_column(Integer, nullable=False)  # Unix timestamp
@@ -158,7 +192,7 @@ class FlirtingRelationship(Base, TimestampMixin):
 
 class FlirtingGift(Base, TimestampMixin):
     """Virtual gifts and romantic gestures"""
-    
+
     __tablename__ = "flirting_gifts"
 
     gift_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -196,11 +230,13 @@ class FlirtingGift(Base, TimestampMixin):
 
 class FlirtingPreference(Base, TimestampMixin):
     """User flirting preferences and settings"""
-    
+
     __tablename__ = "flirting_preferences"
     __table_args__ = (UniqueConstraint("user_id", "group_id"),)
 
-    preference_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    preference_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
     user_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("users.user_id", ondelete="CASCADE"),
@@ -213,13 +249,21 @@ class FlirtingPreference(Base, TimestampMixin):
         nullable=False,
         index=True,
     )
-    preferred_categories: Mapped[str] = mapped_column(Text, nullable=True)  # JSON string
+    preferred_categories: Mapped[str] = mapped_column(
+        Text, nullable=True
+    )  # JSON string
     blocked_categories: Mapped[str] = mapped_column(Text, nullable=True)  # JSON string
-    max_skill_level: Mapped[str] = mapped_column(String(20), default="master", nullable=False)
+    max_skill_level: Mapped[str] = mapped_column(
+        String(20), default="master", nullable=False
+    )
     auto_responses: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    public_flirting: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    public_flirting: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     receive_gifts: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    notification_level: Mapped[str] = mapped_column(String(20), default="all", nullable=False)
+    notification_level: Mapped[str] = mapped_column(
+        String(20), default="all", nullable=False
+    )
 
     # Relationships
     user: Mapped[User] = relationship()

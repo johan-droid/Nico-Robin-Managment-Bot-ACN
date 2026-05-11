@@ -42,9 +42,7 @@ async def whois(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     async with async_session_factory() as session:
         warns = await WarnService.active_warn_count(session, chat.id, target.id)
     await msg.reply_text(
-        f"🌸 {telegram_user_label(target)}\n"
-        f"Warnings: {warns}\n"
-        "Record status: readable."
+        f"🌸 {telegram_user_label(target)}\nWarnings: {warns}\nRecord status: readable."
     )
 
 
