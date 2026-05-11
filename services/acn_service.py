@@ -243,9 +243,7 @@ class ACNService:
                 & (LoyaltyPoints.group_id == group_id),
                 isouter=True,
             )
-            .where(
-                ACNWhitelist.whitelist_type == "user", ACNWhitelist.is_active
-            )
+            .where(ACNWhitelist.whitelist_type == "user", ACNWhitelist.is_active)
         )
 
         members = []

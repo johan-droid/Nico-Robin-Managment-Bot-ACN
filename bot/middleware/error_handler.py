@@ -6,6 +6,7 @@ and forwards full diagnostics to the log channel.
 
 from __future__ import annotations
 
+import html
 import time
 import traceback
 
@@ -59,7 +60,7 @@ def _classify(e):
         return ("bad_request", "🌸 Bad request format.", "LOW")
     if isinstance(e, RetryAfter):
         return ("rate_limit", f"🛡️ Rate limited. Retry in {e.retry_after}s.", "MEDIUM")
-    if isinstance(e, (TimedOut, NetworkError)):
+    if isinstance(e, TimedOut | NetworkError):
         return ("network", "🌸 Network issue. Try again.", "MEDIUM")
     if isinstance(e, ChatMigrated):
         return ("migration", "🌸 Chat migrated.", "LOW")
@@ -95,20 +96,32 @@ async def _report(ctx, err, cat, sev, info):
     _err_times.append(now)
     tb = "".join(traceback.format_exception(type(err), err, err.__traceback__))[-1500:]
     emj = {"CRITICAL": "🔴", "HIGH": "🟠", "MEDIUM": "🟡", "LOW": "🔵"}.get(sev, "⚪")
+    cat_esc = html.escape(str(cat))
+    err_name_esc = html.escape(type(err).__name__)
+    err_msg_esc = html.escape(str(err)[:300])
+    
     r = (
-        f"{emj} **Error [{sev}]**\n📋 {cat}\n❌ `{type(err).__name__}`\n"
-        f"📝 {str(err)[:300]}\n"
+        f"{emj} <b>Error [{sev}]</b>\n"
+        f"📋 {cat_esc}\n"
+        f"❌ <code>{err_name_esc}</code>\n"
+        f"📝 {err_msg_esc}\n"
     )
     if info.get("user_id"):
-        r += f"👤 `{info['user_id']}`\n"
+        r += f"👤 <code>{info['user_id']}</code>\n"
     if info.get("chat_id"):
-        r += f"💬 `{info['chat_id']}`\n"
+        r += f"💬 <code>{info['chat_id']}</code>\n"
     if info.get("command"):
-        r += f"🔧 `{info['command']}`\n"
-    r += f"\n```\n{tb}\n```"
+        r += f"🔧 <code>{html.escape(str(info['command']))}</code>\n"
+    
+    # Escape traceback and wrap in pre
+    tb_esc = html.escape(tb)
+    r += f"\n<pre>{tb_esc}</pre>"
+    
     try:
         await ctx.bot.send_message(
-            chat_id=settings.log_channel_id, text=r[:4000], parse_mode="Markdown"
+            chat_id=settings.log_channel_id, 
+            text=r[:4096], 
+            parse_mode="HTML"
         )
     except Exception:
         logger.error("report_failed", err=str(err)[:200])

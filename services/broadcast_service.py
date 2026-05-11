@@ -313,7 +313,6 @@ class BroadcastService:
             if not whitelist_entry:
                 return False
 
-
         # Create update message
         content = message.text or message.caption or ""
         timestamp = time.strftime(
