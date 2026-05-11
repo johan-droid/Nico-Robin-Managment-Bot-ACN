@@ -151,11 +151,11 @@ async def _handle_violation(
                 await message.reply_text(
                     f"🛡️ **Rate limit exceeded (repeated offense).**\n"
                     f"You are on a {cooldown_seconds}s cooldown.\n"
-                    f"⚠️ Continued abuse may result in a permanent ban."
+                    f"⚠️ Continued abuse may result in a permanent ban.",
                 )
             else:
                 await message.reply_text(
-                    f"🛡️ Slow down! Rate limit reached.\nCooldown: {cooldown_seconds}s."
+                    f"🛡️ Slow down! Rate limit reached.\nCooldown: {cooldown_seconds}s.",
                 )
         except Exception:
             pass
