@@ -47,7 +47,7 @@ class BotWebSocketClient:
             return
 
         try:
-            # Connect to WebSocket server (use the same HTTP port where Socket.IO is mounted)
+            # Connect to WebSocket server (Socket.IO is mounted on the same HTTP port)
             await self.sio.connect(
                 f"http://127.0.0.1:{settings.port}",
                 auth={

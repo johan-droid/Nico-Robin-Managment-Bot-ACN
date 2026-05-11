@@ -70,8 +70,9 @@ async def main() -> None:
         # connections before the WebSocket client attempts to connect.
         server_task = asyncio.create_task(server.serve())
 
-        # Give the server a short moment to bind the port (uvicorn listens fast)
-        await asyncio.sleep(0.5)
+        # Give the server time to bind the port and initialize Socket.IO endpoints
+        # In containerized environments, this may take longer due to startup delays
+        await asyncio.sleep(2.0)
 
         # Initialize WebSocket client (will connect to the running server)
         await initialize_websocket_client(ptb_app)
