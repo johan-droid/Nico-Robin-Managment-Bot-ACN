@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 
 import structlog
 import uvicorn
@@ -16,6 +17,30 @@ from gateway.webhook import create_combined_app
 from utils.logging import configure_logging
 
 logger = structlog.get_logger(__name__)
+
+
+async def _wait_for_db() -> None:
+    """Wait for the database to be ready before starting."""
+    retries = 5
+    import asyncio
+
+    from sqlalchemy import text
+
+    while retries > 0:
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            logger.info("database_connection_successful")
+            return
+        except Exception as e:
+            retries -= 1
+            logger.warning(
+                "database_connection_failed", retries_left=retries, error=str(e)
+            )
+            if retries == 0:
+                logger.error("database_connection_exhausted")
+                sys.exit(1)
+            await asyncio.sleep(2.0)
 
 
 async def _auto_migrate() -> None:
@@ -42,40 +67,10 @@ async def _auto_migrate() -> None:
 async def main() -> None:
     configure_logging()
 
-    # Wait for database readiness
-    import sys
+    # 1. Wait for database to be ready
+    await _wait_for_db()
 
-    from sqlalchemy import text
-
-    max_retries = 5
-    for attempt in range(1, max_retries + 1):
-        try:
-            async with engine.connect() as conn:
-                await conn.execute(text("SELECT 1"))
-            logger.info("database_ready")
-            break
-        except Exception as exc:
-            error_msg = str(exc).lower()
-            if "password authentication failed" in error_msg:
-                logger.error(
-                    "database_authentication_failed",
-                    error="Incorrect username or password in DATABASE_URL. Please check your credentials.",
-                    user=getattr(engine.url, "username", "unknown"),
-                )
-                # If it's an auth failure, retrying is usually futile unless the secret is being updated
-                if attempt == max_retries:
-                    sys.exit(1)
-            else:
-                logger.warning(
-                    "database_connection_failed", attempt=attempt, error=str(exc)
-                )
-            
-            if attempt == max_retries:
-                logger.error("database_connection_max_retries_reached")
-                sys.exit(1)
-            await asyncio.sleep(2.0)
-
-    # Auto-migrate database before starting bot
+    # 2. Auto-migrate database
     try:
         await _auto_migrate()
     except Exception as exc:
