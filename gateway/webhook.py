@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from fastapi import FastAPI, Header, HTTPException, Request, Response, status
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -101,7 +102,6 @@ def create_app(ptb_app: Application) -> FastAPI:
         if len(body) > MAX_BODY_SIZE:
             raise HTTPException(status_code=413, detail="Payload too large")
         try:
-            import json
 
             payload = json.loads(body)
         except (json.JSONDecodeError, UnicodeDecodeError) as e:
@@ -120,6 +120,5 @@ def create_app(ptb_app: Application) -> FastAPI:
 
 def create_combined_app(ptb_app: Application):
     fastapi_app = create_app(ptb_app)
-    socketio_app = create_socketio_app()
-    fastapi_app.mount("/socket.io", socketio_app)
-    return fastapi_app
+    socketio_app = create_socketio_app(other_asgi_app=fastapi_app)
+    return socketio_app

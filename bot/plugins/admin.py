@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 
-from telegram import ChatPermissions, Update
+from typing import Any, Coroutine
+
+from telegram import Bot, ChatPermissions, Update
 from telegram.error import TelegramError
 from telegram.ext import CommandHandler, ContextTypes
 
@@ -144,7 +146,7 @@ async def _apply_unmute(
 
 @acn_only
 @admin_captain_commander_only
-async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Coroutine[Any, Any, None]:
     msg = update.effective_message
     chat = update.effective_chat
     if msg is None or chat is None:
@@ -196,7 +198,7 @@ async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 @acn_only
 @admin_captain_commander_only
-async def unban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def unban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Coroutine[Any, Any, None]:
     msg = update.effective_message
     chat = update.effective_chat
     target = await resolve_target(update, context)
@@ -211,7 +213,7 @@ async def unban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 @acn_only
 @admin_captain_commander_only
-async def kick(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def kick(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Coroutine[Any, Any, None]:
     msg = update.effective_message
     chat = update.effective_chat
     target = await resolve_target(update, context)
@@ -223,12 +225,12 @@ async def kick(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await context.bot.ban_chat_member(chat.id, target.user_id)
     await context.bot.unban_chat_member(chat.id, target.user_id, only_if_banned=True)
     await _record_action(update, context, "kick", target, reason)
-    await msg.reply_text(gettext("kick.success", target=target.label))
+    await msg.reply_text(gettext("kick.success", target=target.label, reason=reason))
 
 
 @group_only
 @admin_only
-async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Coroutine[Any, Any, None]:
     msg = update.effective_message
     chat = update.effective_chat
     target = await resolve_target(update, context)
@@ -244,12 +246,12 @@ async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     reason = reason_from_args(args, reason_start)
     await _apply_mute(context, chat.id, target.user_id, duration)
     await _record_action(update, context, "mute", target, reason)
-    await msg.reply_text(mute_message(target.label, human_duration(duration)))
+    await msg.reply_text(mute_message(target.label, human_duration(duration), reason))
 
 
 @group_only
 @admin_only
-async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Coroutine[Any, Any, None]:
     msg = update.effective_message
     chat = update.effective_chat
     target = await resolve_target(update, context)
@@ -284,7 +286,7 @@ async def _auto_action(
 
 @acn_only
 @admin_captain_commander_only
-async def warn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def warn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Coroutine[Any, Any, None]:
     msg = update.effective_message
     chat = update.effective_chat
     actor = update.effective_user
@@ -352,7 +354,7 @@ async def warn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 @acn_only
 @admin_captain_commander_only
-async def warns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def warns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Coroutine[Any, Any, None]:
     msg = update.effective_message
     chat = update.effective_chat
     target = await resolve_target(update, context)
@@ -379,7 +381,7 @@ async def warns(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 @acn_only
 @admin_captain_commander_only
-async def resetwarn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def resetwarn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Coroutine[Any, Any, None]:
     msg = update.effective_message
     chat = update.effective_chat
     target = await resolve_target(update, context)
@@ -402,7 +404,7 @@ async def resetwarn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 @group_only
 @admin_only
-async def pin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def pin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Coroutine[Any, Any, None]:
     del context
     msg = update.effective_message
     if msg is None or msg.reply_to_message is None:
@@ -415,7 +417,7 @@ async def pin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 @group_only
 @admin_only
-async def delete_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def delete_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Coroutine[Any, Any, None]:
     del context
     msg = update.effective_message
     if msg is None or msg.reply_to_message is None:
@@ -429,7 +431,7 @@ async def delete_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 @group_only
 @admin_only
-async def slowmode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def slowmode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Coroutine[Any, Any, None]:
     msg = update.effective_message
     chat = update.effective_chat
     if msg is None or chat is None:
@@ -439,7 +441,8 @@ async def slowmode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     except ValueError:
         await msg.reply_text("🌸 Give me a number of seconds to inscribe.")
         return
-    await context.bot.set_chat_slow_mode_delay(chat.id, delay)
+    from typing import cast
+    await cast(Bot, context.bot).set_chat_slow_mode_delay(chat_id=chat.id, slow_mode_delay=delay)
     await msg.reply_text(f"🌸 Slow mode set to {delay} seconds.")
 
 

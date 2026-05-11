@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from functools import wraps
-from typing import cast
+from typing import Any, Coroutine, cast
 
 from sqlalchemy import select
 from telegram import Update
@@ -20,7 +20,7 @@ from utils.permissions import (
 )
 from utils.sanitizer import sanitize_input  # noqa: F401 — re-exported
 
-Handler = Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[None]]
+Handler = Callable[[Update, ContextTypes.DEFAULT_TYPE], Coroutine[Any, Any, None]]
 
 
 async def _reply(update: Update, text: str) -> None:

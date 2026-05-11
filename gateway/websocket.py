@@ -170,7 +170,7 @@ class WebSocketManager:
 
     async def send_to_user(self, user_id: str, event: dict[str, Any]):
         for sid, uid in self.user_sessions.items():
-            if str(uid) == str(user_id):
+            if uid == user_id:
                 await self.sio.emit("realtime_event", event, room=sid)
 
     async def broadcast_to_admins(self, event: dict[str, Any]):
@@ -191,12 +191,12 @@ class WebSocketManager:
 websocket_manager = WebSocketManager()
 
 
-def create_socketio_app() -> socketio.ASGIApp:
-    return socketio.ASGIApp(websocket_manager.sio)
+def create_socketio_app(other_asgi_app: Any | None = None) -> socketio.ASGIApp:
+    return socketio.ASGIApp(websocket_manager.sio, other_asgi_app=other_asgi_app)
 
 
 async def emit_realtime_event(
-    event_type: str, data: dict[str, Any], target: str = "global", target_id: str = None
+    event_type: str, data: dict[str, Any], target: str = "global", target_id: str | None = None
 ):
     event = {
         "event": "realtime_update",

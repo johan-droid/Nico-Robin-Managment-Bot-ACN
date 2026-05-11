@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from functools import wraps
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -265,6 +266,7 @@ class ACNService:
 def acn_only(func):
     """Decorator to ensure command only works in ACN groups for ACN members"""
 
+    @wraps(func)
     async def wrapper(update, context, *args, **kwargs):
         chat = update.effective_chat
         user = update.effective_user
@@ -289,6 +291,7 @@ def acn_only(func):
 def captain_commander_only(func):
     """Decorator to ensure only captain or commanders can use command"""
 
+    @wraps(func)
     async def wrapper(update, context, *args, **kwargs):
         user = update.effective_user
 
@@ -316,6 +319,7 @@ def captain_commander_only(func):
 def admin_captain_commander_only(func):
     """Decorator to ensure only admins, captain, or commanders can use command"""
 
+    @wraps(func)
     async def wrapper(update, context, *args, **kwargs):
         chat = update.effective_chat
         user = update.effective_user
