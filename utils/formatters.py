@@ -32,7 +32,9 @@ def ban_message(target: str, reason: str, locale: str = "en") -> str:
 
 
 def mute_message(target: str, duration: str, reason: str, locale: str = "en") -> str:
-    return gettext("mute.success", locale, target=target, duration=duration, reason=reason)
+    return gettext(
+        "mute.success", locale, target=target, duration=duration, reason=reason
+    )
 
 
 def warn_message(

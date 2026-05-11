@@ -39,7 +39,9 @@ class Group(TimestampMixin, Base):
     )
     clean_welcome: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     welcome_dm_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    welcome_dm_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    welcome_dm_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     captcha_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
     )

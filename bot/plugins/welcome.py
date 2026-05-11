@@ -29,7 +29,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a welcome message when /start is triggered."""
     if update.effective_message is None:
         return
-    
+
     chat = update.effective_chat
     if chat and chat.type == "private":
         welcome_text = (
@@ -59,7 +59,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show available commands."""
     if update.effective_message is None:
         return
-    
+
     help_text = (
         "📚 Available Commands:\n\n"
         "/start - Welcome message\n"
@@ -117,6 +117,7 @@ async def welcome_new_members(
                         )
                 except Exception as e:
                     from structlog import get_logger
+
                     get_logger(__name__).error("redis_antiraid_error", error=str(e))
 
     # ── Log new member to log channel ──
@@ -148,7 +149,7 @@ async def welcome_new_members(
 
     if not group.welcome_enabled:
         return
-    
+
     count = await _member_count(context, chat.id)
     for member in msg.new_chat_members:
         if member.is_bot:
@@ -169,12 +170,19 @@ async def welcome_new_members(
                 await context.bot.send_message(chat_id=member.id, text=dm_text)
             except Forbidden:
                 bot_username = context.bot.username
-                keyboard = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("Start Bot to read rules", url=f"https://t.me/{bot_username}?start=rules")]
-                ])
+                keyboard = InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "Start Bot to read rules",
+                                url=f"https://t.me/{bot_username}?start=rules",
+                            )
+                        ]
+                    ]
+                )
                 await msg.reply_text(
                     f"Hi {member.first_name}, I couldn't send you a welcome message in DM. Please start me first!",
-                    reply_markup=keyboard
+                    reply_markup=keyboard,
                 )
 
         text = format_welcome(
@@ -186,7 +194,7 @@ async def welcome_new_members(
             locale=group.locale,
         )
         sent = await msg.reply_text(text)
-        
+
         try:
             redis = get_redis()
             key = LAST_WELCOME_KEY.format(chat_id=chat.id)
@@ -200,6 +208,7 @@ async def welcome_new_members(
             await redis.set(key, sent.message_id, ex=86400)
         except Exception as e:
             from structlog import get_logger
+
             get_logger(__name__).error("redis_welcome_error", error=str(e))
 
 
@@ -276,7 +285,6 @@ async def setwelcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 @group_only
 @admin_only
-
 @group_only
 @admin_only
 async def setwelcomedm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -293,7 +301,9 @@ async def setwelcomedm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     async with async_session_factory() as session:
         async with session.begin():
             await GroupService.ensure_group(session, chat)
-            await GroupService.update_settings(session, chat.id, welcome_dm_text=text, welcome_dm_enabled=True)
+            await GroupService.update_settings(
+                session, chat.id, welcome_dm_text=text, welcome_dm_enabled=True
+            )
     await msg.reply_text("🌸 Welcome DM saved and enabled.")
 
 
@@ -311,8 +321,11 @@ async def welcomedm_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     async with async_session_factory() as session:
         async with session.begin():
             await GroupService.ensure_group(session, chat)
-            await GroupService.update_settings(session, chat.id, welcome_dm_enabled=state)
+            await GroupService.update_settings(
+                session, chat.id, welcome_dm_enabled=state
+            )
     await msg.reply_text(f"🌸 Welcome DM is now {'enabled' if state else 'disabled'}.")
+
 
 async def resetwelcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     del context
