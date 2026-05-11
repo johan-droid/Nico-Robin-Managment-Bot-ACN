@@ -63,7 +63,17 @@ async def main() -> None:
     server = uvicorn.Server(server_config)
 
     async with ptb_app:
-        # Initialize WebSocket client
+        # Start the bot application first so `bot.get_me()` works
+        await ptb_app.start()
+
+        # Serve the ASGI app in a background task so the server is accepting
+        # connections before the WebSocket client attempts to connect.
+        server_task = asyncio.create_task(server.serve())
+
+        # Give the server a short moment to bind the port (uvicorn listens fast)
+        await asyncio.sleep(0.5)
+
+        # Initialize WebSocket client (will connect to the running server)
         await initialize_websocket_client(ptb_app)
 
         if settings.webhook_url and settings.webhook_url.startswith("https://"):
@@ -81,14 +91,13 @@ async def main() -> None:
                 reason="non_https_url",
             )
 
-        await ptb_app.start()
         logger.info("nico_robin_started", port=settings.port)
 
         if settings.websocket_enabled:
             logger.info("websocket_enabled", port=settings.websocket_port)
 
         try:
-            await server.serve()
+            await server_task
         finally:
             # Shutdown WebSocket client
             await shutdown_websocket_client()
