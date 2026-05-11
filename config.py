@@ -154,6 +154,8 @@ class Settings(BaseSettings):
         alias="DATABASE_URL",
     )
 
+    redis_url: str = Field(default="redis://localhost:6379/2", alias="REDIS_URL")
+
 
     llm_provider: Literal["disabled", "openai", "traditional_ml"] = Field(
         default="disabled",
