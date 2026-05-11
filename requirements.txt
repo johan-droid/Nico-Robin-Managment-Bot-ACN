@@ -10,7 +10,7 @@ alembic==1.13.1
 
 # Cache / Queue
 redis[hiredis]==5.0.4
-celery==5.4.0
+celery[redis]==5.4.0
 
 # Config
 pydantic-settings==2.2.1
