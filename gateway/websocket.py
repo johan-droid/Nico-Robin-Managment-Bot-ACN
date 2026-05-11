@@ -61,7 +61,9 @@ class WebSocketManager:
         self.sio.on("leave_room", self._on_leave_room)
         self.sio.on("authenticate", self._on_authenticate)
 
-    async def _on_connect(self, sid: str, environ: dict[str, Any], auth: dict[str, Any] | None = None):
+    async def _on_connect(
+        self, sid: str, environ: dict[str, Any], auth: dict[str, Any] | None = None
+    ):
         logger.info(f"WS connect: {sid}")
         self._connect_times[sid] = time.time()
         await self.sio.emit("connected", {"status": "ok", "sid": sid}, room=sid)
