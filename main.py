@@ -165,7 +165,7 @@ def _acquire_single_instance_lock() -> None:
     except Exception:
         lock_handle.close()
         logger.error("bot_already_running", lock_file=str(lock_path))
-        raise SystemExit(1)
+        raise SystemExit(1) from None
 
     _BOT_LOCK_HANDLE = lock_handle
 
