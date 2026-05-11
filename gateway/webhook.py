@@ -71,6 +71,10 @@ def create_app(ptb_app: Application) -> FastAPI:
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RequestSizeLimitMiddleware)
 
+    @app.get("/")
+    async def root() -> dict[str, str]:
+        return {"status": "ok", "bot": settings.bot_name, "version": "2.0.0"}
+
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok", "bot": settings.bot_name}
