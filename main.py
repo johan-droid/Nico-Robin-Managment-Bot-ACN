@@ -13,37 +13,55 @@ from client.websocket_client import (
 from config import settings
 from database import engine
 from gateway.webhook import create_combined_app
-from models import Base
 from utils.logging import configure_logging
 
 logger = structlog.get_logger(__name__)
 
 
 async def _auto_migrate() -> None:
-    """Auto-create database tables on startup.
-
-    Uses checkfirst=True so existing tables are never overwritten.
-    New models added to models/__init__.py are auto-detected.
-    """
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
-    logger.info("database_auto_migrated", tables=len(Base.metadata.tables))
-
-    # Stamp alembic to head so manual migrations stay in sync
+    """Run Alembic migrations automatically on startup."""
     try:
+        import asyncio
+
         from alembic.config import Config as AlembicConfig
 
         from alembic import command as alembic_cmd
 
-        cfg = AlembicConfig("alembic.ini")
-        alembic_cmd.stamp(cfg, "head")
-        logger.info("alembic_stamped_head")
-    except Exception:
-        pass  # Alembic not configured is fine
+        def run_upgrade():
+            cfg = AlembicConfig("alembic.ini")
+            alembic_cmd.upgrade(cfg, "head")
+
+        # Run the sync Alembic commands in a threadpool to avoid blocking the event loop
+        await asyncio.to_thread(run_upgrade)
+        logger.info("database_migrated_successfully")
+    except Exception as exc:
+        logger.error("database_migration_failed", error=str(exc))
+        raise
 
 
 async def main() -> None:
     configure_logging()
+
+    # Wait for database readiness
+    import sys
+
+    from sqlalchemy import text
+
+    max_retries = 5
+    for attempt in range(1, max_retries + 1):
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+            logger.info("database_ready")
+            break
+        except Exception as exc:
+            logger.warning(
+                "database_connection_failed", attempt=attempt, error=str(exc)
+            )
+            if attempt == max_retries:
+                logger.error("database_connection_max_retries_reached")
+                sys.exit(1)
+            await asyncio.sleep(2.0)
 
     # Auto-migrate database before starting bot
     try:
@@ -103,6 +121,9 @@ async def main() -> None:
             # Shutdown WebSocket client
             await shutdown_websocket_client()
             await ptb_app.stop()
+            from database import dispose_engine
+
+            await dispose_engine()
             logger.info("nico_robin_stopped")
 
 
