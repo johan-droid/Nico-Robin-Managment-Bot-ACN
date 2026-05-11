@@ -212,6 +212,9 @@ class Settings(BaseSettings):
         url = value.strip()
         if url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql://", 1)
+
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
         
         # Ensure it has the asyncpg driver for internal use if not already specified
         # but keep the base URL clean for the sync property

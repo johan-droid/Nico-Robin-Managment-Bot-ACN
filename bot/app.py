@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from telegram.ext import Application, MessageHandler, TypeHandler, filters as tg_filters
+from telegram.ext import Application, MessageHandler, TypeHandler
+from telegram.ext import filters as tg_filters
 
 from bot.dispatcher import register_all_handlers
 from bot.middleware.error_handler import global_error_handler

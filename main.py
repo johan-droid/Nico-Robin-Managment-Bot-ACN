@@ -10,7 +10,10 @@ import uvicorn
 from telegram import BotCommand
 
 from bot.app import create_application
-from client.websocket_client import initialize_websocket_client, shutdown_websocket_client
+from client.websocket_client import (
+    initialize_websocket_client,
+    shutdown_websocket_client,
+)
 from config import settings
 from database import dispose_engine, engine
 from gateway.webhook import create_combined_app

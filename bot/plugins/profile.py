@@ -8,9 +8,9 @@ from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
 from database import async_session_factory
+from services.group_service import GroupService
 from services.profile_service import ProfileService
 from services.user_service import UserService
-from services.group_service import GroupService
 from utils.decorators import group_only, sanitize_input
 
 

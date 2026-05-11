@@ -4,6 +4,7 @@
 import subprocess
 import sys
 
+
 def main():
     """Run black on the current directory."""
     try:
