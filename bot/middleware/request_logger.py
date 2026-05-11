@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import time
+
 import structlog
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from utils.logging import bind_update_context, clear_update_context
+from utils.logging import bind_update_context
 
 logger = structlog.get_logger(__name__)
 

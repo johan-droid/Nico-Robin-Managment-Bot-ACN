@@ -10,7 +10,10 @@ import uvicorn
 from telegram import BotCommand
 
 from bot.app import create_application
-from client.websocket_client import initialize_websocket_client, shutdown_websocket_client
+from client.websocket_client import (
+    initialize_websocket_client,
+    shutdown_websocket_client,
+)
 from config import settings
 from database import dispose_engine, engine
 from gateway.webhook import create_combined_app
@@ -159,10 +162,10 @@ def _acquire_single_instance_lock() -> None:
             import fcntl
 
             fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except Exception:
+    except Exception as e:
         lock_handle.close()
         logger.error("bot_already_running", lock_file=str(lock_path))
-        raise SystemExit(1)
+        raise SystemExit(1) from e
 
     _BOT_LOCK_HANDLE = lock_handle
 

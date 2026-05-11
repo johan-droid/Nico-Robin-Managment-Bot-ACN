@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Apply black formatting to Python files."""
 
+import os
 import subprocess
 import sys
-import os
+
 
 def run_black():
     """Run black on the current directory."""
