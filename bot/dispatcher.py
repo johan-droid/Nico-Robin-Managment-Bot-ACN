@@ -18,7 +18,6 @@ PLUGIN_MODULES: tuple[str, ...] = (
     "bot.plugins.purge",
     "bot.plugins.captcha",
     "bot.plugins.federation",
-    "bot.plugins.scheduler",
     "bot.plugins.stats",
     "bot.plugins.user_info",
     "bot.plugins.settings",

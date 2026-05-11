@@ -9,6 +9,8 @@ from telegram.ext import CommandHandler, ContextTypes
 
 from database import async_session_factory
 from services.profile_service import ProfileService
+from services.user_service import UserService
+from services.group_service import GroupService
 from utils.decorators import group_only, sanitize_input
 
 
@@ -186,6 +188,9 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     async with async_session_factory() as session:
+        async with session.begin():
+            await GroupService.ensure_group(session, chat)
+            await UserService.ensure_user(session, target)
         data = await ProfileService.build_full_profile(session, target.id, chat.id)
         # Override with live Telegram data for freshness
         data["first_name"] = target.first_name or data["first_name"]
@@ -221,6 +226,8 @@ async def setbio_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     async with async_session_factory() as session:
         async with session.begin():
+            await GroupService.ensure_group(session, chat)
+            await UserService.ensure_user(session, user)
             await ProfileService.set_bio(session, user.id, chat.id, bio_text)
 
     await msg.reply_text(

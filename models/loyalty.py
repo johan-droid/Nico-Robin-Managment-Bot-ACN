@@ -53,10 +53,12 @@ class ACNWhitelist(Base, TimestampMixin):
     group: Mapped[Group | None] = relationship(
         foreign_keys=[entity_id],
         primaryjoin="and_(ACNWhitelist.entity_id==Group.group_id, ACNWhitelist.whitelist_type=='group')",
+        overlaps="user",
     )
     user: Mapped[User | None] = relationship(
         foreign_keys=[entity_id],
         primaryjoin="and_(ACNWhitelist.entity_id==User.user_id, ACNWhitelist.whitelist_type=='user')",
+        overlaps="group",
     )
     added_by_user: Mapped[User | None] = relationship(foreign_keys=[added_by])
 

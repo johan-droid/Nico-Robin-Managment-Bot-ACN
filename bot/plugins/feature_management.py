@@ -10,6 +10,60 @@ from services.feature_service import FeatureService
 from utils.formatters import telegram_user_label
 
 
+async def management_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show the management command reference and use cases."""
+    msg = update.effective_message
+    if msg is None:
+        return
+
+    del context
+    response = (
+        "🌸 **Anime Crew Network Management Guide**\n\n"
+        "**Moderation & Protection**\n"
+        "Use these when you need to control spam, abuse, or member behavior.\n"
+        "• `/toggleai on/off` - turn AI moderation on or off\n"
+        "• `/ban`, `/unban`, `/kick` - remove or restore members\n"
+        "• `/mute`, `/unmute` - silence or restore chat access\n"
+        "• `/warn`, `/warns`, `/resetwarn` - issue and review warnings\n"
+        "• `/slowmode` - limit message flooding\n\n"
+        "**Content Management**\n"
+        "Use these to keep group messages clean and organized.\n"
+        "• `/del` - delete a replied message\n"
+        "• `/purge` - remove a batch of messages\n"
+        "• `/pin` - pin important announcements\n"
+        "• `/filter`, `/stop`, `/filters`, `/filteraction` - manage word filters\n\n"
+        "**Welcome & Rules**\n"
+        "Use these to control onboarding and group guidelines.\n"
+        "• `/setwelcome`, `/resetwelcome`, `/welcome on/off` - welcome messages\n"
+        "• `/setfarewell`, `/farewell on/off` - goodbye messages\n"
+        "• `/cleanwelcome on/off` - auto-remove welcome clutter\n"
+        "• `/setrules`, `/rules` - define and show group rules\n"
+        "• `/welcometest` - preview the current welcome text\n\n"
+        "**Group Info & Notes**\n"
+        "Use these to inspect the group and keep useful records.\n"
+        "• `/stats` - group activity summary\n"
+        "• `/id` - show chat or user id\n"
+        "• `/whois`, `/info` - inspect a member\n"
+        "• `/save`, `/get`, `/notes`, `/clear` - manage note pages\n\n"
+        "**Settings & Controls**\n"
+        "Use these to tune the group behavior.\n"
+        "• `/setlocale` - change language\n"
+        "• `/setwarnlimit`, `/setwarnaction` - change warning policy\n"
+        "• `/setflood`, `/setfloodmode`, `/flood on/off` - flood protection\n"
+        "• `/captcha on/off` - new member verification\n\n"
+        "**Feature Management**\n"
+        "Use these when captain/commander needs to switch bot modules.\n"
+        "• `/features` - list every feature\n"
+        "• `/enable`, `/disable`, `/toggle` - change a feature\n"
+        "• `/feature_info` - explain a feature\n"
+        "• `/feature_logs`, `/feature_stats` - inspect usage and history\n"
+        "• `/my_features` - show what your role can use\n"
+        "• `/enable_category`, `/disable_category`, `/reset_features confirm` - bulk control\n\n"
+        "If you want, I can also make this guide available as `/help` in groups."
+    )
+    await msg.reply_text(response, parse_mode="Markdown")
+
+
 @captain_commander_only
 async def enable_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Enable a bot feature (Captain/Commander only)"""
@@ -500,6 +554,7 @@ async def disable_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 def register(app) -> None:
     """Register feature management commands"""
+    app.add_handler(CommandHandler("management", management_help))
     app.add_handler(CommandHandler("enable", enable_feature))
     app.add_handler(CommandHandler("disable", disable_feature))
     app.add_handler(CommandHandler("toggle", toggle_feature))

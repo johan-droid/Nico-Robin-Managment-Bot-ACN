@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "2024_01_10_comprehensive_feature_migration"
-down_revision: str | None = "base"
+down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -509,6 +509,8 @@ def _create_bot_friendship_tables() -> None:
             "conversation_score", sa.Integer(), nullable=False, server_default="0"
         ),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default="true"),
+        task_track_started=True,
+        broker_connection_retry_on_startup=True,
         sa.Column("started_at", sa.BigInteger(), nullable=False),
         sa.Column("last_message_at", sa.BigInteger(), nullable=False),
         sa.ForeignKeyConstraint(["group_id"], ["groups.group_id"], ondelete="CASCADE"),

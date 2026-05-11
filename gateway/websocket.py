@@ -60,12 +60,27 @@ class WebSocketManager:
         self.sio.on("join_room", self._on_join_room)
         self.sio.on("leave_room", self._on_leave_room)
         self.sio.on("authenticate", self._on_authenticate)
+        self.sio.on("bot_event", self._on_bot_event)
 
     async def _on_connect(
         self, sid: str, environ: dict[str, Any], auth: dict[str, Any] | None = None
     ):
         logger.info(f"WS connect: {sid}")
         self._connect_times[sid] = time.time()
+        
+        # Immediate authentication if auth data is provided (Socket.IO 5.x+)
+        if auth:
+            user_id = auth.get("user_id") or auth.get("bot_id")
+            token = auth.get("token")
+            timestamp = auth.get("timestamp")
+            if user_id and token and timestamp:
+                if _verify_hmac_token(str(user_id), str(timestamp), str(token)):
+                    self._authenticated.add(sid)
+                    self.user_sessions[sid] = str(user_id)
+                    logger.info(f"WS auto-authenticated: {sid}, user={user_id}")
+                else:
+                    logger.warning(f"WS auto-auth failed: {sid}, user={user_id}")
+        
         await self.sio.emit("connected", {"status": "ok", "sid": sid}, room=sid)
         # Auto-disconnect unauthenticated clients after 10s
         asyncio.get_event_loop().call_later(
@@ -134,10 +149,15 @@ class WebSocketManager:
             uid = self.user_sessions.get(sid)
             if uid:
                 uid_int = int(uid) if uid.lstrip("-").isdigit() else 0
+                # Check if it's the bot itself (extract bot_id from token)
+                bot_id_str = settings.bot_token.split(":")[0] if ":" in settings.bot_token else ""
+                bot_id = int(bot_id_str) if bot_id_str.isdigit() else 0
+                
                 if (
                     uid_int not in settings.sudo_users
                     and uid_int != settings.captain_id
                     and uid_int not in settings.commander_ids
+                    and uid_int != bot_id  # Allow the bot itself
                 ):
                     await self.sio.emit(
                         "error", {"error": "Admin room restricted"}, room=sid
@@ -164,6 +184,21 @@ class WebSocketManager:
         if sid in self.session_rooms:
             self.session_rooms[sid].discard(room_id)
         await self.sio.emit("left_room", {"room_id": room_id}, room=sid)
+
+    async def _on_bot_event(self, sid: str, data: dict[str, Any]):
+        """Handle events emitted by the bot client."""
+        if sid not in self._authenticated:
+            return
+        event_type = data.get("type")
+        event_data = data.get("data")
+        logger.info(f"Received bot event: {event_type} from {sid}")
+        # Forward to other handlers if needed, or broadcast to admins
+        if event_type == "bot_status":
+            await self.broadcast_to_admins({
+                "event": "bot_status_update",
+                "sid": sid,
+                "data": event_data
+            })
 
     async def broadcast_to_group(self, group_id: str, event: dict[str, Any]):
         await self.sio.emit("realtime_event", event, room=f"group_{group_id}")

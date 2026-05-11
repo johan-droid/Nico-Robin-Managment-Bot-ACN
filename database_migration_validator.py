@@ -81,7 +81,7 @@ async def validate_migration():
                 "loyalty_redemptions",
                 "loyalty_rewards",
                 "acn_activities",
-                "acn_whitelists",
+                "acn_whitelist",
                 "federations",
                 "federation_admins",
                 "federation_bans",

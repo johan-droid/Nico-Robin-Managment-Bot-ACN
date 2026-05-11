@@ -22,6 +22,57 @@ from utils.i18n import gettext
 LAST_WELCOME_KEY = "welcome:last:{chat_id}"
 
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send a welcome message when /start is triggered."""
+    if update.effective_message is None:
+        return
+    
+    chat = update.effective_chat
+    if chat and chat.type == "private":
+        welcome_text = (
+            "🌸 Welcome to Nico Robin Bot!\n\n"
+            "I’m the Anime Crew Network assistant bot, linked with the ACN community network.\n\n"
+            "Here’s what I can do for you inside your groups:\n"
+            "• 📊 Track points, levels, and activity\n"
+            "• 🛡️ Help with moderation and safety\n"
+            "• 💬 Handle fun interactions and group features\n"
+            "• 🔧 Manage welcomes, rules, notes, and settings\n\n"
+            "Add me to an Anime Crew Network group, then use /help to see available commands."
+        )
+    else:
+        welcome_text = (
+            "🌸 Welcome to Nico Robin Bot!\n\n"
+            "I’m here to help manage your Telegram groups with various features like:\n"
+            "• 📊 Points and leveling system\n"
+            "• 🛡️ Moderation tools\n"
+            "• 💬 Fun interactions\n"
+            "• 🔧 Group management\n\n"
+            "Use /help to see more commands."
+        )
+    await update.effective_message.reply_text(welcome_text)
+
+
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show available commands."""
+    if update.effective_message is None:
+        return
+    
+    help_text = (
+        "📚 Available Commands:\n\n"
+        "/start - Welcome message\n"
+        "/help - This message\n"
+        "/ping - Check if bot is alive\n"
+        "/points - View your points\n"
+        "/profile - View your profile\n"
+        "/stats - Group statistics\n"
+        "/settings - Group settings\n"
+        "/rules - Show group rules\n"
+        "/setrules - Set group rules (admin only)\n\n"
+        "For more help, contact the group admins."
+    )
+    await update.effective_message.reply_text(help_text)
+
+
 def _state_arg(args: list[str]) -> bool | None:
     if not args:
         return None
@@ -338,6 +389,8 @@ async def welcometest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 def register(app) -> None:
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("setwelcome", setwelcome))
     app.add_handler(CommandHandler("resetwelcome", resetwelcome))
     app.add_handler(CommandHandler("welcome", welcome_toggle))

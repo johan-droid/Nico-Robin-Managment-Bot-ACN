@@ -121,9 +121,6 @@ class Settings(BaseSettings):
     realtime_events_enabled: bool = Field(default=True, alias="REALTIME_EVENTS_ENABLED")
     event_batch_size: int = Field(default=100, alias="EVENT_BATCH_SIZE")
     event_retention_hours: int = Field(default=24, alias="EVENT_RETENTION_HOURS")
-    redis_events_channel: str = Field(
-        default="nico_robin_events", alias="REDIS_EVENTS_CHANNEL"
-    )
 
     sudo_users: tuple[int, ...] = Field(default=(), alias="SUDO_USERS")
 
@@ -156,15 +153,7 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://robin:password@localhost:5432/robin_db",
         alias="DATABASE_URL",
     )
-    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
-    celery_broker_url: str = Field(
-        default="redis://localhost:6379/1",
-        alias="CELERY_BROKER_URL",
-    )
-    celery_result_backend: str = Field(
-        default="redis://localhost:6379/2",
-        alias="CELERY_RESULT_BACKEND",
-    )
+
 
     llm_provider: Literal["disabled", "openai", "traditional_ml"] = Field(
         default="disabled",
@@ -186,6 +175,10 @@ class Settings(BaseSettings):
     environment: Literal["local", "test", "production"] = Field(
         default="local",
         alias="ENVIRONMENT",
+    )
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = Field(
+        default="INFO",
+        alias="LOG_LEVEL",
     )
 
     @field_validator(

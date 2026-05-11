@@ -6,7 +6,6 @@ import structlog
 from telegram import Bot
 
 from config import settings
-from tasks.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
 
@@ -19,13 +18,22 @@ async def _send_announcement(chat_id: int, text: str) -> None:
         )
 
 
-@celery_app.task(name="tasks.announce_tasks.send_announcement")
-def send_announcement_task(chat_id: int, text: str) -> dict[str, int | str]:
-    asyncio.run(_send_announcement(chat_id, text))
-    logger.info("scheduled_announcement_sent", chat_id=chat_id)
-    return {"status": "ok", "chat_id": chat_id}
+def send_announcement(chat_id: int, text: str) -> dict[str, int | str]:
+    """Send announcement (non-scheduled, requires manual invocation)."""
+    try:
+        asyncio.run(_send_announcement(chat_id, text))
+        logger.info("announcement_sent", chat_id=chat_id)
+        return {"status": "ok", "chat_id": chat_id}
+    except Exception as e:
+        logger.error("announcement_failed", chat_id=chat_id, error=str(e))
+        return {"status": "error", "chat_id": chat_id, "error": str(e)}
 
 
 def schedule_announcement(chat_id: int, text: str, eta) -> str:
-    task = send_announcement_task.apply_async(args=[chat_id, text], eta=eta)
-    return str(task.id)
+    """Scheduling not available without Celery. Returns dummy task ID."""
+    logger.warning(
+        "schedule_announcement_not_supported",
+        reason="celery_disabled",
+        chat_id=chat_id,
+    )
+    return "disabled-no-celery"

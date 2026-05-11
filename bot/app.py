@@ -12,6 +12,7 @@ from bot.middleware.group_guard import (
     group_guard_error_handler,
 )
 from bot.middleware.message_tracker import track_message
+from bot.middleware.request_logger import log_update_details
 from bot.middleware.security import rate_limit_check
 from config import Settings, settings
 
@@ -23,10 +24,21 @@ async def _rate_limit_gate(update, context) -> None:
 
 
 def create_application(app_settings: Settings = settings) -> Application:
-    application = Application.builder().token(app_settings.bot_token).updater(None).build()
+    # In polling mode (no webhook), use the default updater to fetch updates
+    # In webhook mode, disable updater since updates come via HTTP
+    builder = Application.builder().token(app_settings.bot_token)
+    
+    # Only disable updater if using webhook mode
+    if app_settings.webhook_url and app_settings.webhook_url.startswith("https://"):
+        builder = builder.updater(None)
+    
+    application = builder.build()
 
-    # PTB processes handler groups in ascending order: -2 → -1 → 0 → 1 ...
-    # group=-2: Group guard — blocks unauthorized groups first
+    # PTB processes handler groups in ascending order: -3 → -2 → -1 → 0 → 1 ...
+    # group=-3: Request logger — logs ALL updates first for complete visibility
+    application.add_handler(TypeHandler(type=object, callback=log_update_details), group=-3)
+
+    # group=-2: Group guard — blocks unauthorized groups
     application.add_handler(TypeHandler(type=object, callback=group_guard), group=-2)
 
     # group=-1: Rate limiter — blocks abusive users after group check

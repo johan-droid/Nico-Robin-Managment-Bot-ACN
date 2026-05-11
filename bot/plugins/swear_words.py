@@ -222,6 +222,9 @@ async def swear_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             async with async_session_factory() as session:
                 await GroupService.ensure_group(session, chat)
                 group = await GroupService.get_group(session, chat.id)
+                if group is None:
+                    await msg.reply_text("🌸 Swear word settings are not available yet.")
+                    return
 
             duration_text = (
                 f" ({human_duration(group.default_swear_duration)})"
@@ -271,6 +274,11 @@ async def swear_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     default_swear_punishment=punishment,
                     default_swear_duration=duration,
                 )
+
+            group = await GroupService.get_group(session, chat.id)
+            if group is None:
+                await msg.reply_text("🌸 Swear word settings were saved, but I could not reload them.")
+                return
 
         duration_text = f" ({human_duration(duration)})" if duration > 0 else ""
         await msg.reply_text(

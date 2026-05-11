@@ -6,7 +6,6 @@ import structlog
 from telegram import Bot, ChatPermissions
 
 from config import settings
-from tasks.celery_app import celery_app
 
 logger = structlog.get_logger(__name__)
 
@@ -38,15 +37,23 @@ async def _unmute_user(chat_id: int, user_id: int) -> None:
         )
 
 
-@celery_app.task(name="tasks.ban_tasks.unban_user")
-def unban_user_task(chat_id: int, user_id: int) -> dict[str, int | str]:
-    asyncio.run(_unban_user(chat_id, user_id))
-    logger.info("scheduled_unban_completed", chat_id=chat_id, user_id=user_id)
-    return {"status": "ok", "chat_id": chat_id, "user_id": user_id}
+def unban_user(chat_id: int, user_id: int) -> dict[str, int | str]:
+    """Unban user (immediate, no scheduling)."""
+    try:
+        asyncio.run(_unban_user(chat_id, user_id))
+        logger.info("unban_completed", chat_id=chat_id, user_id=user_id)
+        return {"status": "ok", "chat_id": chat_id, "user_id": user_id}
+    except Exception as e:
+        logger.error("unban_failed", chat_id=chat_id, user_id=user_id, error=str(e))
+        return {"status": "error", "chat_id": chat_id, "user_id": user_id}
 
 
-@celery_app.task(name="tasks.ban_tasks.unmute_user")
-def unmute_user_task(chat_id: int, user_id: int) -> dict[str, int | str]:
-    asyncio.run(_unmute_user(chat_id, user_id))
-    logger.info("scheduled_unmute_completed", chat_id=chat_id, user_id=user_id)
-    return {"status": "ok", "chat_id": chat_id, "user_id": user_id}
+def unmute_user(chat_id: int, user_id: int) -> dict[str, int | str]:
+    """Unmute user (immediate, no scheduling)."""
+    try:
+        asyncio.run(_unmute_user(chat_id, user_id))
+        logger.info("unmute_completed", chat_id=chat_id, user_id=user_id)
+        return {"status": "ok", "chat_id": chat_id, "user_id": user_id}
+    except Exception as e:
+        logger.error("unmute_failed", chat_id=chat_id, user_id=user_id, error=str(e))
+        return {"status": "error", "chat_id": chat_id, "user_id": user_id}

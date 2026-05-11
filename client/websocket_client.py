@@ -28,6 +28,7 @@ class BotWebSocketClient:
             reconnection_delay_max=5,
         )
         self.connected = False
+        self.authenticated = False
         self.reconnect_attempts = 0
         self.event_handlers: dict[str, Callable] = {}
 
@@ -60,13 +61,13 @@ class BotWebSocketClient:
             await self.sio.connect(
                 f"http://127.0.0.1:{settings.port}",
                 auth={
-                    "bot_id": bot_user_id,
+                    "user_id": bot_user_id,
                     "token": token,
                     "timestamp": timestamp,
                 },
             )
-
-            # Authenticate as bot
+            
+            # Explicitly emit authenticate event for robustness
             await self.sio.emit(
                 "authenticate",
                 {
@@ -76,10 +77,19 @@ class BotWebSocketClient:
                 },
             )
 
-            # Join admin room for system events
-            await self.sio.emit("join_room", {"room_id": "admins"})
+            # Wait for authentication to be confirmed by the server before joining rooms
+            # This prevents race conditions where join_room is rejected due to pending auth
+            auth_wait_retries = 10
+            while not self.authenticated and auth_wait_retries > 0:
+                await asyncio.sleep(0.5)
+                auth_wait_retries -= 1
 
-            logger.info(f"Bot WebSocket client connected for user {bot_user_id}")
+            if self.authenticated:
+                # Join admin room for system events
+                await self.sio.emit("join_room", {"room_id": "admins"})
+                logger.info(f"Bot WebSocket client connected and authenticated for user {bot_user_id}")
+            else:
+                logger.warning(f"Bot WebSocket client connected for user {bot_user_id}, but authentication is still pending")
 
         except Exception as e:
             logger.error(f"Failed to connect WebSocket client: {e}")
@@ -101,6 +111,7 @@ class BotWebSocketClient:
     async def _on_disconnect(self):
         """Handle disconnection event"""
         self.connected = False
+        self.authenticated = False
         logger.warning("Bot WebSocket client disconnected from server")
 
     async def _on_connect_error(self, data):
@@ -118,6 +129,7 @@ class BotWebSocketClient:
 
     async def _on_authenticated(self, data):
         """Handle authentication success"""
+        self.authenticated = True
         logger.info(f"Bot WebSocket client authenticated: {data}")
 
     async def _on_auth_error(self, data):
