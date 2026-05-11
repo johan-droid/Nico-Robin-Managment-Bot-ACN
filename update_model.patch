@@ -1,0 +1,21 @@
+--- models/group.py
++++ models/group.py
+@@ -3,7 +3,7 @@
+ from typing import TYPE_CHECKING
+
+-from sqlalchemy import BigInteger, Boolean, ForeignKey, Integer, String, Text
++from sqlalchemy import BigInteger, Boolean, ForeignKey, Integer, String, Text, JSON
+ from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+ from models.base import Base, TimestampMixin
+@@ -69,6 +69,9 @@
+     default_swear_duration: Mapped[int] = mapped_column(
+         Integer, default=300, nullable=False
+     )
++
++    locked_media: Mapped[dict[str, bool]] = mapped_column(
++        JSON, default=dict, nullable=False
++    )
+
+     members: Mapped[list[GroupMember]] = relationship(back_populates="group")
+     warns: Mapped[list[Warn]] = relationship(back_populates="group")
