@@ -22,3 +22,16 @@ def test_database_url_is_normalized_for_asyncpg() -> None:
     )
 
     assert settings.database_url.startswith("postgresql+asyncpg://")
+
+
+def test_async_database_url_strips_libpq_query_params() -> None:
+    settings = Settings(
+        BOT_TOKEN="token",
+        DATABASE_URL=(
+            "postgresql://user:pass@localhost:5432/robin"
+            "?sslmode=require&channel_binding=require"
+        ),
+    )
+
+    assert "sslmode" not in settings.async_database_url
+    assert "channel_binding" not in settings.async_database_url

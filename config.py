@@ -12,6 +12,7 @@ from pydantic_settings import (
     PydanticBaseSettingsSource,
     SettingsConfigDict,
 )
+from sqlalchemy.engine import make_url
 
 
 _INT_TUPLE_FIELDS = {
@@ -214,6 +215,18 @@ class Settings(BaseSettings):
         if value.startswith("postgresql://"):
             return value.replace("postgresql://", "postgresql+asyncpg://", 1)
         return value
+
+    @property
+    def async_database_url(self) -> str:
+        """SQLAlchemy async URL without libpq-only query parameters."""
+
+        url = make_url(self.database_url)
+        query = dict(url.query)
+        query.pop("sslmode", None)
+        query.pop("channel_binding", None)
+        if url.drivername.endswith("+asyncpg"):
+            return str(url.set(query=query))
+        return str(url.set(drivername="postgresql+asyncpg", query=query))
 
     @property
     def sync_database_url(self) -> str:

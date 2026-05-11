@@ -34,7 +34,7 @@ def create_engine(url: str | None = None) -> AsyncEngine:
         connect_args["ssl"] = True
 
     return create_async_engine(
-        url or settings.database_url,
+        url or settings.async_database_url,
         pool_size=settings.db_pool_size,
         max_overflow=settings.db_max_overflow,
         pool_pre_ping=True,
