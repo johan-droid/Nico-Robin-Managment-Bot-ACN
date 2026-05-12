@@ -285,8 +285,6 @@ async def setwelcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 @group_only
 @admin_only
-@group_only
-@admin_only
 async def setwelcomedm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     msg = update.effective_message
     chat = update.effective_chat
