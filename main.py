@@ -129,14 +129,6 @@ _BOT_COMMANDS = [
     BotCommand("addpurgechannel", "Add an auto-purge channel"),
     BotCommand("removepurgechannel", "Remove an auto-purge channel"),
     BotCommand("purgechannels", "List purge channels"),
-    BotCommand("setwelcomedm", "Set DM welcome message"),
-    BotCommand("welcomedm", "Toggle DM welcome"),
-    BotCommand("lock", "Lock a media type"),
-    BotCommand("unlock", "Unlock a media type"),
-    BotCommand("locks", "View locked media"),
-    BotCommand("approve", "Whitelist a user"),
-    BotCommand("unapprove", "Remove user whitelist"),
-    BotCommand("nightmode", "Toggle auto-locking at night"),
 ]
 
 
