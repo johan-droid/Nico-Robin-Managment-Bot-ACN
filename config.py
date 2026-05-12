@@ -154,6 +154,7 @@ class Settings(BaseSettings):
         alias="DATABASE_URL",
     )
 
+
     llm_provider: Literal["disabled", "openai", "traditional_ml"] = Field(
         default="disabled",
         alias="LLM_PROVIDER",
@@ -235,9 +236,7 @@ class Settings(BaseSettings):
         query.pop("sslmode", None)
         query.pop("channel_binding", None)
 
-        return url.set(drivername=drivername, query=query).render_as_string(
-            hide_password=False
-        )
+        return url.set(drivername=drivername, query=query).render_as_string(hide_password=False)
 
     @property
     def async_database_ssl_required(self) -> bool:
@@ -249,9 +248,7 @@ class Settings(BaseSettings):
             self.db_ssl_required
             or self.environment == "production"
             or sslmode in {"require", "verify-ca", "verify-full"}
-            or (
-                url.host is not None and "neon.tech" in url.host
-            )  # Neon always requires SSL
+            or (url.host is not None and "neon.tech" in url.host)  # Neon always requires SSL
         )
 
     @property

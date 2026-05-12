@@ -3,19 +3,16 @@
 from __future__ import annotations
 
 import time
-
 import structlog
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from utils.logging import bind_update_context
+from utils.logging import bind_update_context, clear_update_context
 
 logger = structlog.get_logger(__name__)
 
 
-async def log_update_details(
-    update: Update, context: ContextTypes.DEFAULT_TYPE
-) -> None:
+async def log_update_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log comprehensive details about every update received."""
     start_time = time.time()
 
@@ -63,44 +60,32 @@ async def log_update_details(
         }
 
         if user:
-            log_data.update(
-                {
-                    "user_id": user.id,
-                    "username": f"@{user.username}" if user.username else None,
-                    "user_is_bot": user.is_bot,
-                    "user_first_name": user.first_name,
-                }
-            )
+            log_data.update({
+                "user_id": user.id,
+                "username": f"@{user.username}" if user.username else None,
+                "user_is_bot": user.is_bot,
+                "user_first_name": user.first_name,
+            })
 
         if chat:
-            log_data.update(
-                {
-                    "chat_id": chat.id,
-                    "chat_type": chat.type,
-                    "chat_title": chat.title,
-                }
-            )
+            log_data.update({
+                "chat_id": chat.id,
+                "chat_type": chat.type,
+                "chat_title": chat.title,
+            })
 
         if message:
-            log_data.update(
-                {
-                    "message_id": message.message_id,
-                    "message_text": message.text[:100] if message.text else None,
-                    "message_type": message_type,
-                    "message_date": message.date.isoformat() if message.date else None,
-                }
-            )
+            log_data.update({
+                "message_id": message.message_id,
+                "message_text": message.text[:100] if message.text else None,
+                "message_type": message_type,
+                "message_date": message.date.isoformat() if message.date else None,
+            })
 
         if update.callback_query:
-            log_data.update(
-                {
-                    "callback_data": (
-                        update.callback_query.data[:100]
-                        if update.callback_query.data
-                        else None
-                    ),
-                }
-            )
+            log_data.update({
+                "callback_data": update.callback_query.data[:100] if update.callback_query.data else None,
+            })
 
         logger.info(**log_data)
 
@@ -116,9 +101,7 @@ async def log_handler_execution(handler_name: str, start_time: float = None) -> 
     """Log handler execution time and details."""
     if start_time:
         elapsed = (time.time() - start_time) * 1000  # Convert to ms
-        logger.info(
-            "handler_executed", handler_name=handler_name, elapsed_ms=f"{elapsed:.2f}"
-        )
+        logger.info("handler_executed", handler_name=handler_name, elapsed_ms=f"{elapsed:.2f}")
 
 
 def register_logging_middleware(app) -> None:

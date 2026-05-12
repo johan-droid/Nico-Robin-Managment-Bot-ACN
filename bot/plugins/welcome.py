@@ -5,8 +5,6 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
-)
-from telegram.ext import (
     filters as tg_filters,
 )
 
@@ -116,7 +114,6 @@ async def welcome_new_members(
                         )
                 except Exception as e:
                     from structlog import get_logger
-
                     get_logger(__name__).error("redis_antiraid_error", error=str(e))
 
     # ── Log new member to log channel ──
@@ -174,7 +171,6 @@ async def welcome_new_members(
             await redis.set(key, sent.message_id, ex=86400)
         except Exception as e:
             from structlog import get_logger
-
             get_logger(__name__).error("redis_welcome_error", error=str(e))
 
 

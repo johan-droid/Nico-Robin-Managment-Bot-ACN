@@ -87,13 +87,9 @@ class BotWebSocketClient:
             if self.authenticated:
                 # Join admin room for system events
                 await self.sio.emit("join_room", {"room_id": "admins"})
-                logger.info(
-                    f"Bot WebSocket client connected and authenticated for user {bot_user_id}"
-                )
+                logger.info(f"Bot WebSocket client connected and authenticated for user {bot_user_id}")
             else:
-                logger.warning(
-                    f"Bot WebSocket client connected for user {bot_user_id}, but authentication is still pending"
-                )
+                logger.warning(f"Bot WebSocket client connected for user {bot_user_id}, but authentication is still pending")
 
         except Exception as e:
             logger.error(f"Failed to connect WebSocket client: {e}")

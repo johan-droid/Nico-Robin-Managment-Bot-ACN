@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime
-from pathlib import Path
 from typing import Any
+from pathlib import Path
+from datetime import datetime
 
 import structlog
 
@@ -28,11 +28,7 @@ def configure_logging(level: str = "INFO") -> None:
             timestamper,
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,
-            (
-                structlog.dev.ConsoleRenderer()
-                if level == "DEBUG"
-                else structlog.processors.JSONRenderer()
-            ),
+            structlog.dev.ConsoleRenderer() if level == "DEBUG" else structlog.processors.JSONRenderer(),
         ],
         wrapper_class=structlog.stdlib.BoundLogger,
         logger_factory=structlog.stdlib.LoggerFactory(),
@@ -47,7 +43,7 @@ def configure_logging(level: str = "INFO") -> None:
     console_handler.setLevel(log_level)
     console_formatter = logging.Formatter(
         fmt="[%(asctime)s] [%(levelname)-8s] [%(name)s:%(lineno)d] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+        datefmt="%Y-%m-%d %H:%M:%S"
     )
     console_handler.setFormatter(console_formatter)
 
@@ -57,7 +53,7 @@ def configure_logging(level: str = "INFO") -> None:
     file_handler.setLevel(logging.DEBUG)  # File gets everything
     file_formatter = logging.Formatter(
         fmt="[%(asctime)s] [%(levelname)-8s] [%(name)s:%(lineno)d] [%(funcName)s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+        datefmt="%Y-%m-%d %H:%M:%S"
     )
     file_handler.setFormatter(file_formatter)
 
@@ -92,10 +88,15 @@ def bind_update_context(
     update_id: int | None = None,
     user_id: int | None = None,
     chat_id: int | None = None,
-    **values: Any,
+    **values: Any
 ) -> None:
     """Bind detailed context to all logs in current scope."""
-    context = {"update_id": update_id, "user_id": user_id, "chat_id": chat_id, **values}
+    context = {
+        "update_id": update_id,
+        "user_id": user_id,
+        "chat_id": chat_id,
+        **values
+    }
     # Remove None values
     context = {k: v for k, v in context.items() if v is not None}
     structlog.contextvars.bind_contextvars(**context)
