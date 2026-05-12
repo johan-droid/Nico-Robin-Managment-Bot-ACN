@@ -38,7 +38,7 @@ def create_engine(url: str | None = None) -> AsyncEngine:
     # Connection Pooler Compatibility (Neon / PgBouncer)
     # PgBouncer in transaction mode does not support prepared statements.
     # We detect the '-pooler' suffix which is common in Neon URLs.
-    if "-pooler" in db_url:
+    if "-pooler" in db_url or settings.db_statement_cache_disabled:
         connect_args["statement_cache_size"] = 0
 
     return create_async_engine(

@@ -35,6 +35,7 @@ jobs:
           --health-retries 5
 
     env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       BOT_TOKEN: test-token
       WEBHOOK_URL: https://example.test
       WEBHOOK_SECRET: ci-secret
@@ -66,4 +67,4 @@ jobs:
         run: black --check .
 
       - name: Pytest
-        run: pytest
+        run: python -m pytest tests
