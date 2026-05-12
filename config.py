@@ -148,7 +148,10 @@ class Settings(BaseSettings):
     db_query_timeout: int = Field(default=10, alias="DB_QUERY_TIMEOUT")
     db_pool_recycle: int = Field(default=1800, alias="DB_POOL_RECYCLE")
     db_ssl_required: bool = Field(default=False, alias="DB_SSL_REQUIRED")
-    db_statement_cache_disabled: bool = Field(default=False)
+    db_statement_cache_disabled: bool = Field(
+        default=False,
+        alias="DB_STATEMENT_CACHE_DISABLED",
+    )
 
     database_url: str = Field(
         default="postgresql+asyncpg://robin:password@localhost:5432/robin_db",
