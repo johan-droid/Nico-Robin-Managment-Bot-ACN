@@ -148,6 +148,7 @@ class Settings(BaseSettings):
     db_query_timeout: int = Field(default=10, alias="DB_QUERY_TIMEOUT")
     db_pool_recycle: int = Field(default=1800, alias="DB_POOL_RECYCLE")
     db_ssl_required: bool = Field(default=False, alias="DB_SSL_REQUIRED")
+    db_statement_cache_disabled: bool = Field(default=False)
 
     database_url: str = Field(
         default="postgresql+asyncpg://robin:password@localhost:5432/robin_db",
@@ -162,7 +163,6 @@ class Settings(BaseSettings):
         default="redis://localhost:6379/1", alias="CELERY_RESULT_BACKEND"
     )
     redis_url: str = Field(default="redis://localhost:6379/2", alias="REDIS_URL")
-
     llm_provider: Literal["disabled", "openai", "traditional_ml"] = Field(
         default="disabled",
         alias="LLM_PROVIDER",
