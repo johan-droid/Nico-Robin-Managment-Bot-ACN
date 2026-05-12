@@ -48,6 +48,9 @@ class Group(TimestampMixin, Base):
         Boolean, default=False, nullable=False
     )
     ai_mod_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    nightmode_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
 
     max_warns: Mapped[int] = mapped_column(Integer, default=3, nullable=False)
     warn_action: Mapped[str] = mapped_column(String(32), default="ban", nullable=False)

@@ -5,6 +5,8 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+)
+from telegram.ext import (
     filters as tg_filters,
 )
 
@@ -26,7 +28,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a welcome message when /start is triggered."""
     if update.effective_message is None:
         return
-    
+
     chat = update.effective_chat
     if chat and chat.type == "private":
         welcome_text = (
@@ -56,7 +58,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show available commands."""
     if update.effective_message is None:
         return
-    
+
     help_text = (
         "📚 Available Commands:\n\n"
         "/start - Welcome message\n"
@@ -114,6 +116,7 @@ async def welcome_new_members(
                         )
                 except Exception as e:
                     from structlog import get_logger
+
                     get_logger(__name__).error("redis_antiraid_error", error=str(e))
 
     # ── Log new member to log channel ──
@@ -145,7 +148,7 @@ async def welcome_new_members(
 
     if not group.welcome_enabled:
         return
-    
+
     count = await _member_count(context, chat.id)
     for member in msg.new_chat_members:
         text = format_welcome(
@@ -157,7 +160,7 @@ async def welcome_new_members(
             locale=group.locale,
         )
         sent = await msg.reply_text(text)
-        
+
         try:
             redis = get_redis()
             key = LAST_WELCOME_KEY.format(chat_id=chat.id)
@@ -171,6 +174,7 @@ async def welcome_new_members(
             await redis.set(key, sent.message_id, ex=86400)
         except Exception as e:
             from structlog import get_logger
+
             get_logger(__name__).error("redis_welcome_error", error=str(e))
 
 

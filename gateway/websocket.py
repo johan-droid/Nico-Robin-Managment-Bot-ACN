@@ -67,7 +67,7 @@ class WebSocketManager:
     ):
         logger.info(f"WS connect: {sid}")
         self._connect_times[sid] = time.time()
-        
+
         # Immediate authentication if auth data is provided (Socket.IO 5.x+)
         if auth:
             user_id = auth.get("user_id") or auth.get("bot_id")
@@ -80,11 +80,12 @@ class WebSocketManager:
                     logger.info(f"WS auto-authenticated: {sid}, user={user_id}")
                 else:
                     logger.warning(f"WS auto-auth failed: {sid}, user={user_id}")
-        
+
         await self.sio.emit("connected", {"status": "ok", "sid": sid}, room=sid)
         # Auto-disconnect unauthenticated clients after 10s
         asyncio.get_event_loop().call_later(
-            10.0, lambda: asyncio.ensure_future(self._auth_timeout(sid)),
+            10.0,
+            lambda: asyncio.ensure_future(self._auth_timeout(sid)),
         )
 
     async def _auth_timeout(self, sid: str):
@@ -150,9 +151,13 @@ class WebSocketManager:
             if uid:
                 uid_int = int(uid) if uid.lstrip("-").isdigit() else 0
                 # Check if it's the bot itself (extract bot_id from token)
-                bot_id_str = settings.bot_token.split(":")[0] if ":" in settings.bot_token else ""
+                bot_id_str = (
+                    settings.bot_token.split(":")[0]
+                    if ":" in settings.bot_token
+                    else ""
+                )
                 bot_id = int(bot_id_str) if bot_id_str.isdigit() else 0
-                
+
                 if (
                     uid_int not in settings.sudo_users
                     and uid_int != settings.captain_id
@@ -194,11 +199,9 @@ class WebSocketManager:
         logger.info(f"Received bot event: {event_type} from {sid}")
         # Forward to other handlers if needed, or broadcast to admins
         if event_type == "bot_status":
-            await self.broadcast_to_admins({
-                "event": "bot_status_update",
-                "sid": sid,
-                "data": event_data
-            })
+            await self.broadcast_to_admins(
+                {"event": "bot_status_update", "sid": sid, "data": event_data}
+            )
 
     async def broadcast_to_group(self, group_id: str, event: dict[str, Any]):
         await self.sio.emit("realtime_event", event, room=f"group_{group_id}")
@@ -231,7 +234,10 @@ def create_socketio_app(other_asgi_app: Any | None = None) -> socketio.ASGIApp:
 
 
 async def emit_realtime_event(
-    event_type: str, data: dict[str, Any], target: str = "global", target_id: str | None = None
+    event_type: str,
+    data: dict[str, Any],
+    target: str = "global",
+    target_id: str | None = None,
 ):
     event = {
         "event": "realtime_update",
