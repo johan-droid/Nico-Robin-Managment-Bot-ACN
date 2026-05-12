@@ -9,16 +9,16 @@ logger = structlog.get_logger(__name__)
 
 
 class _NoOpPipeline:
-    def zadd(self, *args: Any, **kwargs: Any) -> "_NoOpPipeline":
+    def zadd(self, *args: Any, **kwargs: Any) -> _NoOpPipeline:
         return self
 
-    def zremrangebyscore(self, *args: Any, **kwargs: Any) -> "_NoOpPipeline":
+    def zremrangebyscore(self, *args: Any, **kwargs: Any) -> _NoOpPipeline:
         return self
 
-    def zcard(self, *args: Any, **kwargs: Any) -> "_NoOpPipeline":
+    def zcard(self, *args: Any, **kwargs: Any) -> _NoOpPipeline:
         return self
 
-    def expire(self, *args: Any, **kwargs: Any) -> "_NoOpPipeline":
+    def expire(self, *args: Any, **kwargs: Any) -> _NoOpPipeline:
         return self
 
     async def execute(self) -> tuple[int, int, int, int]:
