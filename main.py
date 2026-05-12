@@ -222,7 +222,7 @@ async def _auto_migrate() -> None:
 async def _webhook_mode() -> None:
     """Run bot in webhook mode with ASGI server."""
     logger.info("bot_mode", mode="webhook", webhook_url=settings.webhook_url)
-    
+
     await _wait_for_db()
     try:
         await _auto_migrate()
@@ -246,14 +246,14 @@ async def _webhook_mode() -> None:
         await _set_command_menu(ptb_app)
         server_task = asyncio.create_task(server.serve())
         await asyncio.sleep(2.0)
-        
+
         await initialize_websocket_client(ptb_app)
 
         if settings.webhook_url and settings.webhook_url.startswith("https://"):
             webhook_url = settings.webhook_url
             if not webhook_url.endswith("/webhook"):
                 webhook_url = f"{webhook_url.rstrip('/')}/webhook"
-                
+
             await ptb_app.bot.set_webhook(
                 url=webhook_url,
                 secret_token=settings.webhook_secret or None,
@@ -310,11 +310,10 @@ async def _polling_mode() -> None:
             logger.info("nico_robin_stopped")
 
 
-
 if __name__ == "__main__":
     configure_logging(level=settings.log_level)
     _acquire_single_instance_lock()
-    
+
     # Polling mode uses blocking run_polling(), webhook mode is async
     if not settings.webhook_url or not settings.webhook_url.startswith("https://"):
         asyncio.run(_polling_mode())
