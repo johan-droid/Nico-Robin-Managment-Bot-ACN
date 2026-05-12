@@ -154,6 +154,14 @@ class Settings(BaseSettings):
         alias="DATABASE_URL",
     )
 
+    # Celery Configuration
+    celery_broker_url: str = Field(
+        default="redis://localhost:6379/0", alias="CELERY_BROKER_URL"
+    )
+    celery_result_backend: str = Field(
+        default="redis://localhost:6379/1", alias="CELERY_RESULT_BACKEND"
+    )
+
     llm_provider: Literal["disabled", "openai", "traditional_ml"] = Field(
         default="disabled",
         alias="LLM_PROVIDER",
