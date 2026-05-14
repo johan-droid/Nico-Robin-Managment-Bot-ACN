@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 
 from sqlalchemy import select
@@ -251,30 +252,34 @@ class BroadcastService:
                 )
 
                 # Emit system-wide broadcast notification
-                await emit_system_event(
-                    "channel_broadcast",
-                    {
-                        "channel_name": channel_name,
-                        "channel_type": channel_type,
-                        "message_preview": (
-                            content[:100] + "..." if len(content) > 100 else content
-                        ),
-                        "broadcast_stats": stats,
-                        "timestamp": time.time(),
-                    },
+                asyncio.create_task(
+                    emit_system_event(
+                        "channel_broadcast",
+                        {
+                            "channel_name": channel_name,
+                            "channel_type": channel_type,
+                            "message_preview": (
+                                content[:100] + "..." if len(content) > 100 else content
+                            ),
+                            "broadcast_stats": stats,
+                            "timestamp": time.time(),
+                        },
+                    )
                 )
             else:
                 print(f"❌ Broadcast failed: {stats.get('error', 'Unknown error')}")
 
                 # Emit system error notification
-                await emit_system_event(
-                    "broadcast_error",
-                    {
-                        "channel_name": channel_name,
-                        "channel_type": channel_type,
-                        "error": stats.get("error", "Unknown error"),
-                        "timestamp": time.time(),
-                    },
+                asyncio.create_task(
+                    emit_system_event(
+                        "broadcast_error",
+                        {
+                            "channel_name": channel_name,
+                            "channel_type": channel_type,
+                            "error": stats.get("error", "Unknown error"),
+                            "timestamp": time.time(),
+                        },
+                    )
                 )
 
             return True

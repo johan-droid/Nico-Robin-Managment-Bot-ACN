@@ -12,6 +12,7 @@ class _SafeFormatDict(dict[str, Any]):
     def __missing__(self, key: str) -> str:
         return f"{{{key}}}"
 
+
 LOCALE_DIR = Path(__file__).resolve().parent.parent / "i18n"
 
 

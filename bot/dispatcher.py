@@ -15,6 +15,8 @@ PLUGIN_MODULES: tuple[str, ...] = (
     "bot.plugins.filters",
     "bot.plugins.welcome",
     "bot.plugins.notes",
+    "bot.plugins.locks",
+    "bot.plugins.scheduler",
     "bot.plugins.purge",
     "bot.plugins.captcha",
     "bot.plugins.federation",

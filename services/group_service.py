@@ -42,7 +42,8 @@ class GroupService:
         result = await session.execute(select(Group).where(Group.group_id == group_id))
         group = result.scalar_one()
         for key, value in values.items():
-            if hasattr(group, key):
+            if not hasattr(group, key):
+                raise ValueError(f"Unknown setting: {key}")
                 setattr(group, key, value)
         await session.flush()
         return group

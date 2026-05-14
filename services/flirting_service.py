@@ -372,7 +372,9 @@ class NicoRobinFlirtingService:
 
                 return random.random() < final_success_rate
 
-        except Exception:
+        except Exception as e:
+            logger.error(f"flirting_error: {e}")
+
             # Default to base success rate if error
             return random.random() < event.get("success_rate", 0.7)
 
@@ -381,10 +383,11 @@ class NicoRobinFlirtingService:
     ):
         """Award loyalty points for successful flirting"""
         try:
+            from database import async_session_factory
             from services.acn_service import ACNService
-
-            await ACNService.add_loyalty_points(
-                session=async_session_factory(),
+            async with async_session_factory() as session:
+                await ACNService.add_loyalty_points(
+                    session=session,
                 user_id=user_id,
                 group_id=group_id,
                 points=points,
@@ -393,7 +396,7 @@ class NicoRobinFlirtingService:
                 metadata=f"flirting_event_id: {event_id}",
             )
         except Exception as e:
-            print(f"Error awarding flirting points: {e}")
+            logger.error(f"Error awarding flirting points: {e}")
 
     def get_flirting_stats(self, user_id: int, group_id: int) -> dict[str, any]:
         """Get user's flirting statistics"""

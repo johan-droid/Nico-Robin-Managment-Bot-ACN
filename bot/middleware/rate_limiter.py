@@ -50,6 +50,21 @@ class _NoOpRedis:
     async def getdel(self, *args: Any, **kwargs: Any) -> int:
         return 0
 
+    async def xadd(self, *args: Any, **kwargs: Any) -> str:
+        return "0-0"
+
+    async def xrevrange(self, *args: Any, **kwargs: Any) -> list:
+        return []
+
+    async def zadd(self, *args: Any, **kwargs: Any) -> int:
+        return 0
+
+    async def zcard(self, *args: Any, **kwargs: Any) -> int:
+        return 0
+
+    async def zremrangebyscore(self, *args: Any, **kwargs: Any) -> int:
+        return 0
+
     async def smembers(self, *args: Any, **kwargs: Any) -> set[str]:
         return set()
 

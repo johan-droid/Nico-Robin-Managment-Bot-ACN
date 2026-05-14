@@ -450,7 +450,7 @@ class PointService:
                 user_apploid = UserApploid(
                     user_id=user_id,
                     group_id=group_id,
-                    apploid_id=1,  # Would be actual apploid_id from database
+                    apploid_id=apploid_id,
                     is_equipped=False,
                     purchase_price=apploid_data["required_points"],
                     acquired_at=int(time.time()),

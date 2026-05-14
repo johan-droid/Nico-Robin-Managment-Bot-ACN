@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import delete, select, update
@@ -209,11 +209,11 @@ class EventService:
         session: AsyncSession, timeout_minutes: int = 5
     ):
         """Clean up inactive connections"""
-        cutoff_time = datetime.now(UTC).timestamp() - (timeout_minutes * 60)
+        cutoff_time = datetime.now(UTC) - timedelta(minutes=timeout_minutes)
 
         await session.execute(
             update(WebSocketConnection)
-            .where(WebSocketConnection.last_ping.timestamp() < cutoff_time)
+            .where(WebSocketConnection.last_ping < cutoff_time)
             .values(is_active=False)
         )
 
@@ -308,7 +308,7 @@ class EventService:
         recent_result = await session.execute(
             select(RealtimeEvent)
             .where(
-                RealtimeEvent.created_at >= datetime.now(UTC).timestamp() - 3600
+                RealtimeEvent.created_at >= datetime.now(UTC) - timedelta(hours=1)
             )  # Last hour
             .order_by(RealtimeEvent.created_at.desc())
             .limit(100)

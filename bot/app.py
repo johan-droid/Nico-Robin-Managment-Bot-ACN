@@ -20,8 +20,15 @@ from config import Settings, settings
 
 async def _rate_limit_gate(update, context) -> None:
     """Rate limiting gate. Blocks abusive users before plugin handlers run."""
-    if await rate_limit_check(update, context):
-        raise _StopProcessing()
+    try:
+        blocked = await rate_limit_check(update, context)
+        if blocked:
+            raise _StopProcessing()
+    except _StopProcessing:
+        raise
+    except Exception:
+        # Prevent leaking tracebacks if rate limiter itself crashes
+        pass
 
 
 def create_application(app_settings: Settings = settings) -> Application:
