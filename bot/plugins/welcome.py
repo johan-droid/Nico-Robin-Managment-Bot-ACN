@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from telegram import Update
 from telegram.ext import (
     CommandHandler,
@@ -124,6 +126,7 @@ async def welcome_new_members(
     log_channel_id = group.log_channel_id or settings.log_channel_id
     if log_channel_id:
         count = await _member_count(context, chat.id)
+        log_tasks = []
         for member in msg.new_chat_members:
             username_line = (
                 f"📛 **Username:** @{member.username}\n" if member.username else ""
@@ -138,14 +141,16 @@ async def welcome_new_members(
                 f"👥 **Members Now:** {count or '?'}\n"
                 f"🕐 **Joined At:** {msg.date.strftime('%Y-%m-%d %H:%M UTC') if msg.date else 'N/A'}"
             )
-            try:
-                await context.bot.send_message(
+            log_tasks.append(
+                context.bot.send_message(
                     chat_id=log_channel_id,
                     text=join_text,
                     parse_mode="Markdown",
                 )
-            except Exception:
-                pass  # Log channel may be unreachable
+            )
+
+        if log_tasks:
+            await asyncio.gather(*log_tasks, return_exceptions=True)
 
     if not group.welcome_enabled:
         return
