@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime
 
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
@@ -355,8 +356,6 @@ async def acn_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             # Calculate statistics
             total_members = len(members)
             total_points = sum(m["points"] for m in members)
-
-            from datetime import datetime
 
             def get_timestamp(activity):
                 if isinstance(activity, datetime):

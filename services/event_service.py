@@ -305,8 +305,6 @@ class EventService:
             group_connections[group_id].add(user_id)
 
         # Recent events
-        from datetime import timedelta
-
         cutoff_datetime = datetime.now(UTC) - timedelta(hours=1)
         recent_result = await session.execute(
             select(RealtimeEvent)
