@@ -35,7 +35,6 @@ jobs:
           --health-retries 5
 
     env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
       BOT_TOKEN: test-token
       WEBHOOK_URL: https://example.test
       WEBHOOK_SECRET: ci-secret
@@ -46,6 +45,7 @@ jobs:
       LLM_PROVIDER: disabled
       AI_MODERATION_ENABLED: "false"
       ENVIRONMENT: test
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout

@@ -513,6 +513,8 @@ def _create_bot_friendship_tables() -> None:
         sa.Column("last_message_at", sa.BigInteger(), nullable=False),
         sa.ForeignKeyConstraint(["group_id"], ["groups.group_id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("conversation_id"),
+        task_track_started=True,
+        broker_connection_retry_on_startup=True,
     )
 
     # Create bot_emotions table

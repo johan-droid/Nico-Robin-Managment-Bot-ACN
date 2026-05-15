@@ -185,7 +185,9 @@ async def check_locked_media(
             # warning = await msg.reply_text("🌸 This media type is locked in this group.")
             # ... delete warning after X seconds ...
         except Exception as e:
-            logger.warning(f"Failed to delete locked media in {chat.id}: {e}")
+            logger.warning(
+                "failed_to_delete_locked_media", chat_id=chat.id, error=str(e)
+            )
 
 
 def register(application: Application) -> None:

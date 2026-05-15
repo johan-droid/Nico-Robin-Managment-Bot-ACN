@@ -1,7 +1,7 @@
 """Add nightmode_enabled to groups
 
 Revision ID: 8q1mpw1tzp4y
-Revises: 2024_01_10_comprehensive_feature_migration
+Revises: 2024_05_11_add_locked_media
 Create Date: 2026-05-12T08:03:33.791434
 
 """
@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "8q1mpw1tzp4y"
-down_revision: str | None = "2024_01_10_comprehensive_feature_migration"
+down_revision: str | None = "2024_05_11_add_locked_media"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
