@@ -158,7 +158,6 @@ class Settings(BaseSettings):
     # Celery Configuration
     celery_broker_url: str = Field(default="", alias="CELERY_BROKER_URL")
     celery_result_backend: str = Field(default="", alias="CELERY_RESULT_BACKEND")
-
     llm_provider: Literal["disabled", "openai", "traditional_ml"] = Field(
         default="disabled",
         alias="LLM_PROVIDER",

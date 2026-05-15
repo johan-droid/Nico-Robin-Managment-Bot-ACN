@@ -12,7 +12,8 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from sqlalchemy import inspect, text  # noqa: E402
+import sqlalchemy as sa  # noqa: E402
+from sqlalchemy import func, inspect, select, text  # noqa: E402
 
 from database import engine  # noqa: E402
 
@@ -289,13 +290,16 @@ async def show_database_info():
 
             # Show table counts
             total_rows = 0
-            for table in tables:
+            for table_name in tables:
                 try:
-                    result = await conn.execute(text(f"SELECT COUNT(*) FROM {table}"))
+                    # Use SQLAlchemy expression language to prevent SQL injection
+                    # although table names come from inspector, this is safer and follows best practices
+                    stmt = select(func.count()).select_from(sa.table(table_name))
+                    result = await conn.execute(stmt)
                     count = result.scalar()
                     total_rows += count
                     if count > 0:
-                        print(f"  {table}: {count:,} rows")
+                        print(f"  {table_name}: {count:,} rows")
                 except Exception:
                     pass  # Skip tables that can't be counted
 
