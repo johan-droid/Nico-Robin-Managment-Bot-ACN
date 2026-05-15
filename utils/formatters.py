@@ -8,6 +8,11 @@ from utils.i18n import gettext
 from utils.robin_quotes import action_quote
 
 
+class _SafeFormatDict(dict[str, object]):
+    def __missing__(self, key: str) -> str:
+        return f"{{{key}}}"
+
+
 def display_user(
     user_id: int, username: str | None = None, name: str | None = None
 ) -> str:
@@ -63,12 +68,18 @@ def format_welcome(
     locale: str = "en",
 ) -> str:
     raw = template or gettext("welcome.default", locale)
-    return raw.format(
-        first=first,
-        username=username,
-        chat=chat,
-        count=count if count is not None else "?",
+    return raw.format_map(
+        _SafeFormatDict(
+            first=first,
+            username=username,
+            chat=chat,
+            count=count if count is not None else "?",
+        )
     )
+
+
+def safe_format(template: str, **values: object) -> str:
+    return template.format_map(_SafeFormatDict(values))
 
 
 def format_action_log(

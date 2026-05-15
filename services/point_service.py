@@ -446,11 +446,19 @@ class PointService:
                 if not success:
                     return False, message
 
+                # Fetch actual apploid_id
+                apploid_result = await session.execute(
+                    select(Apploid).where(Apploid.apploid_name == apploid_name)
+                )
+                apploid_record = apploid_result.scalar_one_or_none()
+                if not apploid_record:
+                    return False, "Apploid database record not found"
+
                 # Create apploid record
                 user_apploid = UserApploid(
                     user_id=user_id,
                     group_id=group_id,
-                    apploid_id=1,  # Would be actual apploid_id from database
+                    apploid_id=apploid_record.apploid_id,
                     is_equipped=False,
                     purchase_price=apploid_data["required_points"],
                     acquired_at=int(time.time()),

@@ -101,6 +101,9 @@ class ACNService:
     @staticmethod
     async def validate_group_access(chat: Chat, user_id: int) -> tuple[bool, str]:
         """Validate if user can access bot in this group"""
+        if chat.type == "private":
+            return True, "Private chat"
+
         # Check if group is ACN whitelisted
         if not await ACNService.is_acn_group(chat.id):
             return False, "This bot only works in Anime Crew Network groups."

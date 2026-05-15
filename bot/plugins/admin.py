@@ -50,18 +50,19 @@ async def resolve_target(
         return None
     raw = args[0].strip()
     async with async_session_factory() as session:
-        if raw.startswith("@"):
-            user = await UserService.find_by_username(session, raw)
-            if user:
-                return TargetUser(
-                    user.user_id,
-                    display_user(user.user_id, user.username),
-                    1,
-                )
-        numeric = raw.removeprefix("@")
-        if numeric.lstrip("-").isdigit():
-            user_id = int(numeric)
-            return TargetUser(user_id, display_user(user_id), 1)
+        async with session.begin():
+            if raw.startswith("@"):
+                user = await UserService.find_by_username(session, raw)
+                if user:
+                    return TargetUser(
+                        user.user_id,
+                        display_user(user.user_id, user.username),
+                        1,
+                    )
+            numeric = raw.removeprefix("@")
+            if numeric.lstrip("-").isdigit():
+                user_id = int(numeric)
+                return TargetUser(user_id, display_user(user_id), 1)
     return None
 
 
