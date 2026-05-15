@@ -256,42 +256,36 @@ class BroadcastService:
                     )
 
                     # Emit system-wide broadcast notification
-                    asyncio.create_task(
-                        emit_system_event(
-                            "channel_broadcast",
-                            {
-                                "channel_name": channel_name,
-                                "channel_type": channel_type,
-                                "message_preview": (
-                                    content[:100] + "..."
-                                    if len(content) > 100
-                                    else content
-                                ),
-                                "broadcast_stats": stats,
-                                "timestamp": time.time(),
-                            },
-                        )
+                    await emit_system_event(
+                        "channel_broadcast",
+                        {
+                            "channel_name": channel_name,
+                            "channel_type": channel_type,
+                            "message_preview": (
+                                content[:100] + "..." if len(content) > 100 else content
+                            ),
+                            "broadcast_stats": stats,
+                            "timestamp": time.time(),
+                        },
                     )
                 except Exception as e:
-                    logger.error("broadcast_success_event_emit_failed", error=str(e))
+                    print(f"Failed to emit broadcast success events: {e}")
             else:
                 print(f"❌ Broadcast failed: {stats.get('error', 'Unknown error')}")
 
                 # Emit system error notification
                 try:
-                    asyncio.create_task(
-                        emit_system_event(
-                            "broadcast_error",
-                            {
-                                "channel_name": channel_name,
-                                "channel_type": channel_type,
-                                "error": stats.get("error", "Unknown error"),
-                                "timestamp": time.time(),
-                            },
-                        )
+                    await emit_system_event(
+                        "broadcast_error",
+                        {
+                            "channel_name": channel_name,
+                            "channel_type": channel_type,
+                            "error": stats.get("error", "Unknown error"),
+                            "timestamp": time.time(),
+                        },
                     )
                 except Exception as e:
-                    logger.error("broadcast_error_event_emit_failed", error=str(e))
+                    print(f"Failed to emit broadcast error event: {e}")
 
             return True
 

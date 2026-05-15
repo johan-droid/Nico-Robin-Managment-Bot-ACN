@@ -547,7 +547,7 @@ async def disable_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     await msg.reply_text(
         f"✅ **Category {category.title()} Updated**\n\n"
-        f"🚫 Disabled: {disabled_count} features\n"
+        f"✅ Disabled: {disabled_count} features\n"
         f"❌ Failed: {failed_count} features"
     )
 

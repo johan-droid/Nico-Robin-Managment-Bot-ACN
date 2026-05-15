@@ -357,6 +357,8 @@ async def acn_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             total_members = len(members)
             total_points = sum(m["points"] for m in members)
 
+            from datetime import datetime
+
             def get_timestamp(activity):
                 if isinstance(activity, datetime):
                     return activity.timestamp()

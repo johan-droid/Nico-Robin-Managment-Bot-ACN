@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from telegram import Update
 from telegram.ext import (
     CommandHandler,
@@ -124,6 +126,7 @@ async def welcome_new_members(
     log_channel_id = group.log_channel_id or settings.log_channel_id
     if log_channel_id:
         count = await _member_count(context, chat.id)
+        log_tasks = []
         for member in msg.new_chat_members:
             username_line = (
                 f"📛 **Username:** @{member.username}\n" if member.username else ""
@@ -138,24 +141,59 @@ async def welcome_new_members(
                 f"👥 **Members Now:** {count or '?'}\n"
                 f"🕐 **Joined At:** {msg.date.strftime('%Y-%m-%d %H:%M UTC') if msg.date else 'N/A'}"
             )
-            try:
-                await context.bot.send_message(
+            log_tasks.append(
+                context.bot.send_message(
                     chat_id=log_channel_id,
                     text=join_text,
                     parse_mode="Markdown",
                 )
-            except Exception:
-                pass  # Log channel may be unreachable
+            )
+
+        if log_tasks:
+            await asyncio.gather(*log_tasks, return_exceptions=True)
 
     if not group.welcome_enabled:
         return
 
     count = await _member_count(context, chat.id)
     for member in msg.new_chat_members:
+        if member.is_bot:
+            continue
+
+        username_val = f"@{member.username}" if member.username else member.full_name
+
+        if group.welcome_dm_enabled and group.welcome_dm_text:
+            dm_text = format_welcome(
+                template=group.welcome_dm_text,
+                first=member.first_name,
+                username=username_val,
+                chat=chat.title or str(chat.id),
+                count=count,
+                locale=group.locale,
+            )
+            try:
+                await context.bot.send_message(chat_id=member.id, text=dm_text)
+            except Forbidden:
+                bot_username = context.bot.username
+                keyboard = InlineKeyboardMarkup(
+                    [
+                        [
+                            InlineKeyboardButton(
+                                "Start Bot to read rules",
+                                url=f"https://t.me/{bot_username}?start=rules",
+                            )
+                        ]
+                    ]
+                )
+                await msg.reply_text(
+                    f"Hi {member.first_name}, I couldn't send you a welcome message in DM. Please start me first!",
+                    reply_markup=keyboard,
+                )
+
         text = format_welcome(
             template=group.welcome_text,
             first=member.first_name,
-            username=f"@{member.username}" if member.username else member.full_name,
+            username=username_val,
             chat=chat.title or str(chat.id),
             count=count,
             locale=group.locale,
@@ -253,6 +291,46 @@ async def setwelcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 @group_only
 @admin_only
+async def setwelcomedm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    msg = update.effective_message
+    chat = update.effective_chat
+    if msg is None or chat is None:
+        return
+    text = " ".join(context.args or []).strip()
+    if not text and msg.reply_to_message:
+        text = msg.reply_to_message.text_html or msg.reply_to_message.caption_html or ""
+    if not text:
+        await msg.reply_text("🌸 Give me a welcome DM text to archive.")
+        return
+    async with async_session_factory() as session:
+        async with session.begin():
+            await GroupService.ensure_group(session, chat)
+            await GroupService.update_settings(
+                session, chat.id, welcome_dm_text=text, welcome_dm_enabled=True
+            )
+    await msg.reply_text("🌸 Welcome DM saved and enabled.")
+
+
+@group_only
+@admin_only
+async def welcomedm_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    msg = update.effective_message
+    chat = update.effective_chat
+    if msg is None or chat is None:
+        return
+    state = _state_arg(context.args or [])
+    if state is None:
+        await msg.reply_text("🌸 Choose on or off.")
+        return
+    async with async_session_factory() as session:
+        async with session.begin():
+            await GroupService.ensure_group(session, chat)
+            await GroupService.update_settings(
+                session, chat.id, welcome_dm_enabled=state
+            )
+    await msg.reply_text(f"🌸 Welcome DM is now {'enabled' if state else 'disabled'}.")
+
+
 async def resetwelcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     del context
     msg = update.effective_message
@@ -398,6 +476,8 @@ def register(app) -> None:
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("setwelcome", setwelcome))
+    app.add_handler(CommandHandler("setwelcomedm", setwelcomedm))
+    app.add_handler(CommandHandler("welcomedm", welcomedm_toggle))
     app.add_handler(CommandHandler("resetwelcome", resetwelcome))
     app.add_handler(CommandHandler("welcome", welcome_toggle))
     app.add_handler(CommandHandler("setfarewell", setfarewell))
