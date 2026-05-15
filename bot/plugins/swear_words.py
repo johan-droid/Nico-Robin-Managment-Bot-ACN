@@ -329,7 +329,7 @@ async def _apply_punishment(
             )
             # Schedule unmute if duration > 0
             if punishment.duration > 0:
-                asyncio.create_task(
+                context.application.create_task(
                     _schedule_unmute(context, chat.id, user.id, punishment.duration)
                 )
 
@@ -337,7 +337,7 @@ async def _apply_punishment(
             await context.bot.ban_chat_member(chat.id, user.id)
             # Schedule unban if duration > 0
             if punishment.duration > 0:
-                asyncio.create_task(
+                context.application.create_task(
                     _schedule_unban(context, chat.id, user.id, punishment.duration)
                 )
 

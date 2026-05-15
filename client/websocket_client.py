@@ -54,6 +54,11 @@ class BotWebSocketClient:
             # Generate HMAC token for authentication
             timestamp = str(int(time.time()))
             secret = settings.webhook_secret or settings.bot_token
+            if not secret:
+                logger.error(
+                    "Both webhook_secret and bot_token are missing, cannot authenticate websocket."
+                )
+                return
             payload = f"{bot_user_id}:{timestamp}".encode()
             token = hmac.new(secret.encode(), payload, hashlib.sha256).hexdigest()
 

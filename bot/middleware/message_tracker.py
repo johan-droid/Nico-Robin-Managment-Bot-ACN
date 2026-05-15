@@ -74,7 +74,7 @@ async def track_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
         # Flush to DB periodically
         if current_count >= _FLUSH_THRESHOLD:
-            await _flush_to_db(redis, uid, gid)
+            context.application.create_task(_flush_to_db(redis, uid, gid))
 
     except Exception:
         pass  # Never block message processing
