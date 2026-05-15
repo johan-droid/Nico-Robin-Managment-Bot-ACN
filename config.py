@@ -156,12 +156,8 @@ class Settings(BaseSettings):
     )
 
     # Celery Configuration
-    celery_broker_url: str = Field(
-        default="redis://localhost:6379/0", alias="CELERY_BROKER_URL"
-    )
-    celery_result_backend: str = Field(
-        default="redis://localhost:6379/1", alias="CELERY_RESULT_BACKEND"
-    )
+    celery_broker_url: str = Field(default="", alias="CELERY_BROKER_URL")
+    celery_result_backend: str = Field(default="", alias="CELERY_RESULT_BACKEND")
 
     llm_provider: Literal["disabled", "openai", "traditional_ml"] = Field(
         default="disabled",
@@ -219,9 +215,7 @@ class Settings(BaseSettings):
         # Strip whitespace and handle postgres:// to postgresql:// conversion
         url = value.strip()
         if url.startswith("postgres://"):
-            url = url.replace("postgres://", "postgresql+asyncpg://", 1)
-        elif url.startswith("postgresql://"):
-            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            url = url.replace("postgres://", "postgresql://", 1)
 
         # Ensure it has the asyncpg driver for internal use if not already specified
         # but keep the base URL clean for the sync property

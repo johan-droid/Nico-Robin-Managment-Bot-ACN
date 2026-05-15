@@ -239,43 +239,49 @@ class BroadcastService:
                 )
 
                 # Emit real-time events
-                await emit_group_update(
-                    update_type="channel_broadcast",
-                    group_id=channel_id,
-                    actor_id=None,
-                    extra_data={
-                        "channel_name": channel_name,
-                        "channel_type": channel_type,
-                        "broadcast_stats": stats,
-                    },
-                )
+                try:
+                    await emit_group_update(
+                        update_type="channel_broadcast",
+                        group_id=channel_id,
+                        actor_id=None,
+                        extra_data={
+                            "channel_name": channel_name,
+                            "channel_type": channel_type,
+                            "broadcast_stats": stats,
+                        },
+                    )
 
-                # Emit system-wide broadcast notification
-                await emit_system_event(
-                    "channel_broadcast",
-                    {
-                        "channel_name": channel_name,
-                        "channel_type": channel_type,
-                        "message_preview": (
-                            content[:100] + "..." if len(content) > 100 else content
-                        ),
-                        "broadcast_stats": stats,
-                        "timestamp": time.time(),
-                    },
-                )
+                    # Emit system-wide broadcast notification
+                    await emit_system_event(
+                        "channel_broadcast",
+                        {
+                            "channel_name": channel_name,
+                            "channel_type": channel_type,
+                            "message_preview": (
+                                content[:100] + "..." if len(content) > 100 else content
+                            ),
+                            "broadcast_stats": stats,
+                            "timestamp": time.time(),
+                        },
+                    )
+                except Exception as e:
+                    print(f"Failed to emit broadcast success events: {e}")
             else:
                 print(f"❌ Broadcast failed: {stats.get('error', 'Unknown error')}")
 
                 # Emit system error notification
-                await emit_system_event(
-                    "broadcast_error",
-                    {
-                        "channel_name": channel_name,
-                        "channel_type": channel_type,
-                        "error": stats.get("error", "Unknown error"),
-                        "timestamp": time.time(),
-                    },
-                )
+                try:
+                    await emit_system_event(
+                        "broadcast_error",
+                        {
+                            "channel_name": channel_name,
+                            "channel_type": channel_type,
+                            "error": stats.get("error", "Unknown error"),
+                            "timestamp": time.time(),
+                        },
+                    )
+                except Exception as e:
+                    print(f"Failed to emit broadcast error event: {e}")
 
             return True
 

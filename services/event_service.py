@@ -209,11 +209,13 @@ class EventService:
         session: AsyncSession, timeout_minutes: int = 5
     ):
         """Clean up inactive connections"""
-        cutoff_time = datetime.now(UTC).timestamp() - (timeout_minutes * 60)
+        from datetime import timedelta
+
+        cutoff_datetime = datetime.now(UTC) - timedelta(minutes=timeout_minutes)
 
         await session.execute(
             update(WebSocketConnection)
-            .where(WebSocketConnection.last_ping.timestamp() < cutoff_time)
+            .where(WebSocketConnection.last_ping < cutoff_datetime)
             .values(is_active=False)
         )
 
@@ -305,11 +307,12 @@ class EventService:
             group_connections[group_id].add(user_id)
 
         # Recent events
+        from datetime import timedelta
+
+        cutoff_datetime = datetime.now(UTC) - timedelta(hours=1)
         recent_result = await session.execute(
             select(RealtimeEvent)
-            .where(
-                RealtimeEvent.created_at >= datetime.now(UTC).timestamp() - 3600
-            )  # Last hour
+            .where(RealtimeEvent.created_at >= cutoff_datetime)  # Last hour
             .order_by(RealtimeEvent.created_at.desc())
             .limit(100)
         )
