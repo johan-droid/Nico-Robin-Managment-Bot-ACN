@@ -355,8 +355,20 @@ async def acn_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             # Calculate statistics
             total_members = len(members)
             total_points = sum(m["points"] for m in members)
+
+            from datetime import datetime
+
+            def get_timestamp(activity):
+                if isinstance(activity, datetime):
+                    return activity.timestamp()
+                return float(activity) if activity else 0
+
             active_members = len(
-                [m for m in members if m["last_activity"] > time.time() - 86400 * 7]
+                [
+                    m
+                    for m in members
+                    if get_timestamp(m["last_activity"]) > time.time() - 86400 * 7
+                ]
             )  # Active in last 7 days
 
             # Count by role

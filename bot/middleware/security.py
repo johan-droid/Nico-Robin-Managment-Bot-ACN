@@ -37,31 +37,31 @@ async def rate_limit_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     2. Per-group: prevents coordinated group spam
     3. Global: prevents total bot resource exhaustion
     """
-    user = update.effective_user
-    chat = update.effective_chat
-
-    # Only rate-limit command messages (not passive events like joins)
-    message = update.effective_message
-    if not message or not message.text or not message.text.startswith("/"):
-        return False
-
-    if user is None:
-        return False
-
-    # Captain and sudo users bypass rate limits
-    if (
-        user.id == settings.captain_id
-        or user.id in settings.commander_ids
-        or user.id in settings.sudo_users
-    ):
-        return False
-
-    redis = get_redis()
-    now = time.time()
-    blocked = False
-    violation_source = ""
-
     try:
+        user = update.effective_user
+        chat = update.effective_chat
+
+        # Only rate-limit command messages (not passive events like joins)
+        message = update.effective_message
+        if not message or not message.text or not message.text.startswith("/"):
+            return False
+
+        if user is None:
+            return False
+
+        # Captain and sudo users bypass rate limits
+        if (
+            user.id == settings.captain_id
+            or user.id in settings.commander_ids
+            or user.id in settings.sudo_users
+        ):
+            return False
+
+        redis = get_redis()
+        now = time.time()
+        blocked = False
+        violation_source = ""
+
         # ── Check cooldown first ──
         cooldown_key = _COOLDOWN_KEY.format(user_id=user.id)
         if await redis.exists(cooldown_key):
@@ -100,11 +100,10 @@ async def rate_limit_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         # ── Handle violation ──
         if blocked:
             await _handle_violation(redis, user, chat, violation_source, message)
+        return blocked
     except Exception as e:
         logger.error("rate_limit_redis_error", error=str(e))
         return False
-
-    return blocked
 
 
 async def _increment_sliding_window(redis: Any, key: str, now: float) -> int:

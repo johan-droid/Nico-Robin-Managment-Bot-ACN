@@ -5,10 +5,16 @@ from celery.schedules import crontab
 
 from config import settings
 
+_DEFAULT_BROKER_URL = "memory://"
+_DEFAULT_RESULT_BACKEND = "cache+memory://"
+
+broker_url = settings.celery_broker_url or _DEFAULT_BROKER_URL
+result_backend = settings.celery_result_backend or _DEFAULT_RESULT_BACKEND
+
 celery_app = Celery(
     "nico_robin",
-    broker=settings.celery_broker_url,
-    backend=settings.celery_result_backend,
+    broker=broker_url,
+    backend=result_backend,
     include=["tasks.ban_tasks", "tasks.announce_tasks", "tasks.nightmode_tasks"],
 )
 

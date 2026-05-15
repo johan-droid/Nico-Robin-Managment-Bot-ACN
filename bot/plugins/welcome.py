@@ -20,7 +20,7 @@ from services.audit_service import AuditService
 from services.group_service import GroupService
 from services.user_service import UserService
 from utils.decorators import admin_only, group_only
-from utils.formatters import format_welcome
+from utils.formatters import format_welcome, safe_format
 from utils.i18n import gettext
 
 LAST_WELCOME_KEY = "welcome:last:{chat_id}"
@@ -35,22 +35,23 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if chat and chat.type == "private":
         welcome_text = (
             "🌸 Welcome to Nico Robin Bot!\n\n"
+            "I’m here to help manage your Telegram groups with various features like:\n"
+            "• 📊 Points and leveling system\n"
+            "• 🛡️ Moderation tools\n"
+            "• 💬 Fun interactions\n"
+            "• 🔧 Group management\n\n"
+            "Use /help to see more commands.\n\n"
+            "Add me to an Anime Crew Network group, then use /help to see available commands."
+        )
+    else:
+        welcome_text = (
+            "🌸 Welcome to Nico Robin Bot!\n\n"
             "I’m the Anime Crew Network assistant bot, linked with the ACN community network.\n\n"
             "Here’s what I can do for you inside your groups:\n"
             "• 📊 Track points, levels, and activity\n"
             "• 🛡️ Help with moderation and safety\n"
             "• 💬 Handle fun interactions and group features\n"
             "• 🔧 Manage welcomes, rules, notes, and settings\n\n"
-            "Add me to an Anime Crew Network group, then use /help to see available commands."
-        )
-    else:
-        welcome_text = (
-            "🌸 Welcome to Nico Robin Bot!\n\n"
-            "I’m here to help manage your Telegram groups with various features like:\n"
-            "• 📊 Points and leveling system\n"
-            "• 🛡️ Moderation tools\n"
-            "• 💬 Fun interactions\n"
-            "• 🔧 Group management\n\n"
             "Use /help to see more commands."
         )
     await update.effective_message.reply_text(welcome_text)
@@ -225,7 +226,8 @@ async def farewell_member(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
     template = group.farewell_text or "🌸 {first} has left the archive."
     await msg.reply_text(
-        template.format(
+        safe_format(
+            template,
             first=user.first_name,
             username=f"@{user.username}" if user.username else user.full_name,
             chat=chat.title or str(chat.id),
