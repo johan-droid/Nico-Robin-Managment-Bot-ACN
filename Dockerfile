@@ -3,8 +3,7 @@
 FROM python:3.11-slim AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PYTHONUNBUFFERED=1
 
 WORKDIR /build
 
@@ -13,17 +12,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
 # Copy requirements and install to /build directory
 COPY requirements.txt .
-RUN pip install --user --no-warn-script-location -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 
 # Stage 2: Runtime - minimal final image
 FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
@@ -33,11 +34,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only the installed packages from builder stage
-COPY --from=builder /root/.local /root/.local
+# Copy the virtual environment from the builder stage
+COPY --from=builder /opt/venv /opt/venv
 
-# Set PATH to include user site-packages
-ENV PATH=/root/.local/bin:$PATH
+# Set PATH to include the virtual environment
+ENV PATH="/opt/venv/bin:$PATH"
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser
