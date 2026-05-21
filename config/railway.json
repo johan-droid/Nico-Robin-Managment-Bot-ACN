@@ -6,7 +6,7 @@
   },
   "deploy": {
     "preDeployCommand": "alembic upgrade head",
-    "startCommand": "python main.py",
+    "startCommand": "python -m src.bot.main",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",

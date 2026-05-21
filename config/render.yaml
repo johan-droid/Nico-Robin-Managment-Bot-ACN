@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: starter
     dockerfilePath: ./Dockerfile
-    dockerCommand: python main.py
+    dockerCommand: python -m src.bot.main
     healthCheckPath: /health
     preDeployCommand: alembic upgrade head
     autoDeployTrigger: checksPass
@@ -44,7 +44,7 @@ services:
     runtime: docker
     plan: starter
     dockerfilePath: ./Dockerfile
-    dockerCommand: celery -A tasks.celery_app worker --loglevel=info
+    dockerCommand: celery -A src.bot.tasks.celery_app:celery_app worker --loglevel=info
     autoDeployTrigger: checksPass
     envVars:
       - key: BOT_TOKEN
@@ -74,7 +74,7 @@ services:
     runtime: docker
     plan: starter
     dockerfilePath: ./Dockerfile
-    dockerCommand: celery -A tasks.celery_app beat --loglevel=info
+    dockerCommand: celery -A src.bot.tasks.celery_app:celery_app beat --loglevel=info
     autoDeployTrigger: checksPass
     envVars:
       - key: DATABASE_URL
@@ -95,6 +95,7 @@ services:
   - type: redis
     name: nico-robin-redis
     plan: starter
+    ipAllowList: []
     maxmemoryPolicy: allkeys-lru
 
 databases:

@@ -3,11 +3,11 @@ version: "3.9"
 services:
   bot:
     build:
-      context: .
+      context: ..
       dockerfile: Dockerfile
     container_name: nico-robin-bot
     restart: unless-stopped
-    env_file: .env
+    env_file: ../.env
     environment:
       DATABASE_URL: postgresql+asyncpg://robin:password@db:5432/robin_db
     depends_on:
@@ -15,7 +15,7 @@ services:
         condition: service_healthy
     ports:
       - "8000:8000"
-    command: sh -c "alembic upgrade head && python main.py"
+    command: sh -c "alembic upgrade head && python -m src.bot.main"
     networks:
       - app-network
     healthcheck:
@@ -25,7 +25,7 @@ services:
       retries: 3
       start_period: 10s
     volumes:
-      - ./:/app  # For development; comment out for production
+      - ../:/app  # For development; comment out for production
 
   db:
     image: postgres:15-alpine
