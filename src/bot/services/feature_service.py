@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 
 from sqlalchemy import select
-from telegram import Update
+from telegram import Chat, Update
 from telegram.ext import ContextTypes
 
 from src.bot.database import async_session_factory
@@ -266,6 +266,8 @@ class FeatureService:
         user_id: int,
         reason: str | None = None,
         toggle_level: str = "group",
+        chat: Chat | None = None,
+        context: ContextTypes.DEFAULT_TYPE | None = None,
     ) -> tuple[bool, str]:
         """Toggle a feature on/off"""
 
@@ -278,9 +280,14 @@ class FeatureService:
         # Check if user can toggle this feature
         user_role = await ACNService.get_user_role(user_id)
 
-        # Only captains and commanders can toggle features
+        # Only captains, commanders, or Telegram admins/owners can toggle features
         if user_role not in ["captain", "commander"]:
-            return False, "Only captains and commanders can toggle features"
+            if chat is None or context is None:
+                return False, "Only captains, commanders, admins, and owners can toggle features"
+
+            can_admin_toggle = await ACNService.is_admin_or_owner(user_id, chat, context)
+            if not can_admin_toggle:
+                return False, "Only captains, commanders, admins, and owners can toggle features"
 
         async with async_session_factory() as session:
             async with session.begin():

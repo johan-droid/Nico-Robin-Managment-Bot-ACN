@@ -11,6 +11,7 @@ from telegram.ext import ContextTypes
 from src.bot.config import settings
 from src.bot.database import async_session_factory
 from src.bot.models.loyalty import ACNWhitelist, LoyaltyPoints
+from src.bot.utils.permissions import is_telegram_admin
 
 
 class ACNService:
@@ -92,8 +93,6 @@ class ACNService:
 
         # Check Telegram admin/owner status
         try:
-            from utils.permissions import is_telegram_admin
-
             return await is_telegram_admin(context, chat.id, user_id)
         except Exception:
             return False
@@ -296,19 +295,17 @@ def captain_commander_only(func):
 
     @wraps(func)
     async def wrapper(update, context, *args, **kwargs):
+        chat = update.effective_chat
         user = update.effective_user
 
-        if not user:
+        if not user or not chat:
             return
 
-        # Check if captain or commander
-        if not (
-            await ACNService.is_captain(user.id)
-            or await ACNService.is_commander(user.id)
-        ):
+        # Allow captains, commanders, and Telegram admins/owners
+        if not await ACNService.is_admin_or_owner(user.id, chat, context):
             if update.message:
                 await update.message.reply_text(
-                    "🚫 Only Monkey D. Sparrow and commanders can use this command."
+                    "🚫 Only admins, owners, Monkey D. Sparrow, and commanders can use this command."
                 )
             return
 

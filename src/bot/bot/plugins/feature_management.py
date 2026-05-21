@@ -52,7 +52,7 @@ async def management_help(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "• `/setflood`, `/setfloodmode`, `/flood on/off` - flood protection\n"
         "• `/captcha on/off` - new member verification\n\n"
         "**Feature Management**\n"
-        "Use these when captain/commander needs to switch bot modules.\n"
+        "Use these when captains, commanders, admins, or owners need to switch bot modules.\n"
         "• `/features` - list every feature\n"
         "• `/enable`, `/disable`, `/toggle` - change a feature\n"
         "• `/feature_info` - explain a feature\n"
@@ -90,6 +90,8 @@ async def enable_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         enabled=True,
         user_id=update.effective_user.id if update.effective_user else None,
         reason=reason,
+        chat=chat,
+        context=context,
     )
 
     if success:
@@ -124,6 +126,8 @@ async def disable_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         enabled=False,
         user_id=update.effective_user.id if update.effective_user else None,
         reason=reason,
+        chat=chat,
+        context=context,
     )
 
     if success:
@@ -161,6 +165,8 @@ async def toggle_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         enabled=not current_status,
         user_id=update.effective_user.id if update.effective_user else None,
         reason=reason,
+        chat=chat,
+        context=context,
     )
 
     if success:
@@ -216,7 +222,7 @@ async def features(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         response += "\n"
 
     response += "💡 **Use:** `/enable <feature>`, `/disable <feature>`, or `/toggle <feature>`\n"
-    response += "👥 **Only captains and commanders can manage features**"
+    response += "👥 **Captains, commanders, admins, and owners can manage features**"
 
     await msg.reply_text(response, parse_mode="Markdown")
 
@@ -484,6 +490,8 @@ async def enable_category(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             enabled=True,
             user_id=update.effective_user.id if update.effective_user else None,
             reason=f"Enabled all {category} features",
+            chat=chat,
+            context=context,
         )
 
         if success:
@@ -538,6 +546,8 @@ async def disable_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             enabled=False,
             user_id=update.effective_user.id if update.effective_user else None,
             reason=f"Disabled all {category} features",
+            chat=chat,
+            context=context,
         )
 
         if success:

@@ -32,28 +32,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     chat = update.effective_chat
-    if chat and chat.type == "private":
-        welcome_text = (
-            "🌸 Welcome to Nico Robin Bot!\n\n"
-            "I’m here to help manage your Telegram groups with various features like:\n"
-            "• 📊 Points and leveling system\n"
-            "• 🛡️ Moderation tools\n"
-            "• 💬 Fun interactions\n"
-            "• 🔧 Group management\n\n"
-            "Use /help to see more commands.\n\n"
-            "Add me to an Anime Crew Network group, then use /help to see available commands."
-        )
-    else:
-        welcome_text = (
-            "🌸 Welcome to Nico Robin Bot!\n\n"
-            "I’m the Anime Crew Network assistant bot, linked with the ACN community network.\n\n"
-            "Here’s what I can do for you inside your groups:\n"
-            "• 📊 Track points, levels, and activity\n"
-            "• 🛡️ Help with moderation and safety\n"
-            "• 💬 Handle fun interactions and group features\n"
-            "• 🔧 Manage welcomes, rules, notes, and settings\n\n"
-            "Use /help to see more commands."
-        )
+    if not chat or chat.type != "private":
+        return
+
+    welcome_text = (
+        "🌸 Welcome to Nico Robin Bot!\n\n"
+        "I’m here to help manage your Telegram groups with various features like:\n"
+        "• 📊 Points and leveling system\n"
+        "• 🛡️ Moderation tools\n"
+        "• 💬 Fun interactions\n"
+        "• 🔧 Group management\n\n"
+        "Use /help to see more commands.\n\n"
+        "Add me to an Anime Crew Network group, then use /help to see available commands."
+    )
     await update.effective_message.reply_text(welcome_text)
 
 
