@@ -11,6 +11,7 @@ from telegram.ext import ContextTypes
 
 from src.bot.database import async_session_factory
 from src.bot.models.group import Group
+from src.bot.services.feature_service import FeatureService
 from src.bot.services.security_logger import SecurityLogger
 from src.bot.utils.i18n import gettext
 from src.bot.utils.permissions import (
@@ -71,6 +72,23 @@ def group_only(func: Handler) -> Handler:
         await func(update, context)
 
     return cast(Handler, wrapper)
+
+
+def feature_enabled(feature_name: str) -> Handler:
+    def decorator(func: Handler) -> Handler:
+        @wraps(func)
+        async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+            chat = update.effective_chat
+            if chat is None:
+                return
+            if not await FeatureService.is_feature_enabled(chat.id, feature_name):
+                await _reply(update, gettext("feature.disabled"))
+                return
+            await func(update, context)
+
+        return cast(Handler, wrapper)
+
+    return decorator
 
 
 def sudo_only(func: Handler) -> Handler:
