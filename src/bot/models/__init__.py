@@ -2,6 +2,7 @@
 
 from src.bot.models.audit import ActionLog, JoinLog, MessageLog
 from src.bot.models.base import Base
+from src.bot.models.broadcast import BroadcastChannelState, BroadcastDelivery
 from src.bot.models.bot_friendship import (
     BotConversation,
     BotEmotion,
@@ -16,7 +17,13 @@ from src.bot.models.event import (
     RealtimeEvent,
     WebSocketConnection,
 )
-from src.bot.models.features import FeatureLog, FeaturePermission, FeatureToggle, FeatureUsage
+from src.bot.models.features import (
+    FeatureLog,
+    FeaturePermission,
+    FeatureToggle,
+    FeatureUsage,
+    GroupFeature,
+)
 from src.bot.models.federation import (
     Federation,
     FederationAdmin,
@@ -69,6 +76,8 @@ __all__ = [
     "BotGift",
     "BotInteraction",
     "BotMemory",
+    "BroadcastChannelState",
+    "BroadcastDelivery",
     "EventAuditLog",
     "EventSubscription",
     "Federation",
@@ -79,6 +88,7 @@ __all__ = [
     "FeaturePermission",
     "FeatureToggle",
     "FeatureUsage",
+    "GroupFeature",
     "Filter",
     "FlirtingAchievement",
     "FlirtingAttempt",

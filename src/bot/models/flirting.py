@@ -6,6 +6,7 @@ from sqlalchemy import (
     BigInteger,
     Boolean,
     ForeignKey,
+    Float,
     Integer,
     String,
     Text,
@@ -97,9 +98,7 @@ class FlirtingStats(Base, TimestampMixin):
         String(20), default="beginner", nullable=False
     )
     points_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    success_rate: Mapped[float] = mapped_column(
-        Integer, default=0.0, nullable=False
-    )  # Stored as integer (percentage * 100)
+    success_rate: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     current_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     best_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_flirt_time: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

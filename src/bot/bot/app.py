@@ -6,7 +6,7 @@ from telegram.ext import Application, MessageHandler, TypeHandler
 from telegram.ext import filters as tg_filters
 
 from src.bot.bot.dispatcher import register_all_handlers
-from src.bot.bot.middleware.error_handler import global_error_handler
+from src.bot.bot.middleware.error_handler import error_handler, global_error_handler
 from src.bot.bot.middleware.group_guard import (
     _StopProcessing,
     group_guard,
@@ -58,6 +58,7 @@ def create_application(app_settings: Settings = settings) -> Application:
 
     # Error handlers (order matters — first registered gets first chance)
     application.add_error_handler(group_guard_error_handler)
+    application.add_error_handler(error_handler)
     application.add_error_handler(global_error_handler)
 
     # group=0: All plugin handlers

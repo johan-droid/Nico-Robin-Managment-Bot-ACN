@@ -14,7 +14,7 @@ from src.bot.services.event_service import emit_user_action
 from src.bot.services.group_service import GroupService
 from src.bot.services.user_service import UserService
 from src.bot.services.warn_service import WarnService
-from src.bot.utils.decorators import admin_only, group_only
+from src.bot.utils.decorators import admin_only, feature_enabled, group_only
 from src.bot.utils.formatters import (
     ban_message,
     display_user,
@@ -143,7 +143,8 @@ async def _apply_unmute(
     )
 
 
-@acn_only
+@group_only
+@feature_enabled("moderation")
 @admin_captain_commander_only
 async def ban(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -197,7 +198,8 @@ async def ban(
         await msg.reply_text(f"🌸 Failed to ban user: {str(e)}")
 
 
-@acn_only
+@group_only
+@feature_enabled("moderation")
 @admin_captain_commander_only
 async def unban(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -214,7 +216,8 @@ async def unban(
     await msg.reply_text(gettext("unban.success", target=target.label))
 
 
-@acn_only
+@group_only
+@feature_enabled("moderation")
 @admin_captain_commander_only
 async def kick(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -234,6 +237,7 @@ async def kick(
 
 
 @group_only
+@feature_enabled("moderation")
 @admin_only
 async def mute(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -257,6 +261,7 @@ async def mute(
 
 
 @group_only
+@feature_enabled("moderation")
 @admin_only
 async def unmute(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -293,7 +298,8 @@ async def _auto_action(
         await _apply_mute(context, chat.id, target.user_id, timedelta(hours=1))
 
 
-@acn_only
+@group_only
+@feature_enabled("moderation")
 @admin_captain_commander_only
 async def warn(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -363,7 +369,8 @@ async def warn(
         )
 
 
-@acn_only
+@group_only
+@feature_enabled("moderation")
 @admin_captain_commander_only
 async def warns(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -392,7 +399,8 @@ async def warns(
     await msg.reply_text("\n".join(lines))
 
 
-@acn_only
+@group_only
+@feature_enabled("moderation")
 @admin_captain_commander_only
 async def resetwarn(
     update: Update, context: ContextTypes.DEFAULT_TYPE

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from telegram import Update
 from telegram.ext import (
-    CommandHandler,
     ContextTypes,
     MessageHandler,
 )
@@ -109,10 +108,6 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def register(app) -> None:
-    app.add_handler(CommandHandler("save", save))
-    app.add_handler(CommandHandler("get", get))
-    app.add_handler(CommandHandler("notes", notes))
-    app.add_handler(CommandHandler("clear", clear))
     app.add_handler(
         MessageHandler(tg_filters.Regex(r"^#[A-Za-z0-9_]+"), hashtag_note), group=25
     )

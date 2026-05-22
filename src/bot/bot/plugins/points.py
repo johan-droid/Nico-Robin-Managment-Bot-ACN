@@ -5,6 +5,7 @@ from telegram.ext import CommandHandler, ContextTypes
 
 from src.bot.services.acn_service import acn_only
 from src.bot.services.point_service import point_service
+from src.bot.utils.decorators import admin_only
 from src.bot.utils.formatters import telegram_user_label
 
 
@@ -233,6 +234,103 @@ async def point_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await msg.reply_text(response, parse_mode="Markdown")
 
 
+@admin_only
+async def award_points(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Award points to a user."""
+
+    msg = update.effective_message
+    chat = update.effective_chat
+    if msg is None or chat is None:
+        return
+
+    args = context.args or []
+    if len(args) < 2:
+        await msg.reply_text(
+            "🌸 Usage: `/award <user_id> <points> [reason]`",
+            parse_mode="Markdown",
+        )
+        return
+
+    try:
+        user_id = int(args[0])
+        points_value = int(args[1])
+    except ValueError:
+        await msg.reply_text("🌸 Invalid user ID or points format.")
+        return
+
+    if points_value <= 0:
+        await msg.reply_text("🌸 Points must be positive.")
+        return
+
+    reason = " ".join(args[2:]) if len(args) > 2 else "Manual award"
+    success, message = await point_service.add_points(
+        user_id,
+        points_value,
+        reason,
+        group_id=chat.id,
+        source="award",
+        cooldown_seconds=0,
+    )
+
+    if success:
+        points_info = await point_service.get_user_points(user_id, chat.id)
+        balance_text = (
+            f"\n💎 New total: {points_info['current_points']:,} points"
+            if points_info
+            else ""
+        )
+        await msg.reply_text(
+            f"🌸 **Points Awarded**\n\n"
+            f"✅ User {user_id} received {points_value} points\n"
+            f"📝 Reason: {reason}{balance_text}",
+            parse_mode="Markdown",
+        )
+        return
+
+    await msg.reply_text(f"🌸 {message}")
+
+
+@admin_only
+async def recalculate_points(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    """Rebuild point balances from stored transactions."""
+
+    msg = update.effective_message
+    chat = update.effective_chat
+    if msg is None or chat is None:
+        return
+
+    args = context.args or []
+    target_user_id: int | None = None
+    if args:
+        try:
+            target_user_id = int(args[0])
+        except ValueError:
+            await msg.reply_text("🌸 Usage: `/recalculate_points [user_id]`", parse_mode="Markdown")
+            return
+
+    summary = await point_service.recalculate_group_points(chat.id, target_user_id)
+
+    if target_user_id is not None:
+        points_info = await point_service.get_user_points(target_user_id, chat.id)
+        if points_info:
+            await msg.reply_text(
+                f"🌸 Recalculated user {target_user_id}.\n"
+                f"💎 Balance: {points_info['current_points']:,}\n"
+                f"📈 Earned: {points_info['total_earned']:,}\n"
+                f"💸 Spent: {points_info['total_spent']:,}",
+            )
+            return
+
+    await msg.reply_text(
+        f"🌸 Recalculated {summary['updated_users']} users.\n"
+        f"💎 Total points: {summary['current_points']:,}\n"
+        f"📈 Total earned: {summary['total_earned']:,}\n"
+        f"💸 Total spent: {summary['total_spent']:,}",
+    )
+
+
 @acn_only
 async def earn_points(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show ways to earn points"""
@@ -303,6 +401,8 @@ async def point_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 **📊 Point Commands:**
 • `/points` - Show your point balance and level
 • `/leaderboard [limit]` - Show top point earners
+• `/award <user_id> <points> [reason]` - award points to a user
+• `/recalculate_points [user_id]` - rebuild balances from transactions
 • `/apploids` - View owned and available apploids
 • `/buy_apploid <name>` - Purchase an apploid
 • `/equip_apploid <name>` - Equip an apploid
@@ -350,6 +450,8 @@ def register(app) -> None:
     """Register point system commands"""
     app.add_handler(CommandHandler("points", points))
     app.add_handler(CommandHandler("leaderboard", leaderboard))
+    app.add_handler(CommandHandler("award", award_points))
+    app.add_handler(CommandHandler("recalculate_points", recalculate_points))
     app.add_handler(CommandHandler("apploids", apploids))
     app.add_handler(CommandHandler("buy_apploid", buy_apploid))
     app.add_handler(CommandHandler("equip_apploid", equip_apploid))

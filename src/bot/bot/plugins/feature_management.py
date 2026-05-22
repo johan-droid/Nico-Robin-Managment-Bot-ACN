@@ -4,9 +4,10 @@ from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
 from src.bot.database import async_session_factory
-from src.bot.models.features import FeatureToggle
+from src.bot.models.features import GroupFeature
 from src.bot.services.acn_service import ACNService, acn_only, captain_commander_only
 from src.bot.services.feature_service import FeatureService
+from src.bot.utils.decorators import require_captain_commander
 from src.bot.utils.formatters import telegram_user_label
 
 
@@ -64,7 +65,7 @@ async def management_help(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await msg.reply_text(response, parse_mode="Markdown")
 
 
-@captain_commander_only
+@require_captain_commander
 async def enable_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Enable a bot feature (Captain/Commander only)"""
     msg = update.effective_message
@@ -100,7 +101,7 @@ async def enable_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await msg.reply_text(f"❌ {message}")
 
 
-@captain_commander_only
+@require_captain_commander
 async def disable_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Disable a bot feature (Captain/Commander only)"""
     msg = update.effective_message
@@ -136,7 +137,7 @@ async def disable_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await msg.reply_text(f"❌ {message}")
 
 
-@captain_commander_only
+@require_captain_commander
 async def toggle_feature(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Toggle a bot feature on/off (Captain/Commander only)"""
     msg = update.effective_message
@@ -432,9 +433,9 @@ async def reset_features(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         async with async_session_factory() as session:
             from sqlalchemy import delete
 
-            # Delete all feature toggles for this group
+            # Delete all feature flags for this group
             await session.execute(
-                delete(FeatureToggle).where(FeatureToggle.group_id == chat.id)
+                delete(GroupFeature).where(GroupFeature.group_id == chat.id)
             )
             await session.commit()
 

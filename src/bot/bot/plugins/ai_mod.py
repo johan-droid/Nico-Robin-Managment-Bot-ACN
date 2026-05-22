@@ -3,7 +3,6 @@ from __future__ import annotations
 from telegram import Update
 from telegram.error import TelegramError
 from telegram.ext import (
-    CommandHandler,
     ContextTypes,
     MessageHandler,
 )
@@ -18,7 +17,7 @@ from src.bot.services.group_service import GroupService
 from src.bot.services.llm_gateway import ModerationResult, get_llm_gateway
 from src.bot.services.user_service import UserService
 from src.bot.services.warn_service import WarnService
-from src.bot.utils.decorators import admin_only, group_only
+from src.bot.utils.decorators import admin_only, feature_enabled, group_only
 from src.bot.utils.i18n import gettext
 from src.bot.utils.permissions import is_telegram_admin
 
@@ -102,6 +101,7 @@ async def _apply_ai_action(
 
 
 @group_only
+@feature_enabled("ai_moderation")
 async def handle_ai_moderation(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> None:
@@ -138,7 +138,6 @@ async def handle_ai_moderation(
 
 
 def register(app) -> None:
-    app.add_handler(CommandHandler("toggleai", toggleai))
     app.add_handler(
         MessageHandler(tg_filters.TEXT & ~tg_filters.COMMAND, handle_ai_moderation),
         group=30,

@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import asyncio
 import time
+from typing import Awaitable, Callable
 
 import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from telegram import Message, Update
+from telegram.error import TelegramError
 from telegram.ext import ContextTypes
 
 from src.bot.database import async_session_factory
 from src.bot.gateway.websocket import emit_system_event
+from src.bot.models.broadcast import BroadcastChannelState, BroadcastDelivery
 from src.bot.models.loyalty import ACNWhitelist
 from src.bot.services.event_service import emit_group_update
 
@@ -18,6 +22,110 @@ logger = structlog.get_logger(__name__)
 
 class BroadcastService:
     """Professional ACN channel broadcast service"""
+
+    @staticmethod
+    async def _retry_operation(
+        operation: Callable[[], Awaitable[object]],
+        *,
+        attempts: int = 3,
+        base_delay: float = 0.5,
+    ) -> tuple[bool, object | str]:
+        last_error: str | None = None
+        for attempt in range(1, attempts + 1):
+            try:
+                return True, await operation()
+            except TelegramError as exc:
+                last_error = str(exc)
+                if attempt < attempts:
+                    await asyncio.sleep(base_delay * attempt)
+                    continue
+                break
+            except Exception as exc:
+                last_error = str(exc)
+                break
+        return False, last_error or "Unknown broadcast failure"
+
+    @staticmethod
+    async def _get_channel_state(
+        session: AsyncSession, channel_id: int
+    ) -> BroadcastChannelState | None:
+        result = await session.execute(
+            select(BroadcastChannelState).where(
+                BroadcastChannelState.channel_id == channel_id
+            )
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
+    async def _mark_channel_forwarded(
+        session: AsyncSession, channel_id: int, message_id: int
+    ) -> None:
+        now = int(time.time())
+        state = await BroadcastService._get_channel_state(session, channel_id)
+        if state is None:
+            session.add(
+                BroadcastChannelState(
+                    channel_id=channel_id,
+                    last_forwarded_message_id=message_id,
+                    last_forwarded_at=now,
+                )
+            )
+        else:
+            state.last_forwarded_message_id = message_id
+            state.last_forwarded_at = now
+        await session.flush()
+
+    @staticmethod
+    async def _record_delivery(
+        session: AsyncSession,
+        source_channel_id: int,
+        source_message_id: int,
+        destination_group_id: int,
+        destination_message_id: int,
+        destination_message_kind: str,
+    ) -> None:
+        result = await session.execute(
+            select(BroadcastDelivery).where(
+                BroadcastDelivery.source_channel_id == source_channel_id,
+                BroadcastDelivery.source_message_id == source_message_id,
+                BroadcastDelivery.destination_group_id == destination_group_id,
+            )
+        )
+        delivery = result.scalar_one_or_none()
+        if delivery is None:
+            session.add(
+                BroadcastDelivery(
+                    source_channel_id=source_channel_id,
+                    source_message_id=source_message_id,
+                    destination_group_id=destination_group_id,
+                    destination_message_id=destination_message_id,
+                    destination_message_kind=destination_message_kind,
+                )
+            )
+        else:
+            delivery.destination_message_id = destination_message_id
+            delivery.destination_message_kind = destination_message_kind
+        await session.flush()
+
+    @staticmethod
+    async def _get_deliveries_for_source(
+        session: AsyncSession, source_channel_id: int, source_message_id: int
+    ) -> list[BroadcastDelivery]:
+        result = await session.execute(
+            select(BroadcastDelivery).where(
+                BroadcastDelivery.source_channel_id == source_channel_id,
+                BroadcastDelivery.source_message_id == source_message_id,
+            )
+        )
+        return result.scalars().all()
+
+    @staticmethod
+    def _message_kind(message: Message) -> str:
+        if message.text:
+            return "text"
+        if message.caption:
+            return "caption"
+        return "media"
 
     @staticmethod
     async def is_acn_channel(channel_id: int) -> bool:
@@ -154,43 +262,38 @@ class BroadcastService:
         if not main_groups:
             return {"success": False, "error": "No main ACN groups found"}
 
-        # Format broadcast message
-        broadcast_text = await BroadcastService.format_broadcast_message(
-            message, channel_name, channel_type
-        )
-
         # Broadcast statistics
         stats = {
             "total_groups": len(main_groups),
             "successful": 0,
             "failed": 0,
             "errors": [],
+            "deliveries": [],
         }
 
         # Send to each main group
         for group_id in main_groups:
-            try:
-                # Send text broadcast
-                await context.bot.send_message(
+            async def _copy_message() -> object:
+                return await context.bot.copy_message(
                     chat_id=group_id,
-                    text=broadcast_text,
-                    parse_mode="Markdown",
-                    disable_web_page_preview=True,
+                    from_chat_id=message.chat.id,
+                    message_id=message.message_id,
                 )
 
-                # If original message has media, forward it
-                if message.photo or message.video or message.document:
-                    await context.bot.forward_message(
-                        chat_id=group_id,
-                        from_chat_id=message.chat.id,
-                        message_id=message.message_id,
-                    )
-
+            success, result = await BroadcastService._retry_operation(_copy_message)
+            if success:
+                copied_message_id = getattr(result, "message_id", result)
                 stats["successful"] += 1
-
-            except Exception as e:
+                stats["deliveries"].append(
+                    {
+                        "group_id": group_id,
+                        "message_id": copied_message_id,
+                        "kind": BroadcastService._message_kind(message),
+                    }
+                )
+            else:
                 stats["failed"] += 1
-                stats["errors"].append(f"Group {group_id}: {str(e)}")
+                stats["errors"].append(f"Group {group_id}: {result}")
 
         return stats
 
@@ -209,6 +312,16 @@ class BroadcastService:
         # Check if this is an ACN channel
         if not await BroadcastService.is_acn_channel(channel_id):
             return False
+
+        async with async_session_factory() as session:
+            state = await BroadcastService._get_channel_state(session, channel_id)
+            if state and state.last_forwarded_message_id == message.message_id:
+                logger.info(
+                    "channel_broadcast_deduplicated",
+                    channel_id=channel_id,
+                    message_id=message.message_id,
+                )
+                return True
 
         # Get channel type from whitelist
         async with async_session_factory() as session:
@@ -286,6 +399,21 @@ class BroadcastService:
                 except Exception as e:
                     print(f"Failed to emit broadcast error event: {e}")
 
+            async with async_session_factory() as session:
+                async with session.begin():
+                    await BroadcastService._mark_channel_forwarded(
+                        session, channel_id, message.message_id
+                    )
+                    for delivery in stats.get("deliveries", []):
+                        await BroadcastService._record_delivery(
+                            session,
+                            channel_id,
+                            message.message_id,
+                            delivery["group_id"],
+                            delivery["message_id"],
+                            delivery["kind"],
+                        )
+
             return True
 
         except Exception as e:
@@ -301,55 +429,44 @@ class BroadcastService:
         if not message or not message.chat:
             return False
 
-        # For edited posts, we can add a special "UPDATE" prefix
         channel_id = message.chat.id
         channel_name = message.chat.title or f"Channel {channel_id}"
 
         if not await BroadcastService.is_acn_channel(channel_id):
             return False
 
-        # Get channel type
         async with async_session_factory() as session:
-            result = await session.execute(
-                select(ACNWhitelist).where(
-                    ACNWhitelist.entity_id == channel_id,
-                    ACNWhitelist.whitelist_type == "channel",
-                    ACNWhitelist.is_active,
-                )
+            deliveries = await BroadcastService._get_deliveries_for_source(
+                session, channel_id, message.message_id
             )
-            whitelist_entry = result.scalar_one_or_none()
 
-            if not whitelist_entry:
-                return False
+        if not deliveries:
+            return False
 
-        # Create update message
-        content = message.text or message.caption or ""
-        timestamp = time.strftime(
-            "%Y-%m-%d %H:%M UTC", time.gmtime(message.date.timestamp())
-        )
+        if message.text is None and message.caption is None:
+            return False
 
-        update_text = "🔄 **CONTENT UPDATE**\n\n"
-        update_text += f"📺 **Source:** {channel_name}\n"
-        update_text += f"🕐 **Updated:** {timestamp}\n\n"
-        update_text += f"📝 **Updated Content:**\n{content[:1000]}...\n\n"
-        update_text += "—\n🌸 *Updated broadcast by Nico Robin Bot*\n"
-        update_text += "⚓ *Anime Crew Network*"
-
-        # Broadcast update
-        main_groups = await BroadcastService.get_main_acn_groups()
         successful = 0
+        for delivery in deliveries:
+            async def _edit_copy() -> object:
+                if message.text is not None:
+                    return await context.bot.edit_message_text(
+                        chat_id=delivery.destination_group_id,
+                        message_id=delivery.destination_message_id,
+                        text=message.text,
+                        entities=message.entities,
+                    )
 
-        for group_id in main_groups:
-            try:
-                await context.bot.send_message(
-                    chat_id=group_id,
-                    text=update_text,
-                    parse_mode="Markdown",
-                    disable_web_page_preview=True,
+                return await context.bot.edit_message_caption(
+                    chat_id=delivery.destination_group_id,
+                    message_id=delivery.destination_message_id,
+                    caption=message.caption or "",
+                    caption_entities=message.caption_entities,
                 )
+
+            success, _ = await BroadcastService._retry_operation(_edit_copy)
+            if success:
                 successful += 1
-            except Exception:
-                pass
 
         return successful > 0
 

@@ -6,7 +6,7 @@ import structlog
 from sqlalchemy import select
 from telegram import Update
 from telegram.error import TelegramError
-from telegram.ext import CommandHandler, ContextTypes, MessageHandler
+from telegram.ext import ContextTypes, MessageHandler
 from telegram.ext import filters as tg_filters
 
 from src.bot.config import settings
@@ -344,10 +344,3 @@ def register(app) -> None:
         ),
         group=0,
     )
-
-    # Management commands
-    app.add_handler(CommandHandler("addpurgechannel", add_purge_channel))
-    app.add_handler(CommandHandler("removepurgechannel", remove_purge_channel))
-    app.add_handler(CommandHandler("purgechannels", list_purge_channels))
-    app.add_handler(CommandHandler("channelpost", channel_post_cmd))
-    app.add_handler(CommandHandler("channelphoto", channel_photo_cmd))

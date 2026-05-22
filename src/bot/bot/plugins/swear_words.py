@@ -4,7 +4,7 @@ import asyncio
 
 from telegram import ChatPermissions, Update
 from telegram.error import TelegramError
-from telegram.ext import CommandHandler, ContextTypes, MessageHandler
+from telegram.ext import ContextTypes, MessageHandler
 from telegram.ext import filters as tg_filters
 
 from src.bot.database import async_session_factory
@@ -457,10 +457,6 @@ async def handle_swear_words(
 
 
 def register(app) -> None:
-    app.add_handler(CommandHandler("addswear", add_swear_word))
-    app.add_handler(CommandHandler("delswear", remove_swear_word))
-    app.add_handler(CommandHandler("swearlist", list_swear_words))
-    app.add_handler(CommandHandler("swearsettings", swear_settings))
     app.add_handler(
         MessageHandler(tg_filters.TEXT & ~tg_filters.COMMAND, handle_swear_words),
         group=15,  # Run before general filters but after AI moderation

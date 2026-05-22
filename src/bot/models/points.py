@@ -47,6 +47,11 @@ class UserPoints(Base, TimestampMixin):
     level: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     experience: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     streak_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_earned: Mapped[int] = mapped_column(
+        BigInteger,
+        default=0,
+        nullable=False,
+    )
     last_activity: Mapped[int] = mapped_column(
         BigInteger, nullable=False
     )  # Unix timestamp
@@ -66,6 +71,9 @@ class PointTransaction(Base, TimestampMixin):
 
     transaction_id: Mapped[int] = mapped_column(
         Integer, primary_key=True, autoincrement=True
+    )
+    transaction_uid: Mapped[str | None] = mapped_column(
+        String(64), unique=True, index=True, nullable=True
     )
     user_id: Mapped[int] = mapped_column(
         BigInteger,

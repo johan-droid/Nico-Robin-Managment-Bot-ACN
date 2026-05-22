@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from telegram import ChatPermissions, Update
 from telegram.ext import (
-    CommandHandler,
     ContextTypes,
     MessageHandler,
 )
@@ -202,10 +201,6 @@ async def handle_filters(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 def register(app) -> None:
-    app.add_handler(CommandHandler("filter", add_filter))
-    app.add_handler(CommandHandler("stop", stop_filter))
-    app.add_handler(CommandHandler("filters", list_filters))
-    app.add_handler(CommandHandler("filteraction", filter_action))
     app.add_handler(
         MessageHandler(tg_filters.TEXT & ~tg_filters.COMMAND, handle_filters),
         group=20,

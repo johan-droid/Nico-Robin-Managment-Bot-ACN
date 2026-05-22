@@ -1,7 +1,9 @@
 {
   "admin.no_authority": "🌸 \"Interesting... but you lack the authority.\" — Robin",
+  "admin.captain_commander_only": "🌸 Only the captain or commanders can change feature settings.",
   "admin.owner_only": "🌸 This page belongs to the captain of this archive.",
   "admin.sudo_only": "🌸 Only the archaeologists of Ohara may touch this record.",
+  "feature.disabled": "🌸 This feature is disabled for this group.",
   "group.only": "🌸 I can read a group history only inside a group.",
   "ban.no_target": "🌸 \"Interesting... but who should I restrain?\" — Robin",
   "ban.success": "🌸 {target} has been banned. Even the sea of knowledge has shores. Reason: {reason}",

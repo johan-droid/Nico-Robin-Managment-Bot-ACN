@@ -30,15 +30,17 @@ logger = structlog.get_logger(__name__)
 _err_times: list[float] = []
 
 
-async def global_error_handler(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+async def error_handler(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     err = ctx.error
     if err is None or type(err).__name__ == "_StopProcessing":
         return
     cat, user_msg, sev = _classify(err)
     info = _info(update)
+    tb = "".join(traceback.format_exception(type(err), err, err.__traceback__))
     logger.error(
         "unhandled_exception", category=cat, error=str(err)[:500], severity=sev, **info
     )
+    logger.error("unhandled_exception_traceback", traceback=tb, **info)
     if isinstance(update, Update) and update.effective_message and user_msg:
         try:
             await update.effective_message.reply_text(user_msg)
@@ -123,3 +125,9 @@ async def _report(ctx, err, cat, sev, info):
         )
     except Exception:
         logger.error("report_failed", err=str(err)[:200])
+
+
+async def global_error_handler(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    """Backward-compatible alias for error_handler."""
+
+    await error_handler(update, ctx)

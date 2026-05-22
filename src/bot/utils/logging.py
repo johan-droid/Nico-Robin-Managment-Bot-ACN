@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
+import threading
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -11,7 +12,14 @@ from typing import Any
 import structlog
 
 
-def configure_logging(level: str = "INFO") -> None:
+def _log_fatal_exception(exc_type, exc_value, exc_traceback) -> None:
+    logging.getLogger(__name__).critical(
+        "unhandled_fatal_exception",
+        exc_info=(exc_type, exc_value, exc_traceback),
+    )
+
+
+def setup_logging(level: str = "INFO") -> None:
     """Configure structured logging with detailed context and file output."""
 
     # Prefer a local logs directory, but fall back to a writable temp path on
@@ -85,9 +93,18 @@ def configure_logging(level: str = "INFO") -> None:
     # Root logger configuration
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
+    for existing_handler in list(root_logger.handlers):
+        root_logger.removeHandler(existing_handler)
     root_logger.addHandler(console_handler)
     for handler in file_handlers:
         root_logger.addHandler(handler)
+
+    sys.excepthook = _log_fatal_exception
+    threading.excepthook = lambda args: _log_fatal_exception(  # type: ignore[assignment]
+        args.exc_type,
+        args.exc_value,
+        args.exc_traceback,
+    )
 
     # Set specific loggers to DEBUG for detailed info
     debug_loggers = [
@@ -101,6 +118,12 @@ def configure_logging(level: str = "INFO") -> None:
 
     logger = structlog.get_logger(__name__)
     logger.info("logging_configured", level=level, logs_dir=str(logs_dir))
+
+
+def configure_logging(level: str = "INFO") -> None:
+    """Backward-compatible alias for setup_logging."""
+
+    setup_logging(level=level)
 
 
 def bind_update_context(
