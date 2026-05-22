@@ -17,7 +17,7 @@ from src.bot.client.websocket_client import (
 from src.bot.config import settings
 from src.bot.database import dispose_engine, engine
 from src.bot.gateway.webhook import create_combined_app
-from src.bot.utils.logging import setup_logging
+from src.bot.utils.logging import configure_logging
 
 logger = structlog.get_logger(__name__)
 
@@ -318,7 +318,7 @@ async def _polling_mode() -> None:
 
 
 if __name__ == "__main__":
-    setup_logging(level=settings.log_level)
+    configure_logging(level=settings.log_level)
     _acquire_single_instance_lock()
 
     # Polling mode uses blocking run_polling(), webhook mode is async
