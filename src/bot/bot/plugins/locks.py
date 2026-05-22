@@ -4,7 +4,6 @@ import structlog
 from telegram import Update
 from telegram.ext import (
     Application,
-    CommandHandler,
     ContextTypes,
     MessageHandler,
 )
@@ -191,10 +190,6 @@ async def check_locked_media(
 
 
 def register(application: Application) -> None:
-    application.add_handler(CommandHandler("lock", lock_cmd))
-    application.add_handler(CommandHandler("unlock", unlock_cmd))
-    application.add_handler(CommandHandler("locks", locks_cmd))
-
     # Run the message handler in group 1
     application.add_handler(
         MessageHandler(

@@ -17,15 +17,17 @@ from src.bot.client.websocket_client import (
 from src.bot.config import settings
 from src.bot.database import dispose_engine, engine
 from src.bot.gateway.webhook import create_combined_app
-from src.bot.utils.logging import configure_logging
+from src.bot.utils.logging import setup_logging
 
 logger = structlog.get_logger(__name__)
 
 _BOT_LOCK_HANDLE = None
+_CHANNEL_BROADCAST_UPDATES = ["channel_post", "edited_channel_post"]
 
 _BOT_COMMANDS = [
     BotCommand("start", "DM welcome and bot intro"),
     BotCommand("help", "Show the main help message"),
+    BotCommand("check_handlers", "Show registered command callbacks"),
     BotCommand("management", "Show management command guide"),
     BotCommand("ping", "Check if the bot is alive"),
     BotCommand("robin", "Get a Nico Robin quote"),
@@ -93,7 +95,6 @@ _BOT_COMMANDS = [
     BotCommand("acn_info", "Show ACN group info"),
     BotCommand("addacn", "Add an ACN member"),
     BotCommand("removeacn", "Remove an ACN member"),
-    BotCommand("award", "Award loyalty points"),
     BotCommand("addacngroup", "Add group to ACN"),
     BotCommand("flirt", "Flirt with Nico Robin"),
     BotCommand("flirt_stats", "Show flirting stats"),
@@ -108,6 +109,8 @@ _BOT_COMMANDS = [
     BotCommand("yamato_help", "Show friendship help"),
     BotCommand("points", "Show your points"),
     BotCommand("leaderboard", "Show the points leaderboard"),
+    BotCommand("award", "Award points to a user"),
+    BotCommand("recalculate_points", "Rebuild point balances"),
     BotCommand("apploids", "Show your apploids"),
     BotCommand("buy_apploid", "Buy an apploid"),
     BotCommand("equip_apploid", "Equip an apploid"),
@@ -260,6 +263,7 @@ async def _webhook_mode() -> None:
             await ptb_app.bot.set_webhook(
                 url=webhook_url,
                 secret_token=settings.webhook_secret or None,
+                allowed_updates=_CHANNEL_BROADCAST_UPDATES,
                 drop_pending_updates=True,
             )
             logger.info("telegram_webhook_configured", url=webhook_url)
@@ -295,7 +299,7 @@ async def _polling_mode() -> None:
         await ptb_app.start()
         await _set_command_menu(ptb_app)
         await ptb_app.updater.start_polling(
-            allowed_updates=None,
+            allowed_updates=_CHANNEL_BROADCAST_UPDATES,
             drop_pending_updates=True,
         )
         logger.info("nico_robin_started", mode="polling")
@@ -314,7 +318,7 @@ async def _polling_mode() -> None:
 
 
 if __name__ == "__main__":
-    configure_logging(level=settings.log_level)
+    setup_logging(level=settings.log_level)
     _acquire_single_instance_lock()
 
     # Polling mode uses blocking run_polling(), webhook mode is async

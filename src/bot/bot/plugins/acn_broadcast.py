@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes, MessageHandler
+from telegram.ext import ContextTypes, MessageHandler
 from telegram.ext import filters as tg_filters
 
 from src.bot.services.acn_service import acn_only, captain_commander_only
@@ -337,15 +337,6 @@ async def handle_channel_edited_post(
 
 def register(app) -> None:
     """Register ACN broadcast commands and handlers"""
-    # Commands
-    app.add_handler(CommandHandler("addbroadcast", add_broadcast_channel_cmd))
-    app.add_handler(CommandHandler("removebroadcast", remove_broadcast_channel_cmd))
-    app.add_handler(CommandHandler("addmaingroup", add_main_group_cmd))
-    app.add_handler(CommandHandler("broadcastchannels", list_broadcast_channels))
-    app.add_handler(CommandHandler("broadcaststatus", broadcast_status))
-    app.add_handler(CommandHandler("testbroadcast", test_broadcast))
-    app.add_handler(CommandHandler("broadcasthelp", broadcast_help))
-
     # Channel post handlers (for automatic broadcasting)
     app.add_handler(
         MessageHandler(tg_filters.UpdateType.CHANNEL_POST, handle_channel_post),

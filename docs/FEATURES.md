@@ -123,7 +123,6 @@ These features are for Anime Crew Network groups and members.
 - `/addacngroup` - whitelist the current group as an ACN group
 - `/addacn <user_id> <role>` - add an ACN member
 - `/removeacn <user_id>` - remove an ACN member
-- `/award <user_id> <points> [reason]` - award loyalty points
 
 The available ACN roles are captain, commander, member, and ally.
 
@@ -186,6 +185,8 @@ These commands manage channel-level guard and purge routing.
 
 - `/points` - show your point balance and level
 - `/leaderboard [limit]` - show the point leaderboard
+- `/award <user_id> <points> [reason]` - award points to a user
+- `/recalculate_points [user_id]` - rebuild balances from transactions
 - `/apploids` - view owned and available apploids
 - `/buy_apploid <name>` - buy an apploid
 - `/equip_apploid <name>` - equip an apploid
@@ -251,7 +252,8 @@ The flirting system currently uses these categories: charming, intellectual, mys
 
 ## 🛟 Support Commands
 
-- `/start` - show the DM welcome and bot intro
+- `/start` - show the DM welcome and bot intro, or a short group-safe reply in groups
+- `/start help` - open the help menu directly in DM
 - `/help` - show the main help message
 - `/management` - show the moderation and settings guide
 

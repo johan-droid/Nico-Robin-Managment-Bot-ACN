@@ -6,7 +6,6 @@ import structlog
 from telegram import ChatPermissions, Update
 from telegram.error import TelegramError
 from telegram.ext import (
-    CommandHandler,
     ContextTypes,
     MessageHandler,
 )
@@ -174,9 +173,6 @@ async def handle_flood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 def register(app) -> None:
-    app.add_handler(CommandHandler("setflood", setflood))
-    app.add_handler(CommandHandler("setfloodmode", setfloodmode))
-    app.add_handler(CommandHandler("flood", flood))
     app.add_handler(
         MessageHandler(tg_filters.ALL & ~tg_filters.COMMAND, handle_flood),
         group=10,

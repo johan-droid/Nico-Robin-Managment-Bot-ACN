@@ -5,7 +5,6 @@ import asyncio
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import Forbidden
 from telegram.ext import (
-    CommandHandler,
     ContextTypes,
     MessageHandler,
 )
@@ -465,19 +464,6 @@ async def welcometest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 def register(app) -> None:
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("help", help_cmd))
-    app.add_handler(CommandHandler("setwelcome", setwelcome))
-    app.add_handler(CommandHandler("setwelcomedm", setwelcomedm))
-    app.add_handler(CommandHandler("welcomedm", welcomedm_toggle))
-    app.add_handler(CommandHandler("resetwelcome", resetwelcome))
-    app.add_handler(CommandHandler("welcome", welcome_toggle))
-    app.add_handler(CommandHandler("setfarewell", setfarewell))
-    app.add_handler(CommandHandler("farewell", farewell_toggle))
-    app.add_handler(CommandHandler("cleanwelcome", cleanwelcome))
-    app.add_handler(CommandHandler("setrules", setrules))
-    app.add_handler(CommandHandler("rules", rules))
-    app.add_handler(CommandHandler("welcometest", welcometest))
     app.add_handler(
         MessageHandler(tg_filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_members),
         group=5,

@@ -1,7 +1,9 @@
 {
   "admin.no_authority": "🌸「興味深いわ。でも権限が足りないようね」— Robin",
+  "admin.captain_commander_only": "🌸 機能設定を変更できるのはキャプテンかコマンダーだけです。",
   "admin.owner_only": "🌸 この記録を開けるのは所有者だけです。",
   "admin.sudo_only": "🌸 オハラの考古学者だけがこの記録に触れられます。",
+  "feature.disabled": "🌸 この機能はこのグループでは無効です。",
   "group.only": "🌸 グループの歴史はグループの中でだけ読めます。",
   "ban.no_target": "🌸「興味深いわ。でも誰を止めればいいの？」— Robin",
   "ban.success": "🌸 {target} を追放しました。理由: {reason}",

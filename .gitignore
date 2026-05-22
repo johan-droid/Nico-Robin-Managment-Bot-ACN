@@ -68,4 +68,27 @@ htmlcov/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
+
+# Additional ignores
+# Python packaging/build
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+*.egg
+# SQLite databases
+*.db
+*.sqlite3
+# Python env
+.envrc
+# Jupyter
+.ipynb_checkpoints/
+# Editor backups
+*~
+# Terraform
+.terraform/
+# Coverage reports
+coverage.xml
+# VS Code workspace files
+*.code-workspace
+
 ```

@@ -52,6 +52,22 @@ class FeatureToggle(Base, TimestampMixin):
     toggled_by_user: Mapped[User | None] = relationship(foreign_keys=[toggled_by])
 
 
+class GroupFeature(Base):
+    """Per-group feature state used by command and event gates."""
+
+    __tablename__ = "group_features"
+
+    group_id: Mapped[int] = mapped_column(
+        BigInteger,
+        ForeignKey("groups.group_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    feature_name: Mapped[str] = mapped_column(String(50), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    group: Mapped[Group] = relationship()
+
+
 class FeaturePermission(Base, TimestampMixin):
     """Feature permissions by user role"""
 
