@@ -3,6 +3,7 @@ services:
     name: nico-robin-bot
     runtime: docker
     plan: starter
+    branch: main
     dockerfilePath: ./Dockerfile
     dockerCommand: python -m src.bot.main
     healthCheckPath: /health
@@ -47,6 +48,7 @@ services:
     name: nico-robin-worker
     runtime: docker
     plan: starter
+    branch: main
     dockerfilePath: ./Dockerfile
     dockerCommand: celery -A src.bot.tasks.celery_app:celery_app worker --loglevel=info
     autoDeployTrigger: checksPass
@@ -81,6 +83,7 @@ services:
     name: nico-robin-beat
     runtime: docker
     plan: starter
+    branch: main
     dockerfilePath: ./Dockerfile
     dockerCommand: celery -A src.bot.tasks.celery_app:celery_app beat --loglevel=info
     autoDeployTrigger: checksPass
