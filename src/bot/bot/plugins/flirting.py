@@ -15,6 +15,70 @@ from src.bot.services.flirting_service import (
 from src.bot.utils.formatters import telegram_user_label
 
 
+def _build_flirt_responses() -> dict[str, list[str]]:
+    service = get_flirting_service()
+    responses: dict[str, list[str]] = {}
+
+    filler_lines = {
+        "charming": [
+            "🌸 *smiles softly* That's a wonderfully graceful compliment.",
+            "📚 *adjusts glasses* You do know how to make a scholar blush.",
+            "🌊 *gentle laugh* Your words are as elegant as a calm sea.",
+            "✨ *tilts head* I could listen to you speak all day.",
+        ],
+        "intellectual": [
+            "🧠 *leans in* A thoughtful remark always gets my attention.",
+            "📚 *smiles knowingly* You appreciate knowledge, and I appreciate that.",
+            "🌸 *nods* Intelligent conversation is quite charming, isn't it?",
+            "🔍 *eyes sparkle* Now that is a theory worth exploring.",
+        ],
+        "mysterious": [
+            "🌙 *smiles enigmatically* Some answers are best uncovered slowly.",
+            "📖 *closes book* A little mystery makes everything more interesting.",
+            "🕯️ *whispers* Secrets and curiosity make a very dangerous pair.",
+            "✨ *glances away* Perhaps you'll discover more if you keep trying.",
+        ],
+        "playful": [
+            "🎉 *laughs* You're rather fun to tease, you know.",
+            "🌸 *pouts playfully* I can play that game too.",
+            "😏 *smirks* Careful, I might tease you right back.",
+            "✨ *twirls* A little mischief keeps things interesting.",
+        ],
+        "romantic": [
+            "💕 *blushes* That's a very lovely thing to say.",
+            "🌹 *softly* Romantic words like that are hard to ignore.",
+            "💝 *smiles warmly* You make affection sound effortless.",
+            "✨ *holds gaze* That was almost dangerously sweet.",
+        ],
+        "confident": [
+            "🔥 *raises an eyebrow* Bold. I respect that.",
+            "🌸 *smiles* Confidence can be very attractive when it's genuine.",
+            "💫 *steps closer* You certainly aren't shy, are you?",
+            "🌊 *winks* That's the sort of energy I like to see.",
+        ],
+    }
+
+    for category, events in service.flirting_events.items():
+        category_responses: list[str] = []
+        for event in events:
+            category_responses.extend(event.get("responses", []))
+        category_responses.extend(filler_lines.get(category, []))
+        responses[category] = category_responses
+
+    return responses
+
+
+FLIRT_RESPONSES = _build_flirt_responses()
+
+_SKILL_LEVEL_ORDER = {
+    "beginner": 0,
+    "intermediate": 1,
+    "advanced": 2,
+    "expert": 3,
+    "master": 4,
+}
+
+
 @acn_only
 async def flirt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Main flirting command - process message for flirting response"""
@@ -323,6 +387,62 @@ async def flirt_random(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     response += "💡 Use this as inspiration for your own flirting attempts!"
 
     await msg.reply_text(response, parse_mode="Markdown")
+
+
+def _match_flirt_category(message_text: str) -> str | None:
+    normalized = message_text.lower()
+    category_keywords = {
+        "intellectual": ["smart", "intelligent", "brilliant", "clever", "wise"],
+        "charming": ["beautiful", "gorgeous", "lovely", "elegant", "graceful"],
+        "mysterious": ["mystery", "secret", "enigmatic", "puzzle", "unknown"],
+        "playful": ["play", "fun", "tease", "mischief", "silly"],
+        "romantic": ["love", "romantic", "kiss", "heart", "darling"],
+        "confident": ["bold", "confident", "strong", "fearless", "powerful"],
+    }
+
+    best_category = None
+    best_score = 0
+    for category, keywords in category_keywords.items():
+        score = sum(1 for keyword in keywords if keyword in normalized)
+        if score > best_score:
+            best_category = category
+            best_score = score
+
+    return best_category
+
+
+def _update_flirt_stats(
+    stats,
+    *,
+    success: bool,
+    category: str,
+    skill_level: str,
+    points_earned: int,
+) -> None:
+    stats.total_attempts = getattr(stats, "total_attempts", 0) + 1
+    if success:
+        stats.successful_flirts = getattr(stats, "successful_flirts", 0) + 1
+        stats.current_streak = getattr(stats, "current_streak", 0) + 1
+        stats.best_streak = max(
+            getattr(stats, "best_streak", 0), getattr(stats, "current_streak", 0)
+        )
+    else:
+        stats.failed_flirts = getattr(stats, "failed_flirts", 0) + 1
+        stats.current_streak = 0
+
+    stats.points_earned = getattr(stats, "points_earned", 0) + points_earned
+    if stats.total_attempts > 0:
+        stats.success_rate = (
+            getattr(stats, "successful_flirts", 0) / stats.total_attempts
+        ) * 100
+
+    if category and not getattr(stats, "favorite_category", None):
+        stats.favorite_category = category
+
+    current_skill = _SKILL_LEVEL_ORDER.get(getattr(stats, "highest_skill_used", "beginner"), 0)
+    incoming_skill = _SKILL_LEVEL_ORDER.get(skill_level, 0)
+    if incoming_skill > current_skill:
+        stats.highest_skill_used = skill_level
 
 
 async def _check_flirting_achievements(

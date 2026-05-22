@@ -212,6 +212,7 @@ class PointService:
         amount: int,
         source: str,
         description: str = "",
+        transaction_uid: str | None = None,
     ) -> bool:
         """Award points to user"""
 
@@ -239,6 +240,7 @@ class PointService:
 
         # Record transaction
         transaction = PointTransaction(
+            transaction_uid=transaction_uid,
             user_id=user_id,
             group_id=group_id,
             transaction_type="earn",
@@ -253,6 +255,170 @@ class PointService:
 
         await session.flush()
         return True
+
+    async def _award_points(
+        self,
+        session: AsyncSession,
+        user_id: int,
+        group_id: int,
+        amount: int,
+        source: str,
+        description: str = "",
+        transaction_uid: str | None = None,
+    ) -> bool:
+        return await self.award_points(
+            session,
+            user_id,
+            group_id,
+            amount,
+            source,
+            description,
+            transaction_uid=transaction_uid,
+        )
+
+    async def add_points(
+        self,
+        user_id: int,
+        amount: int,
+        description: str,
+        *,
+        group_id: int,
+        source: str,
+        cooldown_seconds: int = 0,
+        transaction_uid: str | None = None,
+    ) -> tuple[bool, str]:
+        """Compatibility wrapper for older point-award call sites."""
+
+        cooldown_key = f"{user_id}_{group_id}_{source}"
+        now = int(time.time())
+
+        async with async_session_factory() as session:
+            async with session.begin():
+                if transaction_uid:
+                    duplicate_result = await session.execute(
+                        select(PointTransaction).where(
+                            PointTransaction.transaction_uid == transaction_uid
+                        )
+                    )
+                    if duplicate_result.scalar_one_or_none():
+                        return False, "Duplicate transaction."
+
+                if cooldown_seconds > 0 and cooldown_key in self.cooldowns:
+                    elapsed = now - int(self.cooldowns[cooldown_key])
+                    if elapsed < cooldown_seconds:
+                        remaining = cooldown_seconds - elapsed
+                        return False, f"Cooldown active. Try again in {remaining} seconds."
+
+                result = await session.execute(
+                    select(UserPoints).where(
+                        UserPoints.user_id == user_id,
+                        UserPoints.group_id == group_id,
+                        UserPoints.deleted_at.is_(None),
+                    )
+                )
+                user_points = result.scalar_one_or_none()
+                if not user_points:
+                    user_points = UserPoints(
+                        user_id=user_id,
+                        group_id=group_id,
+                        current_points=0,
+                        total_earned=0,
+                        total_spent=0,
+                        level=1,
+                        experience=0,
+                        streak_days=0,
+                        last_earned=0,
+                        last_activity=now,
+                        selected_apploid="Robin Classic",
+                    )
+                    session.add(user_points)
+                    await session.flush()
+
+                old_balance = user_points.current_points
+                user_points.current_points += amount
+                user_points.total_earned += amount
+                user_points.last_activity = now
+                user_points.last_earned = now
+                await self._update_level_and_experience(user_points, amount)
+
+                transaction = PointTransaction(
+                    transaction_uid=transaction_uid,
+                    user_id=user_id,
+                    group_id=group_id,
+                    transaction_type="earn",
+                    amount=amount,
+                    balance_before=old_balance,
+                    balance_after=user_points.current_points,
+                    source=source,
+                    description=description,
+                    transaction_time=now,
+                )
+                session.add(transaction)
+                await session.flush()
+
+                if cooldown_seconds > 0:
+                    self.cooldowns[cooldown_key] = now
+
+        return True, f"Awarded {amount} points."
+
+    async def recalculate_group_points(self, group_id: int) -> dict:
+        """Rebuild group point balances from stored transactions."""
+
+        async with async_session_factory() as session:
+            result = await session.execute(
+                select(PointTransaction)
+                .where(PointTransaction.group_id == group_id)
+                .order_by(PointTransaction.user_id, PointTransaction.transaction_time)
+            )
+            transactions = result.scalars().all()
+
+            user_totals: dict[int, dict[str, int]] = {}
+            last_activity: dict[int, int] = {}
+            last_earned: dict[int, int] = {}
+
+            for transaction in transactions:
+                stats = user_totals.setdefault(
+                    transaction.user_id,
+                    {"current_points": 0, "total_earned": 0, "total_spent": 0},
+                )
+                stats["current_points"] += transaction.amount
+                if transaction.amount >= 0:
+                    stats["total_earned"] += transaction.amount
+                    last_earned[transaction.user_id] = transaction.transaction_time
+                else:
+                    stats["total_spent"] += -transaction.amount
+                last_activity[transaction.user_id] = transaction.transaction_time
+
+            updated_users = 0
+            for user_id, stats in user_totals.items():
+                user_result = await session.execute(
+                    select(UserPoints).where(
+                        UserPoints.user_id == user_id,
+                        UserPoints.group_id == group_id,
+                        UserPoints.deleted_at.is_(None),
+                    )
+                )
+                user_points = user_result.scalar_one_or_none()
+                if not user_points:
+                    continue
+
+                user_points.current_points = stats["current_points"]
+                user_points.total_earned = stats["total_earned"]
+                user_points.total_spent = stats["total_spent"]
+                user_points.experience = stats["total_earned"]
+                user_points.last_activity = last_activity.get(user_id, int(time.time()))
+                user_points.last_earned = last_earned.get(user_id, 0)
+
+                user_points.level = 1
+                for level, requirement in sorted(self.LEVEL_REQUIREMENTS.items()):
+                    if stats["total_earned"] >= requirement["points"]:
+                        user_points.level = level
+
+                updated_users += 1
+
+            await session.flush()
+
+        return {"updated_users": updated_users}
 
     async def spend_points(
         self,

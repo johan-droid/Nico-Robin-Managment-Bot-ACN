@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Coroutine
 from functools import wraps
+import traceback
 from typing import Any, cast
 
 import structlog
@@ -13,7 +14,7 @@ from telegram.ext import ContextTypes
 
 from src.bot.database import async_session_factory
 from src.bot.models.group import Group
-from src.bot.services.acn_service import captain_commander_only as require_captain_commander
+from src.bot.services.acn_service import ACNService
 from src.bot.services.feature_service import FeatureService
 from src.bot.services.security_logger import SecurityLogger
 from src.bot.utils.i18n import gettext
@@ -31,9 +32,35 @@ Handler = Callable[[Update, ContextTypes.DEFAULT_TYPE], Coroutine[Any, Any, None
 logger = structlog.get_logger(__name__)
 
 
+class BotPermissionError(RuntimeError):
+    pass
+
+
 async def _reply(update: Update, text: str) -> None:
     if update.effective_message:
         await update.effective_message.reply_text(text)
+
+
+async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+    chat = update.effective_chat
+    user = update.effective_user
+    if chat is None or user is None:
+        return False
+
+    bot = getattr(context, "bot", None)
+    if bot is None:
+        return False
+
+    bot_member = await bot.get_chat_member(chat.id, bot.id)
+    if bot_member.status not in {"administrator", "creator"}:
+        raise BotPermissionError("Bot must be an administrator with can_restrict_members")
+    if bot_member.status == "administrator" and not getattr(
+        bot_member, "can_restrict_members", False
+    ):
+        raise BotPermissionError("Bot must have can_restrict_members rights")
+
+    user_member = await bot.get_chat_member(chat.id, user.id)
+    return user_member.status in {"administrator", "creator"}
 
 
 def bot_rights_required(*rights: str) -> Handler:
@@ -78,6 +105,20 @@ def group_only(func: Handler) -> Handler:
     return cast(Handler, wrapper)
 
 
+def require_admin(func: Handler) -> Handler:
+    @wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        try:
+            if await is_admin(update, context):
+                await func(update, context)
+                return
+        except BotPermissionError:
+            pass
+        await _reply(update, gettext("admin.no_authority"))
+
+    return cast(Handler, wrapper)
+
+
 def feature_enabled(feature_name: str) -> Handler:
     def decorator(func: Handler) -> Handler:
         @wraps(func)
@@ -95,16 +136,42 @@ def feature_enabled(feature_name: str) -> Handler:
     return decorator
 
 
+def require_captain_commander(func: Handler) -> Handler:
+    @wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        user = update.effective_user
+        if user is None:
+            return
+        if await ACNService.is_captain(user.id) or await ACNService.is_commander(
+            user.id
+        ):
+            await func(update, context)
+            return
+        await _reply(update, gettext("admin.captain_commander_only"))
+
+    return cast(Handler, wrapper)
+
+
 def log_command(func: Handler) -> Handler:
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        command_name = getattr(func, "__name__", "unknown")
         logger.info(
             "command_invoked",
-            command=getattr(func, "__name__", "unknown"),
+            command=command_name,
             user_id=update.effective_user.id if update.effective_user else None,
             chat_id=update.effective_chat.id if update.effective_chat else None,
         )
-        await func(update, context)
+        try:
+            await func(update, context)
+        except Exception:
+            logger.error(
+                "command_failed",
+                command=command_name,
+                callback=command_name,
+                traceback=traceback.format_exc(),
+            )
+            raise
 
     return cast(Handler, wrapper)
 
