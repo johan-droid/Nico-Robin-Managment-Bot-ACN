@@ -23,6 +23,7 @@ logger = structlog.get_logger(__name__)
 
 _BOT_LOCK_HANDLE = None
 _CHANNEL_BROADCAST_UPDATES = ["channel_post", "edited_channel_post"]
+_BOT_COMMAND_MENU_LIMIT = 100
 
 _BOT_COMMANDS = [
     BotCommand("start", "DM welcome and bot intro"),
@@ -178,8 +179,13 @@ def _acquire_single_instance_lock() -> None:
 
 async def _set_command_menu(application) -> None:
     """Register the hardcoded slash-command menu with Telegram."""
-    await application.bot.set_my_commands(_BOT_COMMANDS)
-    logger.info("bot_command_menu_configured", command_count=len(_BOT_COMMANDS))
+    command_menu = _BOT_COMMANDS[:_BOT_COMMAND_MENU_LIMIT]
+    await application.bot.set_my_commands(command_menu)
+    logger.info(
+        "bot_command_menu_configured",
+        command_count=len(command_menu),
+        omitted_count=max(0, len(_BOT_COMMANDS) - len(command_menu)),
+    )
 
 
 async def _wait_for_db() -> None:
