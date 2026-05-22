@@ -43,8 +43,9 @@ jobs:
       REDIS_URL: redis://localhost:6379/0
       CELERY_BROKER_URL: redis://localhost:6379/1
       CELERY_RESULT_BACKEND: redis://localhost:6379/2
-      LLM_PROVIDER: disabled
-      AI_MODERATION_ENABLED: "false"
+      MODERATION_PROVIDER: traditional_ml
+      AI_MODERATION_ENABLED: "true"
+      DATA_ENCRYPTION_KEY: YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWE=
       ENVIRONMENT: test
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -69,3 +70,9 @@ jobs:
 
       - name: Pytest
         run: python -m pytest tests
+
+      - name: Bandit
+        run: bandit -c pyproject.toml -r src/bot
+
+      - name: Pip Audit
+        run: pip-audit --no-deps -r requirements.txt

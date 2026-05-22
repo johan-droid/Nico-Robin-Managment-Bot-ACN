@@ -121,7 +121,7 @@ class WebSocketManager:
             logger.warning(f"WS auth failed: {sid}, user={user_id}")
             await self.sio.emit("auth_error", {"error": "Invalid token"}, room=sid)
             try:
-                from services.security_logger import SecurityLogger
+                from src.bot.services.security_logger import SecurityLogger
 
                 await SecurityLogger.log_event(
                     "ws_auth_failed",

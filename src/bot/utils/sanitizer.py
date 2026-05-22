@@ -113,6 +113,17 @@ def contains_sql_injection(text: str) -> bool:
     return bool(_SQL_PATTERNS.search(text))
 
 
+def contains_dangerous_input(text: str) -> bool:
+    """Check if text matches SQL, script, or path traversal attack patterns."""
+    if not text:
+        return False
+    return bool(
+        _SQL_PATTERNS.search(text)
+        or _SCRIPT_PATTERNS.search(text)
+        or _PATH_TRAVERSAL.search(text)
+    )
+
+
 def validate_numeric_arg(
     value: str, *, min_val: int | None = None, max_val: int | None = None
 ) -> int | None:
@@ -181,7 +192,7 @@ def sanitize_input(func: Handler) -> Handler:
                     )
                 # Log security event
                 try:
-                    from services.security_logger import SecurityLogger
+                    from src.bot.services.security_logger import SecurityLogger
 
                     await SecurityLogger.log_event(
                         event_type="sql_injection_attempt",

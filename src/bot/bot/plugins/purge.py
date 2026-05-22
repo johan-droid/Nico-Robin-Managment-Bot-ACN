@@ -4,11 +4,12 @@ from telegram import Update
 from telegram.error import TelegramError
 from telegram.ext import CommandHandler, ContextTypes
 
-from src.bot.utils.decorators import admin_only, group_only
+from src.bot.utils.decorators import admin_only, bot_rights_required, group_only
 
 
 @group_only
 @admin_only
+@bot_rights_required("can_delete_messages")
 async def purge(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     msg = update.effective_message
     chat = update.effective_chat

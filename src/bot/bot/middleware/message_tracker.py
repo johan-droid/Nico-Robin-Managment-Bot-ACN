@@ -99,8 +99,8 @@ def _detect_type(msg) -> str | None:
 
 async def _flush_to_db(redis, user_id: int, group_id: int) -> None:
     """Flush accumulated Redis counters to the database."""
-    from database import async_session_factory
-    from services.profile_service import ProfileService
+    from src.bot.database import async_session_factory
+    from src.bot.services.profile_service import ProfileService
 
     try:
         # Gather all counters

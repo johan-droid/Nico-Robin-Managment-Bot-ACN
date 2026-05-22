@@ -17,14 +17,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.bot.models.base import Base, TimestampMixin
+from src.bot.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from models.group import Group
     from models.user import User
 
 
-class MemberProfile(TimestampMixin, Base):
+class MemberProfile(TimestampMixin, SoftDeleteMixin, Base):
     """Extended member profile — tracks activity, bio, and engagement metrics."""
 
     __tablename__ = "member_profiles"

@@ -10,6 +10,7 @@ from telegram.ext import ContextTypes
 from src.bot.config import settings
 from src.bot.models.audit import ActionLog
 from src.bot.models.group import Group
+from src.bot.services.crypto_service import get_crypto_service
 from src.bot.utils.formatters import format_action_log
 
 logger = structlog.get_logger(__name__)
@@ -26,12 +27,13 @@ class AuditService:
         reason: str | None = None,
         extra: dict[str, Any] | None = None,
     ) -> ActionLog:
+        crypto = get_crypto_service()
         record = ActionLog(
             group_id=group_id,
             actor_id=actor_id,
             target_id=target_id,
             action=action,
-            reason=reason,
+            reason=crypto.encrypt_text(reason),
             extra=extra or {},
             created_at=datetime.now(UTC),
         )

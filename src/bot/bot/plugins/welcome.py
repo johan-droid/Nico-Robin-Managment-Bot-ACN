@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import asyncio
 
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.error import Forbidden
 from telegram.ext import (
     CommandHandler,
     ContextTypes,

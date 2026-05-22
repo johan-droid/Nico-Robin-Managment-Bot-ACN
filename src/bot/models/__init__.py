@@ -1,6 +1,6 @@
 """SQLAlchemy model exports."""
 
-from src.bot.models.audit import ActionLog, JoinLog, MessageLog
+from src.bot.models.audit import ActionLog, JoinLog, MessageLog, SecurityAudit
 from src.bot.models.base import Base
 from src.bot.models.bot_friendship import (
     BotConversation,
@@ -16,7 +16,12 @@ from src.bot.models.event import (
     RealtimeEvent,
     WebSocketConnection,
 )
-from src.bot.models.features import FeatureLog, FeaturePermission, FeatureToggle, FeatureUsage
+from src.bot.models.features import (
+    FeatureLog,
+    FeaturePermission,
+    FeatureToggle,
+    FeatureUsage,
+)
 from src.bot.models.federation import (
     Federation,
     FederationAdmin,
@@ -103,6 +108,7 @@ __all__ = [
     "PointStreak",
     "PointTransaction",
     "RealtimeEvent",
+    "SecurityAudit",
     "SwearWord",
     "SwearViolation",
     "User",

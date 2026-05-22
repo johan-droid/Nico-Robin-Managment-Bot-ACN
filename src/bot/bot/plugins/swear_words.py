@@ -393,7 +393,7 @@ async def handle_swear_words(
                     return
 
                 # Check if user is admin
-                from utils.permissions import is_telegram_admin
+                from src.bot.utils.permissions import is_telegram_admin
 
                 if await is_telegram_admin(context, chat.id, user.id):
                     return
@@ -463,5 +463,5 @@ def register(app) -> None:
     app.add_handler(CommandHandler("swearsettings", swear_settings))
     app.add_handler(
         MessageHandler(tg_filters.TEXT & ~tg_filters.COMMAND, handle_swear_words),
-        group=15,  # Run before general filters but after AI moderation
+        group=15,  # Run before general filters but after offline moderation
     )

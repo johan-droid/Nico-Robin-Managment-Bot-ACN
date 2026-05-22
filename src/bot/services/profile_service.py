@@ -14,6 +14,7 @@ from src.bot.models.profile import MemberProfile
 from src.bot.models.swear_word import SwearViolation
 from src.bot.models.user import GroupMember, User
 from src.bot.models.warn import Warn
+from src.bot.services.crypto_service import get_crypto_service
 
 
 class ProfileService:
@@ -28,6 +29,7 @@ class ProfileService:
             select(MemberProfile).where(
                 MemberProfile.user_id == user_id,
                 MemberProfile.group_id == group_id,
+                MemberProfile.deleted_at.is_(None),
             )
         )
         profile = result.scalar_one_or_none()
@@ -89,7 +91,7 @@ class ProfileService:
     ) -> MemberProfile:
         """Set user bio text."""
         profile = await ProfileService.get_or_create(session, user_id, group_id)
-        profile.bio = bio[:200]  # Hard cap
+        profile.bio = get_crypto_service().encrypt_text(bio[:200])  # Hard cap
         await session.flush()
         return profile
 
@@ -101,7 +103,9 @@ class ProfileService:
         data: dict = {}
 
         # ── Core user info ──
-        user_result = await session.execute(select(User).where(User.user_id == user_id))
+        user_result = await session.execute(
+            select(User).where(User.user_id == user_id, User.deleted_at.is_(None))
+        )
         user = user_result.scalar_one_or_none()
         if user:
             data["first_name"] = user.first_name or "Unknown"
@@ -146,7 +150,7 @@ class ProfileService:
         data["documents_sent"] = profile.documents_sent
         data["commands_used"] = profile.commands_used
         data["replies_sent"] = profile.replies_sent
-        data["bio"] = profile.bio
+        data["bio"] = get_crypto_service().decrypt_text(profile.bio)
         data["peak_hour"] = profile.peak_hour
         data["active_days"] = profile.active_days
         data["last_message_at"] = profile.last_message_at
@@ -160,6 +164,7 @@ class ProfileService:
                 Warn.user_id == user_id,
                 Warn.group_id == group_id,
                 Warn.is_active == True,  # noqa: E712
+                Warn.deleted_at.is_(None),
             )
         )
         data["active_warns"] = warn_result.scalar() or 0
@@ -178,6 +183,7 @@ class ProfileService:
             select(LoyaltyPoints).where(
                 LoyaltyPoints.user_id == user_id,
                 LoyaltyPoints.group_id == group_id,
+                LoyaltyPoints.deleted_at.is_(None),
             )
         )
         lp = lp_result.scalar_one_or_none()
@@ -189,6 +195,7 @@ class ProfileService:
             select(UserPoints).where(
                 UserPoints.user_id == user_id,
                 UserPoints.group_id == group_id,
+                UserPoints.deleted_at.is_(None),
             )
         )
         up = up_result.scalar_one_or_none()
@@ -223,6 +230,7 @@ class ProfileService:
                 select(func.count(UserPoints.points_id)).where(
                     UserPoints.group_id == group_id,
                     UserPoints.current_points > up.current_points,
+                    UserPoints.deleted_at.is_(None),
                 )
             )
             data["leaderboard_pos"] = (rank_result.scalar() or 0) + 1

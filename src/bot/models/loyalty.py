@@ -13,7 +13,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.bot.models.base import Base, TimestampMixin
+from src.bot.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from models.group import Group
@@ -63,7 +63,7 @@ class ACNWhitelist(Base, TimestampMixin):
     added_by_user: Mapped[User | None] = relationship(foreign_keys=[added_by])
 
 
-class LoyaltyPoints(Base, TimestampMixin):
+class LoyaltyPoints(Base, TimestampMixin, SoftDeleteMixin):
     """Loyalty points system for ACN members"""
 
     __tablename__ = "loyalty_points"

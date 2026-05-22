@@ -334,6 +334,7 @@ class NicoRobinFlirtingService:
                     select(LoyaltyPoints).where(
                         LoyaltyPoints.user_id == user_id,
                         LoyaltyPoints.group_id == group_id,
+                        LoyaltyPoints.deleted_at.is_(None),
                     )
                 )
                 points_record = loyalty_points.scalar_one_or_none()
@@ -388,7 +389,7 @@ class NicoRobinFlirtingService:
         try:
             import structlog
 
-            from services.acn_service import ACNService
+            from src.bot.services.acn_service import ACNService
 
             logger = structlog.get_logger(__name__)
 

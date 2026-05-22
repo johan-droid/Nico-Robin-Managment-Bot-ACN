@@ -16,7 +16,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.bot.models.base import Base, TimestampMixin
+from src.bot.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from models.group import Group
@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from models.warn import Warn
 
 
-class User(TimestampMixin, Base):
+class User(TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "users"
 
     user_id: Mapped[int] = mapped_column(

@@ -8,7 +8,10 @@ from telegram.ext import CommandHandler, ContextTypes
 from src.bot.database import async_session_factory
 from src.bot.models.flirting import FlirtingAchievement, FlirtingStats
 from src.bot.services.acn_service import acn_only
-from src.bot.services.flirting_service import get_flirting_service, process_flirting_command
+from src.bot.services.flirting_service import (
+    get_flirting_service,
+    process_flirting_command,
+)
 from src.bot.utils.formatters import telegram_user_label
 
 
@@ -452,7 +455,7 @@ async def _check_flirting_achievements(
                 session.add(achievement)
 
                 # Award loyalty points
-                from services.acn_service import ACNService
+                from src.bot.services.acn_service import ACNService
 
                 await ACNService.add_loyalty_points(
                     session=session,

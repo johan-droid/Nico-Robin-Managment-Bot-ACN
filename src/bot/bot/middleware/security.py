@@ -163,7 +163,7 @@ async def _handle_violation(
 
     # Log security event
     try:
-        from services.security_logger import SecurityLogger
+        from src.bot.services.security_logger import SecurityLogger
 
         await SecurityLogger.log_event(
             event_type="rate_limit_violation",

@@ -6,14 +6,14 @@ from typing import TYPE_CHECKING
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.bot.models.base import Base
+from src.bot.models.base import Base, SoftDeleteMixin
 
 if TYPE_CHECKING:
     from models.group import Group
     from models.user import User
 
 
-class Warn(Base):
+class Warn(SoftDeleteMixin, Base):
     __tablename__ = "warns"
 
     warn_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

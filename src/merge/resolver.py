@@ -7,14 +7,17 @@ import datetime
 
 LOG_FILE = ".merge_resolver.log"
 
+
 def run_cmd(cmd):
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
     return result.stdout.strip(), result.stderr.strip(), result.returncode
+
 
 def log_action(message):
     timestamp = datetime.datetime.now().isoformat()
     with open(LOG_FILE, "a") as f:
         f.write(f"[{timestamp}] {message}\n")
+
 
 def get_unmerged_files():
     out, _, _ = run_cmd("git ls-files -u")
@@ -24,11 +27,12 @@ def get_unmerged_files():
         # We extract unique filenames
         files = set()
         for line in out.splitlines():
-            parts = line.split('\t')
+            parts = line.split("\t")
             if len(parts) >= 2:
                 files.add(parts[1])
         return list(files)
     return []
+
 
 def backup_state():
     print("Backing up state...")
@@ -38,6 +42,7 @@ def backup_state():
     shutil.copy2(".git/index", ".git/index.bak")
     log_action("Backup created for .git/MERGE_MSG and .git/index")
 
+
 def rollback_state():
     print("Rolling back state...")
     if os.path.exists(".git/MERGE_MSG.bak"):
@@ -45,6 +50,7 @@ def rollback_state():
     if os.path.exists(".git/index.bak"):
         shutil.copy2(".git/index.bak", ".git/index")
     log_action("Rollback performed from backup")
+
 
 def resolve_conflicts(strategy, dry_run):
     unmerged = get_unmerged_files()
@@ -63,7 +69,7 @@ def resolve_conflicts(strategy, dry_run):
         stages = []
         for line in out.splitlines():
             # Format: mode sha stage\tfile
-            parts = line.split('\t')[0].split()
+            parts = line.split("\t")[0].split()
             if len(parts) >= 3:
                 stages.append(parts[2])
 
@@ -87,12 +93,28 @@ def resolve_conflicts(strategy, dry_run):
                 run_cmd(f"git rm '{file}'")
                 log_action(f"Resolved {file}: git rm (deleted in theirs)")
 
+
 def main():
     parser = argparse.ArgumentParser(description="Git Merge Resolver")
-    parser.add_argument("--strategy", choices=["ours", "theirs"], default="ours", help="Resolution strategy")
-    parser.add_argument("--backup", action="store_true", help="Backup .git/MERGE_MSG and index before resolution")
-    parser.add_argument("--dry-run", action="store_true", help="Print what would be done without doing it")
-    parser.add_argument("--rollback", action="store_true", help="Restore from last backup")
+    parser.add_argument(
+        "--strategy",
+        choices=["ours", "theirs"],
+        default="ours",
+        help="Resolution strategy",
+    )
+    parser.add_argument(
+        "--backup",
+        action="store_true",
+        help="Backup .git/MERGE_MSG and index before resolution",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would be done without doing it",
+    )
+    parser.add_argument(
+        "--rollback", action="store_true", help="Restore from last backup"
+    )
 
     args = parser.parse_args()
 
@@ -104,6 +126,7 @@ def main():
         backup_state()
 
     resolve_conflicts(args.strategy, args.dry_run)
+
 
 if __name__ == "__main__":
     main()

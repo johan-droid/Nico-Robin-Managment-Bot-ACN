@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Coroutine
 from dataclasses import dataclass
 from datetime import timedelta
+from typing import Any
 
 from telegram import Bot, ChatPermissions, Update
 from telegram.error import TelegramError
@@ -14,7 +16,7 @@ from src.bot.services.event_service import emit_user_action
 from src.bot.services.group_service import GroupService
 from src.bot.services.user_service import UserService
 from src.bot.services.warn_service import WarnService
-from src.bot.utils.decorators import admin_only, group_only
+from src.bot.utils.decorators import admin_only, bot_rights_required, group_only
 from src.bot.utils.formatters import (
     ban_message,
     display_user,
@@ -145,6 +147,7 @@ async def _apply_unmute(
 
 @acn_only
 @admin_captain_commander_only
+@bot_rights_required("can_restrict_members")
 async def ban(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> Coroutine[Any, Any, None]:
@@ -199,6 +202,7 @@ async def ban(
 
 @acn_only
 @admin_captain_commander_only
+@bot_rights_required("can_restrict_members")
 async def unban(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> Coroutine[Any, Any, None]:
@@ -216,6 +220,7 @@ async def unban(
 
 @acn_only
 @admin_captain_commander_only
+@bot_rights_required("can_restrict_members")
 async def kick(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> Coroutine[Any, Any, None]:
@@ -235,6 +240,7 @@ async def kick(
 
 @group_only
 @admin_only
+@bot_rights_required("can_restrict_members")
 async def mute(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> Coroutine[Any, Any, None]:
@@ -258,6 +264,7 @@ async def mute(
 
 @group_only
 @admin_only
+@bot_rights_required("can_restrict_members")
 async def unmute(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> Coroutine[Any, Any, None]:
@@ -295,6 +302,7 @@ async def _auto_action(
 
 @acn_only
 @admin_captain_commander_only
+@bot_rights_required("can_restrict_members")
 async def warn(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> Coroutine[Any, Any, None]:
@@ -419,6 +427,7 @@ async def resetwarn(
 
 @group_only
 @admin_only
+@bot_rights_required("can_pin_messages")
 async def pin(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> Coroutine[Any, Any, None]:
@@ -434,6 +443,7 @@ async def pin(
 
 @group_only
 @admin_only
+@bot_rights_required("can_delete_messages")
 async def delete_message(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> Coroutine[Any, Any, None]:
@@ -450,6 +460,7 @@ async def delete_message(
 
 @group_only
 @admin_only
+@bot_rights_required("can_manage_chat")
 async def slowmode(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> Coroutine[Any, Any, None]:

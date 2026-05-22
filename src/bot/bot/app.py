@@ -6,7 +6,9 @@ from telegram.ext import Application, MessageHandler, TypeHandler
 from telegram.ext import filters as tg_filters
 
 from src.bot.bot.dispatcher import register_all_handlers
+from src.bot.bot.middleware.command_guard import command_input_guard
 from src.bot.bot.middleware.error_handler import global_error_handler
+from src.bot.bot.middleware.feature_gate import feature_gate_check
 from src.bot.bot.middleware.group_guard import (
     _StopProcessing,
     group_guard,
@@ -29,6 +31,24 @@ async def _rate_limit_gate(update, context) -> None:
     except Exception:
         # Prevent leaking tracebacks if rate limiter itself crashes
         pass
+
+
+async def _command_input_gate(update, context) -> None:
+    try:
+        await command_input_guard(update, context)
+    except RuntimeError as exc:
+        if str(exc) in {"_command_blocked"}:
+            raise _StopProcessing() from exc
+        raise
+
+
+async def _feature_gate(update, context) -> None:
+    try:
+        await feature_gate_check(update, context)
+    except RuntimeError as exc:
+        if str(exc) in {"_feature_blocked"}:
+            raise _StopProcessing() from exc
+        raise
 
 
 def create_application(app_settings: Settings = settings) -> Application:
@@ -55,6 +75,11 @@ def create_application(app_settings: Settings = settings) -> Application:
     application.add_handler(
         TypeHandler(type=object, callback=_rate_limit_gate), group=-1
     )
+
+    application.add_handler(
+        TypeHandler(type=object, callback=_command_input_gate), group=0
+    )
+    application.add_handler(TypeHandler(type=object, callback=_feature_gate), group=0)
 
     # Error handlers (order matters — first registered gets first chance)
     application.add_error_handler(group_guard_error_handler)

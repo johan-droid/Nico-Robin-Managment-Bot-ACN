@@ -15,7 +15,8 @@ from src.bot.config import settings
 from src.bot.database import async_session_factory
 from src.bot.services.audit_service import AuditService
 from src.bot.services.group_service import GroupService
-from src.bot.services.llm_gateway import ModerationResult, get_llm_gateway
+from src.bot.services.moderation_engine import ModerationResult, get_moderation_engine
+from src.bot.services.security_audit_service import SecurityAuditService
 from src.bot.services.user_service import UserService
 from src.bot.services.warn_service import WarnService
 from src.bot.utils.decorators import admin_only, group_only
@@ -43,13 +44,13 @@ async def toggleai(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
     state = _state_arg(context.args or [])
     if state is None:
-        await msg.reply_text("🌸 Choose on or off for AI moderation.")
+        await msg.reply_text("🌸 Choose on or off for offline moderation.")
         return
     async with async_session_factory() as session:
         async with session.begin():
             await GroupService.ensure_group(session, chat)
             await GroupService.update_settings(session, chat.id, ai_mod_enabled=state)
-    await msg.reply_text(f"🌸 AI moderation is now {'on' if state else 'off'}.")
+    await msg.reply_text(f"🌸 Offline moderation is now {'on' if state else 'off'}.")
 
 
 async def _apply_ai_action(
@@ -62,7 +63,7 @@ async def _apply_ai_action(
     user = update.effective_user
     if msg is None or chat is None or user is None:
         return
-    reason = f"AI moderation: {result.category} ({result.score:.2f})"
+    reason = f"Offline moderation: {result.category} ({result.score:.2f})"
     if result.action in {"delete", "delete_warn"}:
         try:
             await msg.delete()
@@ -93,11 +94,24 @@ async def _apply_ai_action(
             await AuditService.log_action(
                 session,
                 group_id=chat.id,
-                action=f"ai_{result.action}",
+                action=f"offline_mod_{result.action}",
                 actor_id=None,
                 target_id=user.id,
                 reason=reason,
                 extra={"category": result.category, "score": result.score},
+            )
+            await SecurityAuditService.log_event(
+                session=session,
+                event_type="offline_moderation",
+                severity="MEDIUM",
+                user_id=user.id,
+                group_id=chat.id,
+                reason=reason,
+                details={
+                    "category": result.category,
+                    "score": result.score,
+                    "action": result.action,
+                },
             )
 
 
@@ -123,13 +137,14 @@ async def handle_ai_moderation(
             await UserService.ensure_user(session, user)
     if not group.ai_mod_enabled:
         return
-    result = await get_llm_gateway().moderate(
+    result = await get_moderation_engine().moderate(
         msg.text,
         {
             "chat_id": chat.id,
             "chat_title": chat.title,
             "user_id": user.id,
             "username": user.username,
+            "group_id": chat.id,
         },
     )
     if result.action == "none" or result.score < settings.ai_score_threshold:

@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
+from io import BytesIO
 
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
 from src.bot.database import async_session_factory
+from src.bot.services.acn_service import ACNService
 from src.bot.services.group_service import GroupService
+from src.bot.services.privacy_service import PrivacyService
 from src.bot.services.profile_service import ProfileService
+from src.bot.services.security_audit_service import SecurityAuditService
 from src.bot.services.user_service import UserService
 from src.bot.utils.decorators import group_only, sanitize_input
+from src.bot.utils.permissions import is_sudo
 
 
 def _days_between(dt: datetime | None) -> int:
@@ -165,8 +171,6 @@ async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif context.args:
         # Try to find user by username
         arg = context.args[0].lstrip("@")
-        from services.user_service import UserService
-
         async with async_session_factory() as session:
             user_obj = await UserService.find_by_username(session, arg)
             if user_obj:
@@ -235,6 +239,114 @@ async def setbio_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
+@group_only
+async def export_my_data_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    del context
+    msg = update.effective_message
+    user = update.effective_user
+    if msg is None or user is None:
+        return
+
+    async with async_session_factory() as session:
+        export = await PrivacyService.export_user_data(session, user.id)
+
+    payload = json.dumps(export, indent=2, ensure_ascii=True)
+    document = BytesIO(payload.encode("utf-8"))
+    document.name = f"nico_robin_data_export_{user.id}.json"
+    await msg.reply_document(
+        document=document,
+        filename=document.name,
+        caption="🌸 I gathered the pages of your archive into one export.",
+    )
+
+
+@group_only
+async def delete_my_data_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    msg = update.effective_message
+    user = update.effective_user
+    chat = update.effective_chat
+    if msg is None or user is None or chat is None:
+        return
+
+    if not context.args or context.args[0].lower() != "confirm":
+        await msg.reply_text(
+            "🌸 This will clear your saved profile, warnings, points, flirting stats, and notes you created.\n"
+            "Use `/delete_my_data confirm` when you are certain."
+        )
+        return
+
+    async with async_session_factory() as session:
+        async with session.begin():
+            counts = await PrivacyService.soft_delete_user_data(session, user.id)
+            await SecurityAuditService.log_event(
+                session=session,
+                event_type="delete_my_data",
+                severity="MEDIUM",
+                user_id=user.id,
+                group_id=chat.id,
+                reason="User requested personal data deletion",
+                details=counts,
+            )
+
+    await msg.reply_text(
+        "🌸 Your personal archive has been cleared from the records I manage."
+    )
+
+
+@group_only
+async def clear_user_data_command(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
+    msg = update.effective_message
+    user = update.effective_user
+    chat = update.effective_chat
+    if msg is None or user is None or chat is None:
+        return
+
+    if not (is_sudo(user.id) or await ACNService.is_captain(user.id)):
+        await msg.reply_text("🌸 Only the captain may order another archive erased.")
+        return
+
+    if len(context.args) < 2 or context.args[1].lower() != "confirm":
+        await msg.reply_text(
+            "🌸 Usage: `/clear_user_data <user_id> confirm`\n"
+            "I need the full command as a deliberate choice."
+        )
+        return
+
+    try:
+        target_user_id = int(context.args[0])
+    except ValueError:
+        await msg.reply_text("🌸 Give me a valid numeric user id.")
+        return
+
+    async with async_session_factory() as session:
+        async with session.begin():
+            counts = await PrivacyService.soft_delete_user_data(session, target_user_id)
+            await SecurityAuditService.log_event(
+                session=session,
+                event_type="clear_user_data",
+                severity="HIGH",
+                user_id=user.id,
+                target_id=target_user_id,
+                group_id=chat.id,
+                reason="Captain-initiated user data deletion",
+                details=counts,
+            )
+
+    await msg.reply_text(
+        f"🌸 The archive for `{target_user_id}` has been cleared from my records.",
+        parse_mode="Markdown",
+    )
+
+
 def register(app) -> None:
     app.add_handler(CommandHandler("profile", profile_command))
     app.add_handler(CommandHandler("setbio", setbio_command))
+    app.add_handler(CommandHandler("export_my_data", export_my_data_command))
+    app.add_handler(CommandHandler("delete_my_data", delete_my_data_command))
+    app.add_handler(CommandHandler("clear_user_data", clear_user_data_command))

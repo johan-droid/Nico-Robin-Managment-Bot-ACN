@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from telegram import Chat
 from telegram.ext import ContextTypes
 
+from src.bot.bot.middleware.rate_limiter import get_redis
 from src.bot.config import settings
 from src.bot.database import async_session_factory
 from src.bot.models.loyalty import ACNWhitelist, LoyaltyPoints
@@ -20,6 +21,29 @@ class ACNService:
     # Captain and commander IDs loaded from environment
     CAPTAIN_ID = settings.captain_id
     COMMANDER_IDS = set(settings.commander_ids)
+    ROLE_CACHE_TTL = 300
+
+    @staticmethod
+    def _role_cache_key(user_id: int) -> str:
+        return f"acn:role:{user_id}"
+
+    @staticmethod
+    async def _cache_role(user_id: int, role: str) -> None:
+        try:
+            await get_redis().set(
+                ACNService._role_cache_key(user_id),
+                role,
+                ex=ACNService.ROLE_CACHE_TTL,
+            )
+        except Exception:
+            return
+
+    @staticmethod
+    async def invalidate_role_cache(user_id: int) -> None:
+        try:
+            await get_redis().delete(ACNService._role_cache_key(user_id))
+        except Exception:
+            return
 
     @staticmethod
     async def is_acn_group(group_id: int) -> bool:
@@ -50,12 +74,19 @@ class ACNService:
     @staticmethod
     async def get_user_role(user_id: int) -> str:
         """Get user's ACN role"""
-        # Check for captain
+        try:
+            cached_role = await get_redis().get(ACNService._role_cache_key(user_id))
+            if cached_role:
+                return str(cached_role)
+        except Exception:
+            pass
+
         if user_id == ACNService.CAPTAIN_ID:
+            await ACNService._cache_role(user_id, "captain")
             return "captain"
 
-        # Check for commanders
         if user_id in ACNService.COMMANDER_IDS:
+            await ACNService._cache_role(user_id, "commander")
             return "commander"
 
         # Check database for role
@@ -68,12 +99,19 @@ class ACNService:
                 )
             )
             whitelist_entry = result.scalar_one_or_none()
-            return whitelist_entry.role if whitelist_entry else "none"
+            if whitelist_entry and whitelist_entry.role:
+                normalized_role = whitelist_entry.role.strip().lower()
+                await ACNService._cache_role(user_id, normalized_role)
+                return normalized_role
+        await ACNService._cache_role(user_id, "none")
+        return "none"
 
     @staticmethod
     async def is_captain(user_id: int) -> bool:
         """Check if user is the captain (Monkey D. Sparrow)"""
-        return user_id == ACNService.CAPTAIN_ID
+        if user_id == ACNService.CAPTAIN_ID:
+            return True
+        return await ACNService.get_user_role(user_id) == "captain"
 
     @staticmethod
     async def is_commander(user_id: int) -> bool:
@@ -134,6 +172,8 @@ class ACNService:
         )
         session.add(whitelist)
         await session.flush()
+        if whitelist_type == "user":
+            await ACNService.invalidate_role_cache(entity_id)
         return whitelist
 
     @staticmethod
@@ -150,6 +190,8 @@ class ACNService:
         whitelist_entry = result.scalar_one_or_none()
         if whitelist_entry:
             await session.delete(whitelist_entry)
+            if whitelist_type == "user":
+                await ACNService.invalidate_role_cache(entity_id)
             return True
         return False
 
@@ -335,7 +377,7 @@ def admin_captain_commander_only(func):
 
         # Check admin status
         try:
-            from utils.permissions import is_telegram_admin
+            from src.bot.utils.permissions import is_telegram_admin
 
             if not await is_telegram_admin(context, chat.id, user.id):
                 if update.message:

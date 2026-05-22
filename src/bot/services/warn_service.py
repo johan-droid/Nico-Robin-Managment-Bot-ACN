@@ -6,6 +6,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.bot.models.warn import Warn
+from src.bot.services.crypto_service import get_crypto_service
 from src.bot.services.user_service import UserService
 
 
@@ -18,11 +19,12 @@ class WarnService:
         admin_id: int | None,
         reason: str,
     ) -> tuple[Warn, int]:
+        crypto = get_crypto_service()
         warn = Warn(
             group_id=group_id,
             user_id=user_id,
             admin_id=admin_id,
-            reason=reason,
+            reason=crypto.encrypt_text(reason) or "",
             issued_at=datetime.now(UTC),
         )
         session.add(warn)
@@ -42,6 +44,7 @@ class WarnService:
                 Warn.group_id == group_id,
                 Warn.user_id == user_id,
                 Warn.is_active.is_(True),
+                Warn.deleted_at.is_(None),
             )
         )
         return int(result.scalar_one())
@@ -58,10 +61,15 @@ class WarnService:
                 Warn.group_id == group_id,
                 Warn.user_id == user_id,
                 Warn.is_active.is_(True),
+                Warn.deleted_at.is_(None),
             )
             .order_by(Warn.issued_at.desc())
         )
-        return list(result.scalars().all())
+        records = list(result.scalars().all())
+        crypto = get_crypto_service()
+        for record in records:
+            record.reason = crypto.decrypt_text(record.reason) or ""
+        return records
 
     @staticmethod
     async def reset_warns(session: AsyncSession, group_id: int, user_id: int) -> int:
@@ -71,8 +79,9 @@ class WarnService:
                 Warn.group_id == group_id,
                 Warn.user_id == user_id,
                 Warn.is_active.is_(True),
+                Warn.deleted_at.is_(None),
             )
-            .values(is_active=False)
+            .values(is_active=False, deleted_at=func.now())
         )
         return int(result.rowcount or 0)
 

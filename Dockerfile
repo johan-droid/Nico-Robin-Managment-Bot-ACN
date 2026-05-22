@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY config/requirements.txt /build/requirements.txt
+COPY requirements.txt /build/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 
@@ -34,8 +34,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 RUN useradd -m -u 1000 appuser
 
-COPY config/alembic.ini /app/alembic.ini
+COPY alembic.ini /app/alembic.ini
 COPY src /app/src
+RUN mkdir -p /app/logs /tmp/nico-robin-logs && chown -R appuser:appuser /app /tmp/nico-robin-logs
 
 USER appuser
 

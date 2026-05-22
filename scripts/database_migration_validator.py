@@ -200,26 +200,18 @@ async def validate_migration():
 
             try:
                 # Test inserting into apploids table
-                await conn.execute(
-                    text(
-                        """
+                await conn.execute(text("""
                     INSERT INTO apploids (apploid_name, apploid_emoji, description, rarity, required_level, required_points)
                     VALUES ('Test Apploid', '🧪', 'Test apploid for validation', 'common', 1, 0)
                     ON CONFLICT (apploid_name) DO NOTHING
-                """
-                    )
-                )
+                """))
 
                 # Test inserting into feature_permissions
-                await conn.execute(
-                    text(
-                        """
+                await conn.execute(text("""
                     INSERT INTO feature_permissions (feature_name, user_role, can_use)
                     VALUES ('test_feature', 'member', true)
                     ON CONFLICT (feature_name, user_role) DO NOTHING
-                """
-                    )
-                )
+                """))
 
                 print("✅ Basic data insertion works")
 

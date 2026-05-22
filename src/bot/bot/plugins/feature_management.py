@@ -21,7 +21,7 @@ async def management_help(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         "🌸 **Anime Crew Network Management Guide**\n\n"
         "**Moderation & Protection**\n"
         "Use these when you need to control spam, abuse, or member behavior.\n"
-        "• `/toggleai on/off` - turn AI moderation on or off\n"
+        "• `/toggleai on/off` - turn offline moderation on or off\n"
         "• `/ban`, `/unban`, `/kick` - remove or restore members\n"
         "• `/mute`, `/unmute` - silence or restore chat access\n"
         "• `/warn`, `/warns`, `/resetwarn` - issue and review warnings\n"

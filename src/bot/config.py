@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any, Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic.fields import FieldInfo
 from pydantic_settings import (
     BaseSettings,
@@ -134,6 +134,7 @@ class Settings(BaseSettings):
 
     # ── Security Configuration ──
     metrics_api_key: str = Field(default="", alias="METRICS_API_KEY")
+    data_encryption_key: str | None = Field(default=None, alias="DATA_ENCRYPTION_KEY")
 
     # Rate Limiting (requests per minute)
     rate_limit_user: int = Field(default=20, alias="RATE_LIMIT_USER")
@@ -154,18 +155,14 @@ class Settings(BaseSettings):
         default="postgresql+asyncpg://robin:password@localhost:5432/robin_db",
         alias="DATABASE_URL",
     )
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
 
     # Celery Configuration
     celery_broker_url: str = Field(default="", alias="CELERY_BROKER_URL")
     celery_result_backend: str = Field(default="", alias="CELERY_RESULT_BACKEND")
-    llm_provider: Literal["disabled", "openai", "traditional_ml"] = Field(
+    moderation_provider: Literal["disabled", "traditional_ml"] = Field(
         default="disabled",
-        alias="LLM_PROVIDER",
-    )
-    openai_api_key: str | None = Field(default=None, alias="OPENAI_API_KEY")
-    openai_moderation_model: str = Field(
-        default="gpt-4o-mini",
-        alias="OPENAI_MODERATION_MODEL",
+        alias="MODERATION_PROVIDER",
     )
     ai_moderation_enabled: bool = Field(default=False, alias="AI_MODERATION_ENABLED")
     ai_score_threshold: float = Field(default=0.75, alias="AI_SCORE_THRESHOLD")
@@ -219,6 +216,24 @@ class Settings(BaseSettings):
         # Ensure it has the asyncpg driver for internal use if not already specified
         # but keep the base URL clean for the sync property
         return url
+
+    @field_validator("moderation_provider", mode="before")
+    @classmethod
+    def normalize_moderation_provider(cls, value: object) -> str:
+        if value in (None, ""):
+            return "disabled"
+        if not isinstance(value, str):
+            raise TypeError("MODERATION_PROVIDER must be a string")
+        normalized = value.strip().lower()
+        if normalized == "openai":
+            return "disabled"
+        return normalized
+
+    @model_validator(mode="after")
+    def require_encryption_key_in_production(self) -> Settings:
+        if self.environment == "production" and not self.data_encryption_key:
+            raise ValueError("DATA_ENCRYPTION_KEY is required in production")
+        return self
 
     @property
     def async_database_url(self) -> str:

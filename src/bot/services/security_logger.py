@@ -12,6 +12,8 @@ import structlog
 
 from src.bot.bot.middleware.rate_limiter import get_redis
 from src.bot.config import settings
+from src.bot.database import async_session_factory
+from src.bot.services.security_audit_service import SecurityAuditService
 
 logger = structlog.get_logger(__name__)
 _ALERT_KEY = "sec:alert_times"
@@ -45,6 +47,20 @@ class SecurityLogger:
         try:
             redis = get_redis()
             await redis.xadd("security:events", event, maxlen=1000)
+        except Exception:
+            pass
+        try:
+            async with async_session_factory() as session:
+                async with session.begin():
+                    await SecurityAuditService.log_event(
+                        session=session,
+                        event_type=event_type,
+                        severity=severity,
+                        user_id=user_id,
+                        group_id=chat_id,
+                        reason=event_type,
+                        details=details or {},
+                    )
         except Exception:
             pass
 

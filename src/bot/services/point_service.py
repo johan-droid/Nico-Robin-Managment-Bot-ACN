@@ -164,10 +164,15 @@ class PointService:
                 # Check if user points already exist
                 result = await session.execute(
                     select(UserPoints).where(
-                        UserPoints.user_id == user_id, UserPoints.group_id == group_id
+                        UserPoints.user_id == user_id,
+                        UserPoints.group_id == group_id,
                     )
                 )
                 user_points = result.scalar_one_or_none()
+
+                if user_points and user_points.deleted_at is not None:
+                    user_points.deleted_at = None
+                    return user_points
 
                 if not user_points:
                     # Create new user points
@@ -213,7 +218,9 @@ class PointService:
         # Get user points
         result = await session.execute(
             select(UserPoints).where(
-                UserPoints.user_id == user_id, UserPoints.group_id == group_id
+                UserPoints.user_id == user_id,
+                UserPoints.group_id == group_id,
+                UserPoints.deleted_at.is_(None),
             )
         )
         user_points = result.scalar_one_or_none()
@@ -261,7 +268,9 @@ class PointService:
         # Get user points
         result = await session.execute(
             select(UserPoints).where(
-                UserPoints.user_id == user_id, UserPoints.group_id == group_id
+                UserPoints.user_id == user_id,
+                UserPoints.group_id == group_id,
+                UserPoints.deleted_at.is_(None),
             )
         )
         user_points = result.scalar_one_or_none()
@@ -317,7 +326,9 @@ class PointService:
         async with async_session_factory() as session:
             result = await session.execute(
                 select(UserPoints).where(
-                    UserPoints.user_id == user_id, UserPoints.group_id == group_id
+                    UserPoints.user_id == user_id,
+                    UserPoints.group_id == group_id,
+                    UserPoints.deleted_at.is_(None),
                 )
             )
             user_points = result.scalar_one_or_none()
@@ -478,7 +489,9 @@ class PointService:
                 # Get user points
                 result = await session.execute(
                     select(UserPoints).where(
-                        UserPoints.user_id == user_id, UserPoints.group_id == group_id
+                        UserPoints.user_id == user_id,
+                        UserPoints.group_id == group_id,
+                        UserPoints.deleted_at.is_(None),
                     )
                 )
                 user_points = result.scalar_one_or_none()
@@ -503,7 +516,10 @@ class PointService:
         async with async_session_factory() as session:
             result = await session.execute(
                 select(UserPoints)
-                .where(UserPoints.group_id == group_id)
+                .where(
+                    UserPoints.group_id == group_id,
+                    UserPoints.deleted_at.is_(None),
+                )
                 .order_by(UserPoints.current_points.desc())
                 .limit(limit)
             )
@@ -578,7 +594,10 @@ class PointService:
         async with async_session_factory() as session:
             # Get total users with points
             result = await session.execute(
-                select(UserPoints).where(UserPoints.group_id == group_id)
+                select(UserPoints).where(
+                    UserPoints.group_id == group_id,
+                    UserPoints.deleted_at.is_(None),
+                )
             )
             users = result.scalars().all()
 

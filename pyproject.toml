@@ -1,0 +1,32 @@
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-exclude = [
+  "archive",
+  "fix_admin.py",
+  "fix_admin2.py",
+  "fix_admin_imports.py",
+  "fix_admin_welcome.py",
+  "fix_admin_welcome2.py",
+  "fix_admin_welcome3.py",
+  "scripts/init_database.py",
+  "src/merge",
+  "test_repo",
+  "update_imports.py",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+ignore = ["B008", "E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.bandit]
+exclude_dirs = ["src/bot/alembic/versions"]
+skips = ["B104", "B110", "B311"]

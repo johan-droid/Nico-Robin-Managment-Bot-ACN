@@ -69,3 +69,28 @@ class JoinLog(Base):
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
     group: Mapped[Group] = relationship(back_populates="join_logs")
+
+
+class SecurityAudit(Base):
+    __tablename__ = "security_audit"
+
+    audit_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False, index=True)
+    user_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    target_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True, index=True)
+    group_id: Mapped[int | None] = mapped_column(
+        BigInteger,
+        ForeignKey("groups.group_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    details: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+    )
+
+    group: Mapped[Group | None] = relationship()

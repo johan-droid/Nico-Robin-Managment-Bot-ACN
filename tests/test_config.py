@@ -37,3 +37,12 @@ def test_async_database_url_strips_libpq_query_params() -> None:
     assert "sslmode" not in settings.async_database_url
     assert "channel_binding" not in settings.async_database_url
     assert settings.async_database_ssl_required is True
+
+
+def test_moderation_provider_openai_alias_disables_provider() -> None:
+    settings = Settings(
+        BOT_TOKEN="token",
+        MODERATION_PROVIDER="openai",
+    )
+
+    assert settings.moderation_provider == "disabled"

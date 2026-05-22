@@ -13,7 +13,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.bot.models.base import Base, TimestampMixin
+from src.bot.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from models.group import Group
@@ -68,7 +68,7 @@ class FlirtingAttempt(Base, TimestampMixin):
     group: Mapped[Group] = relationship()
 
 
-class FlirtingStats(Base, TimestampMixin):
+class FlirtingStats(Base, TimestampMixin, SoftDeleteMixin):
     """User flirting statistics and achievements"""
 
     __tablename__ = "flirting_stats"

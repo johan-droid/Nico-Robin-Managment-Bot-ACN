@@ -12,14 +12,18 @@ from src.bot.models.user import User
 class UserService:
     @staticmethod
     async def get_user(session: AsyncSession, user_id: int) -> User | None:
-        result = await session.execute(select(User).where(User.user_id == user_id))
+        result = await session.execute(
+            select(User).where(User.user_id == user_id, User.deleted_at.is_(None))
+        )
         return result.scalar_one_or_none()
 
     @staticmethod
     async def find_by_username(session: AsyncSession, username: str) -> User | None:
         normalized = username.removeprefix("@").lower()
         result = await session.execute(
-            select(User).where(User.username == normalized).limit(1)
+            select(User)
+            .where(User.username == normalized, User.deleted_at.is_(None))
+            .limit(1)
         )
         return result.scalar_one_or_none()
 
@@ -45,6 +49,7 @@ class UserService:
             user.first_name = telegram_user.first_name
             user.last_name = telegram_user.last_name
             user.is_bot = telegram_user.is_bot
+            user.deleted_at = None
         await session.flush()
         return user
 

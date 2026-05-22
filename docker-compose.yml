@@ -1,0 +1,135 @@
+version: "3.9"
+
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nico-robin-bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://robin:password@db:5432/robin_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      MODERATION_PROVIDER: traditional_ml
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: sh -c "alembic upgrade head && python -m src.bot.main"
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - ./logs:/app/logs
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nico-robin-worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://robin:password@db:5432/robin_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      MODERATION_PROVIDER: traditional_ml
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A src.bot.tasks.celery_app:celery_app worker --loglevel=info
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - app-network
+    volumes:
+      - ./logs:/app/logs
+
+  beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nico-robin-beat
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://robin:password@db:5432/robin_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A src.bot.tasks.celery_app:celery_app beat --loglevel=info
+    read_only: true
+    tmpfs:
+      - /tmp
+    networks:
+      - app-network
+    volumes:
+      - ./logs:/app/logs
+
+  db:
+    image: postgres:15-alpine
+    container_name: nico-robin-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: robin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: robin_db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U robin -d robin_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-network
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: nico-robin-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - redisdata:/data
+    networks:
+      - app-network
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:
+  redisdata:
+
+networks:
+  app-network:
+    driver: bridge

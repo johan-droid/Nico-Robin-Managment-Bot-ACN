@@ -4,6 +4,9 @@ from functools import lru_cache
 from typing import Any
 
 import structlog
+from redis.asyncio import Redis
+
+from src.bot.config import settings
 
 logger = structlog.get_logger(__name__)
 
@@ -76,8 +79,15 @@ class _NoOpRedis:
 
 
 @lru_cache(maxsize=1)
-def get_redis() -> _NoOpRedis:
-    return _NoOpRedis()
+def get_redis() -> Redis | _NoOpRedis:
+    if settings.redis_url:
+        try:
+            return Redis.from_url(settings.redis_url, decode_responses=True)
+        except Exception as exc:
+            logger.warning("redis_init_failed", error=str(exc))
+    if settings.environment in {"local", "test"}:
+        return _NoOpRedis()
+    raise RuntimeError("Redis is required outside local/test environments")
 
 
 async def close_redis() -> None:

@@ -13,14 +13,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from src.bot.models.base import Base, TimestampMixin
+from src.bot.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
     from models.group import Group
     from models.user import User
 
 
-class Note(TimestampMixin, Base):
+class Note(TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "notes"
     __table_args__ = (UniqueConstraint("group_id", "name"),)
 
