@@ -58,14 +58,14 @@ COMMAND_FEATURES: dict[str, str] = {
     "point_help": "points",
     "profile": "profile",
     "setbio": "profile",
-    "toggleai": "security",
-    "setflood": "security",
-    "setfloodmode": "security",
-    "flood": "security",
-    "addswear": "security",
-    "delswear": "security",
-    "swearlist": "security",
-    "swearsettings": "security",
+    "toggleai": "ai_moderation",
+    "setflood": "flood_control",
+    "setfloodmode": "flood_control",
+    "flood": "flood_control",
+    "addswear": "swear_words",
+    "delswear": "swear_words",
+    "swearlist": "swear_words",
+    "swearsettings": "swear_words",
     "export_my_data": "profile",
     "delete_my_data": "profile",
     "clear_user_data": "security",
@@ -89,7 +89,8 @@ async def feature_gate_check(
     if feature_name is None:
         return
     can_use, reason = await FeatureService.can_use_feature(
-        chat.id, feature_name, user.id
+        chat.id, feature_name, user.id,
+        chat=chat, context=context
     )
     if can_use:
         return

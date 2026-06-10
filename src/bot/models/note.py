@@ -16,8 +16,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.bot.models.base import Base, SoftDeleteMixin, TimestampMixin
 
 if TYPE_CHECKING:
-    from models.group import Group
-    from models.user import User
+    from src.bot.models.group import Group
+    from src.bot.models.user import User
 
 
 class Note(TimestampMixin, SoftDeleteMixin, Base):

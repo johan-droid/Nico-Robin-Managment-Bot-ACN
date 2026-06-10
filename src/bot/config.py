@@ -194,6 +194,7 @@ class Settings(BaseSettings):
         default="INFO",
         alias="LOG_LEVEL",
     )
+    auto_migrate_on_startup: bool = Field(default=True, alias="AUTO_MIGRATE_ON_STARTUP")
 
     @field_validator(
         "sudo_users",

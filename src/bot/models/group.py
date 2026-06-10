@@ -8,12 +8,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.bot.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from models.audit import ActionLog, JoinLog, MessageLog
-    from models.federation import FederationGroup
-    from models.filter import Filter
-    from models.note import Note
-    from models.user import GroupMember
-    from models.warn import Warn
+    from src.bot.models.audit import ActionLog, JoinLog, MessageLog
+    from src.bot.models.federation import FederationGroup
+    from src.bot.models.filter import Filter
+    from src.bot.models.note import Note
+    from src.bot.models.user import GroupMember
+    from src.bot.models.warn import Warn
 
 
 class Group(TimestampMixin, Base):

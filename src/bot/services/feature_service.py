@@ -277,7 +277,8 @@ class FeatureService:
 
     @staticmethod
     async def can_use_feature(
-        group_id: int, feature_name: str, user_id: int
+        group_id: int, feature_name: str, user_id: int,
+        chat: Chat | None = None, context: ContextTypes.DEFAULT_TYPE | None = None
     ) -> tuple[bool, str]:
         """Check if user can use a feature"""
 
@@ -293,6 +294,12 @@ class FeatureService:
 
         # Get user role
         user_role = await ACNService.get_user_role(user_id)
+
+        # Evaluate Telegram admin context bypass for the generic "admin" role requirement
+        if "admin" in feature_info["permissions"] and user_role not in feature_info["permissions"]:
+            if chat is not None and context is not None:
+                if await ACNService.is_admin_or_owner(user_id, chat, context):
+                    return True, ""
 
         # Check permissions
         if user_role not in feature_info["permissions"]:
@@ -577,7 +584,8 @@ def feature_required(feature_name: str):
 
             # Check if feature is enabled
             can_use, message = await FeatureService.can_use_feature(
-                update.effective_chat.id, feature_name, update.effective_user.id
+                update.effective_chat.id, feature_name, update.effective_user.id,
+                chat=update.effective_chat, context=context
             )
 
             if not can_use:
