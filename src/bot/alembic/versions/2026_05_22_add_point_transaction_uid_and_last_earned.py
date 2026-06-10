@@ -10,7 +10,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 
-from src.bot.alembic import op
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "2026_05_22_add_point_transaction_uid_and_last_earned"

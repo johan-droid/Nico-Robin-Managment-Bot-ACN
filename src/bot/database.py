@@ -28,6 +28,9 @@ def create_engine(url: str | None = None) -> AsyncEngine:
     db_url = url or settings.async_database_url
     connect_args: dict = {}
 
+    # Connection timeout (gives cloud Postgres cold starts room to wake up).
+    connect_args["timeout"] = settings.db_connect_timeout
+
     # Query timeout (prevents hung queries from exhausting pool)
     connect_args["command_timeout"] = settings.db_query_timeout
 

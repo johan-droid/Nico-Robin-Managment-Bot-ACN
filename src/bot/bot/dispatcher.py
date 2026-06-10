@@ -4,9 +4,9 @@ from collections.abc import Callable
 from importlib import import_module
 
 import structlog
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application
 
-from src.bot.bot.plugins.fun import robin
+from src.bot.bot.handlers_list import register_command_handlers
 
 logger = structlog.get_logger(__name__)
 
@@ -36,8 +36,6 @@ PLUGIN_MODULES: tuple[str, ...] = (
     "src.bot.bot.plugins.channel_guard",
     "src.bot.bot.plugins.profile",
     "src.bot.bot.plugins.nightmode",
-    "src.bot.bot.plugins.locks",
-    "src.bot.bot.plugins.scheduler",
 )
 
 
@@ -50,9 +48,6 @@ async def ping(update, context) -> None:
 
 
 def register_all_handlers(application: Application) -> None:
-    application.add_handler(CommandHandler("ping", ping))
-    application.add_handler(CommandHandler("robin", robin))
-
     for module_name in PLUGIN_MODULES:
         module = import_module(module_name)
         register: Callable[[Application], None] | None = getattr(
@@ -63,3 +58,7 @@ def register_all_handlers(application: Application) -> None:
             continue
         register(application)
         logger.info("plugin_registered", module=module_name)
+
+    # Register the centralized command registry as a safety net. The registry
+    # deduplicates commands that were already registered by plugin modules.
+    register_command_handlers(application)

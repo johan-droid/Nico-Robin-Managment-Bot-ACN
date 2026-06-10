@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 from telegram.error import TelegramError
 
+from src.bot.bot.middleware import rate_limiter
 from src.bot.config import Settings
 from src.bot.services.crypto_service import CryptoService
 from src.bot.services.note_service import NoteService
@@ -83,6 +84,21 @@ def test_secret_masking_redacts_urls_and_keys() -> None:
     assert (
         _mask_secret_text("token 123456:ABCDEFGHIJKLMNOPQRSTUVWX") == "token [redacted]"
     )
+
+
+def test_get_redis_uses_noop_for_local_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+    rate_limiter.get_redis.cache_clear()
+    monkeypatch.setattr(
+        rate_limiter,
+        "settings",
+        SimpleNamespace(environment="local", redis_url="redis://localhost:6379/0"),
+    )
+
+    redis = rate_limiter.get_redis()
+
+    assert type(redis).__name__ == "_NoOpRedis"
+
+    rate_limiter.get_redis.cache_clear()
 
 
 @pytest.mark.asyncio

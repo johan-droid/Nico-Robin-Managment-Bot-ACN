@@ -6,7 +6,7 @@ from logging.config import fileConfig
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from src.bot.alembic import context
+from alembic import context
 from src.bot.config import settings
 from src.bot.models import Base
 
@@ -31,7 +31,13 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    connect_args: dict[str, object] = {"command_timeout": settings.db_query_timeout}
+    connect_args: dict[str, object] = {
+        "timeout": settings.db_connect_timeout,
+        "command_timeout": settings.db_query_timeout,
+        # DDL-heavy migrations can invalidate prepared plans; disabling statement
+        # caching keeps Alembic runs stable across providers/proxies.
+        "statement_cache_size": 0,
+    }
     if settings.async_database_ssl_required:
         connect_args["ssl"] = True
 

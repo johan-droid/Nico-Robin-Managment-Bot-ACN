@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import traceback
 from collections.abc import Callable, Coroutine
 from functools import wraps
-import traceback
 from typing import Any, cast
 
 import structlog
-
 from sqlalchemy import select
 from telegram import Update
 from telegram.error import TelegramError

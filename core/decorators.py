@@ -3,7 +3,6 @@ from __future__ import annotations
 import functools
 import logging
 from collections.abc import Awaitable, Callable
-from typing import Any
 
 from telegram import Update
 from telegram.ext import ContextTypes

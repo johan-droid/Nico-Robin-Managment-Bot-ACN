@@ -15,7 +15,11 @@ celery_app = Celery(
     "nico_robin",
     broker=broker_url,
     backend=result_backend,
-    include=["tasks.ban_tasks", "tasks.announce_tasks", "tasks.nightmode_tasks"],
+    include=[
+        "src.bot.tasks.ban_tasks",
+        "src.bot.tasks.announce_tasks",
+        "src.bot.tasks.nightmode_tasks",
+    ],
 )
 
 celery_app.conf.update(
@@ -30,11 +34,11 @@ celery_app.conf.update(
 
 celery_app.conf.beat_schedule = {
     "nightmode-lock": {
-        "task": "tasks.nightmode_tasks.lock_group_task",
+        "task": "src.bot.tasks.nightmode_tasks.lock_group_task",
         "schedule": crontab(hour=0, minute=0),
     },
     "nightmode-unlock": {
-        "task": "tasks.nightmode_tasks.unlock_group_task",
+        "task": "src.bot.tasks.nightmode_tasks.unlock_group_task",
         "schedule": crontab(hour=6, minute=0),
     },
 }

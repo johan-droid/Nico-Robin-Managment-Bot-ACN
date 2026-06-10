@@ -152,8 +152,8 @@ def _log_robin_banner(mode: str) -> None:
     """Emit a small Robin-style ready banner in the logs."""
     banner_lines = [
         r"  /\_/\\",
-        r" ( •.• )  Nico Robin Bot",
-        r" / >🌸< \  backend ready",
+        r" ( .. )  Nico Robin Bot",
+        r" / > < \  backend ready",
     ]
     logger.info("robin_ready_banner", mode=mode, banner=" | ".join(banner_lines))
 
@@ -171,15 +171,16 @@ def _acquire_single_instance_lock() -> None:
             import msvcrt
 
             lock_handle.seek(0)
-            lock_handle.write(b"0")
-            lock_handle.flush()
-            msvcrt.locking(lock_handle.fileno(), msvcrt.LK_NBLCK, 1)
+            msvcrt.locking(lock_handle.fileno(), msvcrt.LK_NBLCK, 1024)
         else:
             import fcntl
 
             fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
     except Exception as e:
-        lock_handle.close()
+        try:
+            lock_handle.close()
+        except OSError:
+            pass
         logger.error("bot_already_running", lock_file=str(lock_path))
         raise SystemExit(1) from e
 
@@ -210,9 +211,11 @@ async def _wait_for_db() -> None:
             return
         except Exception as e:
             retries -= 1
+            error_text = str(e) or e.__class__.__name__
             logger.warning(
-                "database_connection_failed", retries_left=retries, error=str(e)
+                "database_connection_failed", retries_left=retries, error=error_text
             )
+            await engine.dispose()
             if retries == 0:
                 logger.error("database_connection_exhausted")
                 sys.exit(1)
@@ -225,8 +228,36 @@ async def _auto_migrate() -> None:
         import asyncio
 
         from alembic.config import Config as AlembicConfig
+        from sqlalchemy import text
 
         from alembic import command as alembic_cmd
+
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "CREATE TABLE IF NOT EXISTS alembic_version ("
+                    "version_num VARCHAR(128) NOT NULL PRIMARY KEY)"
+                )
+            )
+            result = await conn.execute(
+                text(
+                    "SELECT character_maximum_length "
+                    "FROM information_schema.columns "
+                    "WHERE table_schema='public' "
+                    "AND table_name='alembic_version' "
+                    "AND column_name='version_num'"
+                )
+            )
+            current_length = result.scalar_one_or_none()
+            if current_length is None or current_length < 128:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE alembic_version "
+                        "ALTER COLUMN version_num TYPE VARCHAR(128)"
+                    )
+                )
+                # DDL can invalidate prepared plans in existing pooled connections.
+                await engine.dispose()
 
         def run_upgrade():
             cfg = AlembicConfig("alembic.ini")
@@ -358,7 +389,7 @@ async def _polling_mode() -> None:
             await asyncio.Event().wait()
         except asyncio.CancelledError:
             logger.info("nico_robin_interrupted")
-            raise
+            return
         finally:
             await ptb_app.updater.stop()
             await ptb_app.stop()
@@ -370,10 +401,13 @@ def main() -> None:
     configure_logging(level=settings.log_level)
     _acquire_single_instance_lock()
 
-    if settings.is_webhook_mode:
-        asyncio.run(_webhook_mode())
-    else:
-        asyncio.run(_polling_mode())
+    try:
+        if settings.is_webhook_mode:
+            asyncio.run(_webhook_mode())
+        else:
+            asyncio.run(_polling_mode())
+    except KeyboardInterrupt:
+        logger.info("nico_robin_shutdown_requested")
 
 
 if __name__ == "__main__":

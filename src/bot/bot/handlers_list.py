@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Awaitable, Callable
 
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -13,11 +13,11 @@ from src.bot.bot.plugins import ai_mod as ai_mod_plugin
 from src.bot.bot.plugins import bot_friendship as bot_friendship_plugin
 from src.bot.bot.plugins import captcha as captcha_plugin
 from src.bot.bot.plugins import channel_guard as channel_guard_plugin
-from src.bot.bot.plugins import federation as federation_plugin
 from src.bot.bot.plugins import feature_management as feature_management_plugin
+from src.bot.bot.plugins import federation as federation_plugin
 from src.bot.bot.plugins import filters as filters_plugin
-from src.bot.bot.plugins import flood_control as flood_control_plugin
 from src.bot.bot.plugins import flirting as flirting_plugin
+from src.bot.bot.plugins import flood_control as flood_control_plugin
 from src.bot.bot.plugins import fun as fun_plugin
 from src.bot.bot.plugins import locks as locks_plugin
 from src.bot.bot.plugins import nightmode as nightmode_plugin
@@ -27,12 +27,11 @@ from src.bot.bot.plugins import profile as profile_plugin
 from src.bot.bot.plugins import purge as purge_plugin
 from src.bot.bot.plugins import scheduler as scheduler_plugin
 from src.bot.bot.plugins import settings as settings_plugin
+from src.bot.bot.plugins import stats as stats_plugin
 from src.bot.bot.plugins import swear_words as swear_words_plugin
 from src.bot.bot.plugins import user_info as user_info_plugin
 from src.bot.bot.plugins import welcome as welcome_plugin
-from src.bot.bot.plugins import stats as stats_plugin
 from src.bot.utils.decorators import log_command
-
 
 CommandCallback = Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[None]]
 
@@ -236,7 +235,19 @@ COMMAND_BINDINGS: tuple[CommandBinding, ...] = (
 
 
 def register_command_handlers(application: Application) -> None:
+    existing_commands = {
+        command.casefold()
+        for handlers in application.handlers.values()
+        for handler in handlers
+        if isinstance(handler, CommandHandler)
+        for command in handler.commands
+    }
+
     for binding in COMMAND_BINDINGS:
+        command_name = binding.command.casefold()
+        if command_name in existing_commands:
+            continue
         application.add_handler(
             CommandHandler(binding.command, log_command(binding.callback))
         )
+        existing_commands.add(command_name)

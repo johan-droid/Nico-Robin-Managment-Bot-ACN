@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -41,13 +40,13 @@ class FakeResult:
 
 
 class FakeTransaction:
-    async def __aenter__(self) -> "FakeSession":
+    async def __aenter__(self) -> FakeSession:
         return self.session
 
     async def __aexit__(self, exc_type, exc, tb) -> bool:
         return False
 
-    def __init__(self, session: "FakeSession") -> None:
+    def __init__(self, session: FakeSession) -> None:
         self.session = session
 
 
@@ -58,7 +57,7 @@ class FakeSession:
     def begin(self) -> FakeTransaction:
         return FakeTransaction(self)
 
-    async def __aenter__(self) -> "FakeSession":
+    async def __aenter__(self) -> FakeSession:
         return self
 
     async def __aexit__(self, exc_type, exc, tb) -> bool:

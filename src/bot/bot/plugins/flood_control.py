@@ -26,6 +26,17 @@ from src.bot.utils.time import parse_duration, until_datetime
 logger = structlog.get_logger(__name__)
 
 
+def _state_arg(args: list[str]) -> bool | None:
+    if not args:
+        return None
+    raw = args[0].lower()
+    if raw in {"on", "yes", "true", "enable", "enabled"}:
+        return True
+    if raw in {"off", "no", "false", "disable", "disabled"}:
+        return False
+    return None
+
+
 @group_only
 @admin_only
 async def setflood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -73,11 +84,37 @@ async def setfloodmode(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 @group_only
 async def flood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    del context
     msg = update.effective_message
     chat = update.effective_chat
     if msg is None or chat is None:
         return
+
+    args = context.args or []
+    if args:
+        state = _state_arg(args)
+        if state is None:
+            await msg.reply_text("🌸 Choose on or off.")
+            return
+        user = update.effective_user
+        if user is None:
+            await msg.reply_text(gettext("admin.no_authority"))
+            return
+        try:
+            is_admin = await is_telegram_admin(context, chat.id, user.id)
+        except TelegramError:
+            is_admin = False
+        if not is_admin:
+            await msg.reply_text(gettext("admin.no_authority"))
+            return
+        async with async_session_factory() as session:
+            async with session.begin():
+                await GroupService.ensure_group(session, chat)
+                await GroupService.update_settings(
+                    session, chat.id, antispam_enabled=state
+                )
+        await msg.reply_text(f"🌸 Flood control is now {'on' if state else 'off'}.")
+        return
+
     async with async_session_factory() as session:
         group = await GroupService.get_group(session, chat.id)
     if group is None:

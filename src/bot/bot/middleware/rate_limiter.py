@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Any
+from urllib.parse import urlparse
 
 import structlog
 from redis.asyncio import Redis
@@ -78,9 +79,19 @@ class _NoOpRedis:
         return None
 
 
+def _is_loopback_redis_url(redis_url: str) -> bool:
+    parsed = urlparse(redis_url)
+    return parsed.hostname in {"localhost", "127.0.0.1", "::1"}
+
+
 @lru_cache(maxsize=1)
 def get_redis() -> Redis | _NoOpRedis:
     if settings.redis_url:
+        if settings.environment in {"local", "test"} and _is_loopback_redis_url(
+            settings.redis_url
+        ):
+            logger.info("redis_disabled_for_local_loopback", redis_url="loopback")
+            return _NoOpRedis()
         try:
             return Redis.from_url(settings.redis_url, decode_responses=True)
         except Exception as exc:

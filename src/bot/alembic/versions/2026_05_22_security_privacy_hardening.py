@@ -9,7 +9,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 
-from src.bot.alembic import op
+from alembic import op
 
 revision: str = "2026_05_22_security"
 down_revision: str | None = "8q1mpw1tzp4y"

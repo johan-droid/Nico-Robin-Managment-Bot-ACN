@@ -4,8 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.bot.utils import decorators as decorators_module
 from src.bot.bot.middleware import error_handler as error_module
+from src.bot.utils import decorators as decorators_module
 from src.bot.utils.decorators import log_command
 
 

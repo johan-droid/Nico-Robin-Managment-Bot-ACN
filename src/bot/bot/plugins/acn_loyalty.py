@@ -399,5 +399,4 @@ def register(app) -> None:
     app.add_handler(CommandHandler("addacn", add_acn_member))
     app.add_handler(CommandHandler("removeacn", remove_acn_member))
     app.add_handler(CommandHandler("acn_members", acn_members))
-    app.add_handler(CommandHandler("award", award_points))
     app.add_handler(CommandHandler("acn_info", acn_info))

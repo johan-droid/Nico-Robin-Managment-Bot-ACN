@@ -95,8 +95,8 @@ pip install -r requirements.txt
 # Setup database
 python scripts/init_database.py
 
-# Run the bot
-python main.py
+# Run the services together
+python scripts/run_services.py
 ```
 
 ## 📋 Requirements

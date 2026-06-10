@@ -94,6 +94,17 @@ def _resolve_logs_dir() -> Path | None:
     return None
 
 
+def _ensure_utf8_stream(stream: Any) -> Any:
+    """Use UTF-8 for console streams when the platform supports it."""
+    reconfigure = getattr(stream, "reconfigure", None)
+    if callable(reconfigure):
+        try:
+            reconfigure(encoding="utf-8", errors="backslashreplace")
+        except Exception:
+            pass
+    return stream
+
+
 def configure_logging(level: str = "INFO") -> None:
     """Configure structured logging with detailed context and file output."""
     logs_dir = _resolve_logs_dir()
@@ -126,7 +137,8 @@ def configure_logging(level: str = "INFO") -> None:
     log_level = getattr(logging, level.upper(), logging.INFO)
 
     # Console handler with detailed format
-    console_handler = logging.StreamHandler(sys.stdout)
+    console_stream = _ensure_utf8_stream(sys.stdout)
+    console_handler = logging.StreamHandler(console_stream)
     console_handler.setLevel(log_level)
     console_handler.addFilter(SecretMaskingFilter())
     console_formatter = logging.Formatter(
@@ -163,15 +175,23 @@ def configure_logging(level: str = "INFO") -> None:
         error_handler.setFormatter(file_formatter)
         root_logger.addHandler(error_handler)
 
-    # Set specific loggers to DEBUG for detailed info
-    debug_loggers = [
+    # Keep third-party libraries quiet in the console; the file log still captures DEBUG.
+    noisy_loggers = [
+        "httpcore",
+        "httpx",
+        "telegram",
         "telegram.ext",
-        "sqlalchemy.engine",
-        "uvicorn",
+        "celery",
+        "billiard",
         "asyncio",
     ]
-    for logger_name in debug_loggers:
-        logging.getLogger(logger_name).setLevel(logging.DEBUG)
+    for logger_name in noisy_loggers:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
+
+    # Preserve useful debug output from the app and database layer when requested.
+    if level == "DEBUG":
+        for logger_name in ["src.bot", "sqlalchemy.engine", "uvicorn"]:
+            logging.getLogger(logger_name).setLevel(logging.DEBUG)
 
     logger = structlog.get_logger(__name__)
     logger.info(

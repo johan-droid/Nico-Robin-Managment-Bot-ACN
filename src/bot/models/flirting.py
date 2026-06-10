@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import (
     BigInteger,
     Boolean,
-    ForeignKey,
     Float,
+    ForeignKey,
     Integer,
     String,
     Text,

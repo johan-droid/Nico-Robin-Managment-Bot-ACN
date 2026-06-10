@@ -26,29 +26,13 @@ async def _rate_limit_gate(update, context) -> None:
         blocked = await rate_limit_check(update, context)
         if blocked:
             raise _StopProcessing()
+        await command_input_guard(update, context)
+        await feature_gate_check(update, context)
     except _StopProcessing:
         raise
     except Exception:
         # Prevent leaking tracebacks if rate limiter itself crashes
         pass
-
-
-async def _command_input_gate(update, context) -> None:
-    try:
-        await command_input_guard(update, context)
-    except RuntimeError as exc:
-        if str(exc) in {"_command_blocked"}:
-            raise _StopProcessing() from exc
-        raise
-
-
-async def _feature_gate(update, context) -> None:
-    try:
-        await feature_gate_check(update, context)
-    except RuntimeError as exc:
-        if str(exc) in {"_feature_blocked"}:
-            raise _StopProcessing() from exc
-        raise
 
 
 def create_application(app_settings: Settings = settings) -> Application:
@@ -75,11 +59,6 @@ def create_application(app_settings: Settings = settings) -> Application:
     application.add_handler(
         TypeHandler(type=object, callback=_rate_limit_gate), group=-1
     )
-
-    application.add_handler(
-        TypeHandler(type=object, callback=_command_input_gate), group=0
-    )
-    application.add_handler(TypeHandler(type=object, callback=_feature_gate), group=0)
 
     # Error handlers (order matters — first registered gets first chance)
     application.add_error_handler(group_guard_error_handler)

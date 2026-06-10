@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Awaitable, Callable
+from collections.abc import Awaitable, Callable
 
 import structlog
 from sqlalchemy import select
@@ -273,9 +273,9 @@ class BroadcastService:
 
         # Send to each main group
         for group_id in main_groups:
-            async def _copy_message() -> object:
+            async def _copy_message(target_group_id: int = group_id) -> object:
                 return await context.bot.copy_message(
-                    chat_id=group_id,
+                    chat_id=target_group_id,
                     from_chat_id=message.chat.id,
                     message_id=message.message_id,
                 )
@@ -430,7 +430,6 @@ class BroadcastService:
             return False
 
         channel_id = message.chat.id
-        channel_name = message.chat.title or f"Channel {channel_id}"
 
         if not await BroadcastService.is_acn_channel(channel_id):
             return False
@@ -448,18 +447,20 @@ class BroadcastService:
 
         successful = 0
         for delivery in deliveries:
-            async def _edit_copy() -> object:
+            async def _edit_copy(
+                current_delivery: BroadcastDelivery = delivery,
+            ) -> object:
                 if message.text is not None:
                     return await context.bot.edit_message_text(
-                        chat_id=delivery.destination_group_id,
-                        message_id=delivery.destination_message_id,
+                        chat_id=current_delivery.destination_group_id,
+                        message_id=current_delivery.destination_message_id,
                         text=message.text,
                         entities=message.entities,
                     )
 
                 return await context.bot.edit_message_caption(
-                    chat_id=delivery.destination_group_id,
-                    message_id=delivery.destination_message_id,
+                    chat_id=current_delivery.destination_group_id,
+                    message_id=current_delivery.destination_message_id,
                     caption=message.caption or "",
                     caption_entities=message.caption_entities,
                 )

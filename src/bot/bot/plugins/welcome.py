@@ -25,6 +25,8 @@ from src.bot.utils.i18n import gettext
 
 LAST_WELCOME_KEY = "welcome:last:{chat_id}"
 
+START_WELCOME_PHOTO_URL = "https://placehold.co/1024x1024/png?text=Nico+Robin"
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a welcome message when /start is triggered."""
@@ -32,20 +34,41 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     chat = update.effective_chat
-    if not chat or chat.type != "private":
+    if chat and chat.type != "private":
+        welcome_text = (
+            "🌸 Nico Robin Bot is active in this group.\n\n"
+            "Simple management commands:\n"
+            "• /help - see the basics\n"
+            "• /management - admin and moderation guide\n"
+            "• /rules - view group rules\n"
+            "• /stats - group activity summary\n\n"
+            "Use /help if you want the short command list."
+        )
+        await update.effective_message.reply_text(welcome_text)
         return
 
     welcome_text = (
         "🌸 Welcome to Nico Robin Bot!\n\n"
-        "I’m here to help manage your Telegram groups with various features like:\n"
-        "• 📊 Points and leveling system\n"
-        "• 🛡️ Moderation tools\n"
-        "• 💬 Fun interactions\n"
-        "• 🔧 Group management\n\n"
-        "Use /help to see more commands.\n\n"
-        "Add me to an Anime Crew Network group, then use /help to see available commands."
+        "I’m here to help with simple group management:\n"
+        "• /help - see the basics\n"
+        "• /management - moderation guide\n"
+        "• /rules - show group rules\n"
+        "• /stats - group activity summary\n\n"
+        "Add me to a group, and I’ll keep things organized."
     )
-    await update.effective_message.reply_text(welcome_text)
+    welcome_caption = (
+        "🌸 Welcome to Nico Robin Bot!\n\n"
+        "Simple group management, moderation, and a little Robin flair.\n\n"
+        "Use /help for the short command list."
+    )
+
+    try:
+        await update.effective_message.reply_photo(
+            photo=START_WELCOME_PHOTO_URL,
+            caption=welcome_caption,
+        )
+    except Exception:
+        await update.effective_message.reply_text(welcome_text)
 
 
 async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -54,17 +77,14 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     help_text = (
-        "📚 Available Commands:\n\n"
-        "/start - Welcome message\n"
-        "/help - This message\n"
-        "/ping - Check if bot is alive\n"
-        "/points - View your points\n"
-        "/profile - View your profile\n"
-        "/stats - Group statistics\n"
-        "/settings - Group settings\n"
-        "/rules - Show group rules\n"
-        "/setrules - Set group rules (admin only)\n\n"
-        "For more help, contact the group admins."
+        "📚 Simple Commands:\n\n"
+        "/start - welcome message\n"
+        "/help - this message\n"
+        "/management - moderation guide\n"
+        "/rules - show group rules\n"
+        "/stats - group activity summary\n"
+        "/ping - check if the bot is alive\n\n"
+        "For admin actions, use /management."
     )
     await update.effective_message.reply_text(help_text)
 
@@ -322,6 +342,8 @@ async def welcomedm_toggle(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await msg.reply_text(f"🌸 Welcome DM is now {'enabled' if state else 'disabled'}.")
 
 
+@group_only
+@admin_only
 async def resetwelcome(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     del context
     msg = update.effective_message

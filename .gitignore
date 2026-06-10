@@ -91,4 +91,18 @@ coverage.xml
 # VS Code workspace files
 *.code-workspace
 
+# Celery
+celerybeat-schedule*
+celerybeat.pid
+dump.rdb
+
+# Telegram bot specific
+logs/
+data/
+archive/
+scratch/
+*.bak
+*.dir
+test_repo/
+
 ```

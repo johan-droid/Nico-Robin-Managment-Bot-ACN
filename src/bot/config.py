@@ -159,6 +159,7 @@ class Settings(BaseSettings):
     # Database Pool Hardening
     db_pool_size: int = Field(default=10, alias="DB_POOL_SIZE")
     db_max_overflow: int = Field(default=5, alias="DB_MAX_OVERFLOW")
+    db_connect_timeout: int = Field(default=30, alias="DB_CONNECT_TIMEOUT")
     db_query_timeout: int = Field(default=10, alias="DB_QUERY_TIMEOUT")
     db_pool_recycle: int = Field(default=1800, alias="DB_POOL_RECYCLE")
     db_ssl_required: bool = Field(default=False, alias="DB_SSL_REQUIRED")
