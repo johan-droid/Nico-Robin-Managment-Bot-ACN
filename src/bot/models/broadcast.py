@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from src.bot.models.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from models.group import Group
+    from src.bot.models.group import Group
 
 
 class BroadcastChannelState(Base, TimestampMixin):

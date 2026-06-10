@@ -239,7 +239,7 @@ class ACNService:
         loyalty_points.rank = ACNService.get_rank_for_points(loyalty_points.points)
 
         # Record activity
-        from models.loyalty import ACNActivity
+        from src.bot.models.loyalty import ACNActivity
 
         activity = ACNActivity(
             user_id=user_id,

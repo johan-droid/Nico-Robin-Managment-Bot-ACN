@@ -36,6 +36,7 @@ PLUGIN_MODULES: tuple[str, ...] = (
     "src.bot.bot.plugins.channel_guard",
     "src.bot.bot.plugins.profile",
     "src.bot.bot.plugins.nightmode",
+    "src.bot.bot.plugins.command_menu",
 )
 
 

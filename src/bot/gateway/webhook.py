@@ -140,6 +140,25 @@ def create_app(ptb_app: Application) -> FastAPI:
     async def health_head() -> Response:
         return Response(status_code=status.HTTP_200_OK)
 
+    @app.get("/diagnostics")
+    async def diagnostics() -> dict[str, Any]:
+        return {
+            "bot_mode": settings.bot_mode,
+            "environment": settings.environment,
+            "webhook_base_url_present": bool(settings.resolved_webhook_url),
+            "webhook_path": settings.webhook_path,
+            "webhook_secret_configured": bool(settings.webhook_secret),
+            "services": {
+                "database_configured": bool(settings.database_url),
+                "redis_configured": bool(settings.redis_url),
+                "celery_broker_configured": bool(settings.celery_broker_url),
+                "celery_backend_configured": bool(settings.celery_result_backend),
+            },
+            "ai_moderation_enabled": settings.ai_moderation_enabled,
+            "moderation_provider": settings.moderation_provider,
+        }
+
+
     @app.get("/metrics")
     async def metrics(authorization: str | None = Header(default=None)) -> Response:
         _check_api_key(authorization)

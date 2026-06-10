@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import time
 
+from sqlalchemy import select
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
+from src.bot.config import settings
 from src.bot.database import async_session_factory
+from src.bot.models.loyalty import ACNWhitelist
 from src.bot.services.acn_service import (
     ACNService,
     acn_only,
@@ -34,6 +37,22 @@ async def acn_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 session, user.id, chat.id
             )
 
+            # System checks
+            is_infrastructure_allowed = not settings.allowed_group_ids or chat.id in settings.allowed_group_ids
+
+            # Product check
+            is_product_whitelisted = False
+            result = await session.execute(
+                select(ACNWhitelist).where(
+                    ACNWhitelist.entity_id == chat.id,
+                    ACNWhitelist.whitelist_type == "group",
+                    ACNWhitelist.is_active,
+                )
+            )
+            if result.scalar_one_or_none():
+                is_product_whitelisted = True
+
+
             # Format response
             if role == "captain":
                 role_text = "⚓ **Captain** - Monkey D. Sparrow"
@@ -55,6 +74,18 @@ async def acn_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             if loyalty_points and loyalty_points.total_actions > 0:
                 response += f"📊 **Actions:** {loyalty_points.total_actions}\n"
                 response += f"🕐 **Last Activity:** {time.strftime('%Y-%m-%d %H:%M', time.localtime(loyalty_points.last_activity))}\n"
+
+            response += "\n🛡️ **Access Control Status:**\n"
+            response += f"• Infrastructure Group Whitelist: {'✅ Passed' if is_infrastructure_allowed else '❌ Blocked'}\n"
+            response += f"• Product Group Whitelist: {'✅ Passed' if is_product_whitelisted else '❌ Blocked'}\n"
+
+            if role in ["captain", "commander"]:
+                response += "\n🔧 **System Diagnostics:**\n"
+                response += f"• Environment: {settings.environment}\n"
+                response += f"• Bot Mode: {'webhook' if settings.is_webhook_mode else 'polling'}\n"
+                response += f"• Webhook Configured: {'✅ Yes' if settings.resolved_webhook_url else '❌ No'}\n"
+                response += f"• Database URL Set: {'✅ Yes' if settings.database_url else '❌ No'}\n"
+                response += f"• Redis URL Set: {'✅ Yes' if settings.redis_url else '❌ No'}\n"
 
             await msg.reply_text(response, parse_mode="Markdown")
 
