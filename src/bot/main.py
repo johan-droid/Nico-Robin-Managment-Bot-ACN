@@ -242,10 +242,9 @@ async def _auto_migrate() -> None:
     try:
         import asyncio
 
+        from alembic import command as alembic_cmd
         from alembic.config import Config as AlembicConfig
         from sqlalchemy import text
-
-        from alembic import command as alembic_cmd
 
         async with engine.begin() as conn:
             await conn.execute(
