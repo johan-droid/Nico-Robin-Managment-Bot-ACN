@@ -439,7 +439,9 @@ def _update_flirt_stats(
     if category and not getattr(stats, "favorite_category", None):
         stats.favorite_category = category
 
-    current_skill = _SKILL_LEVEL_ORDER.get(getattr(stats, "highest_skill_used", "beginner"), 0)
+    current_skill = _SKILL_LEVEL_ORDER.get(
+        getattr(stats, "highest_skill_used", "beginner"), 0
+    )
     incoming_skill = _SKILL_LEVEL_ORDER.get(skill_level, 0)
     if incoming_skill > current_skill:
         stats.highest_skill_used = skill_level

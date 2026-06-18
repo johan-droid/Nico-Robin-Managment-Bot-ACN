@@ -307,7 +307,9 @@ async def recalculate_points(
         try:
             target_user_id = int(args[0])
         except ValueError:
-            await msg.reply_text("🌸 Usage: `/recalculate_points [user_id]`", parse_mode="Markdown")
+            await msg.reply_text(
+                "🌸 Usage: `/recalculate_points [user_id]`", parse_mode="Markdown"
+            )
             return
 
     summary = await point_service.recalculate_group_points(chat.id, target_user_id)

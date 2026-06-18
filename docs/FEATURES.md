@@ -1,278 +1,210 @@
-# Nico Robin Bot - Features Guide
-
-## 🌸 What Nico Robin Bot Does
-
-Nico Robin Bot is a Telegram group management bot for moderation, community utilities, and ACN-specific social systems. It helps admins run a group with tools for rules enforcement, welcome flows, notes, stats, and optional feature controls.
-
-It also includes ACN-only systems for loyalty, points, broadcasts, bot friendship, and flirting.
-
----
-
-## 🛡️ Moderation And Protection
-
-These commands help admins keep chats orderly and consistent.
-
-- `/toggleai on/off` - enable or disable AI moderation features
-- `/ban` - ban a user
-- `/unban` - remove a ban
-- `/kick` - remove a user from the group
-- `/mute` - prevent a user from sending messages
-- `/unmute` - restore speaking access
-- `/warn [reason]` - issue a warning
-- `/warns` - show warning count
-- `/resetwarn` - clear warnings
-- `/slowmode [seconds]` - set message rate limiting
-
-Content cleanup commands:
-
-- `/del` - delete the replied-to message
-- `/purge` - delete multiple messages
-- `/pin` - pin a message
-- `/filter [word]` - add a word or phrase filter
-- `/stop [word]` - remove a filter
-- `/filters` - list active filters
-- `/filteraction [action]` - set the action used when a filter triggers
-
----
-
-## 👋 Welcome, Farewell, And Rules
-
-These commands manage onboarding and group guidance.
-
-- `/setwelcome [message]` - set the welcome message
-- `/resetwelcome` - clear the custom welcome message
-- `/welcome on/off` - toggle welcome messages
-- `/setfarewell [message]` - set the farewell message
-- `/farewell on/off` - toggle farewell messages
-- `/cleanwelcome on/off` - toggle welcome cleanup
-- `/welcometest` - preview the current welcome message
-- `/setrules [text]` - set group rules
-- `/rules` - show group rules
-
----
-
-## 📊 Group Info And Notes
-
-- `/stats` - show group statistics
-- `/id` - show your user ID or the chat ID
-- `/whois` - inspect a user
-- `/info` - alias for `/whois`
-- `/save [name] [text]` - save a note
-- `/get [name]` - retrieve a note
-- `/notes` - list saved notes
-- `/clear [name]` - delete a saved note
-- `#notename` - quick access to a note
-
----
-
-## ⚙️ Settings And Safety Controls
-
-- `/setlocale [language]` - change the group language
-- `/setwarnlimit [number]` - set warnings before escalation
-- `/setwarnaction [action]` - choose the escalation action
-- `/setflood [number]` - set flood threshold
-- `/setfloodmode [mode]` - set flood punishment mode
-- `/flood on/off` - enable or disable flood control
-- `/captcha on/off` - enable or disable new member verification
-
----
-
-## 🔧 Feature Management
-
-Feature management is for groups that want to switch modules on or off without touching code.
-
-- `/features` - view feature status
-- `/my_features` - view features available to your role
-- `/feature_info <feature>` - inspect one feature
-- `/feature_logs [feature]` - view change history
-- `/feature_stats [feature]` - view usage statistics
-- `/enable <feature>` - enable a feature
-- `/disable <feature>` - disable a feature
-- `/toggle <feature>` - toggle a feature
-- `/enable_category <category>` - enable a feature category
-- `/disable_category <category>` - disable a feature category
-- `/reset_features confirm` - reset feature settings
-
-These commands are restricted to ACN leadership roles where the bot enforces it.
-
----
-
-## 🤝 Federation
-
-- `/newfed [name]` - create a federation
-- `/joinfed [fed_id]` - join a federation
-
-Federation actions are group-controlled and owner or admin restricted where required.
-
----
-
-## ⏰ Scheduling
-
-- `/schedule [time] [message]` - schedule an announcement
-
----
-
-## ⚓ ACN Loyalty And Access
-
-These features are for Anime Crew Network groups and members.
-
-- `/acn_status` - show your ACN role, rank, and loyalty points
-- `/loyalty_leaderboard` - show the ACN leaderboard
-- `/acn_info` - show ACN group statistics
-- `/acn_members` - list ACN members in the group
-- `/addacngroup` - whitelist the current group as an ACN group
-- `/addacn <user_id> <role>` - add an ACN member
-- `/removeacn <user_id>` - remove an ACN member
-
-The available ACN roles are captain, commander, member, and ally.
-
-`/addacn` currently accepts a numeric user ID. The code does not resolve usernames yet.
-
----
-
-## 📡 ACN Broadcast System
-
-- `/broadcastchannels` - list configured broadcast channels
-- `/broadcaststatus` - show broadcast status
-- `/testbroadcast [message]` - send a test broadcast
-- `/broadcasthelp` - show broadcast help
-- `/addbroadcast <channel_id> <type> [name]` - add a broadcast channel
-- `/removebroadcast <channel_id>` - remove a broadcast channel
-- `/addmaingroup` - mark the current group as a main broadcast group
-
-The bot also supports channel delivery helpers that are currently registered in the command menu:
-
-- `/channelpost` - send a message to a channel
-- `/channelphoto` - send a photo to a channel
-
----
-
-## 🧭 Channel Guard
-
-These commands manage channel-level guard and purge routing.
-
-- `/addpurgechannel <channel_id> [name]` - add a purge channel
-- `/removepurgechannel <channel_id>` - remove a purge channel
-- `/purgechannels` - list configured purge channels
-
----
-
-## 🌙 Night Mode And Logs
-
-- `/nightmode [on|off]` - toggle the group night mode state
-- `/setlogchannel <channel_id>` - set the group log channel
-- `/removelogchannel` - clear the group log channel
-
----
-
-## 👤 Profiles
-
-- `/profile` - show a member profile
-- `/setbio [text]` - set your profile bio
-
----
-
-## 🧪 Swear Words
-
-- `/addswear <word> [severity] [punishment] [duration]` - add a swear-word rule
-- `/delswear <word>` - remove a swear-word rule
-- `/swearlist` - list configured swear words
-- `/swearsettings [severity] [punishment] [duration]` - set default swear-word behavior
-
----
-
-## 💫 ACN Points And Apploids
-
-- `/points` - show your point balance and level
-- `/leaderboard [limit]` - show the point leaderboard
-- `/award <user_id> <points> [reason]` - award points to a user
-- `/recalculate_points [user_id]` - rebuild balances from transactions
-- `/apploids` - view owned and available apploids
-- `/buy_apploid <name>` - buy an apploid
-- `/equip_apploid <name>` - equip an apploid
-- `/point_stats` - show group point statistics
-- `/earn_points` - explain how to earn points
-- `/point_help` - show point system help
-
-Points, levels, and apploids are ACN-only and are tracked per group.
-
----
-
-## 💕 Yamato Friendship System
-
-- `/bond_with_yamato` - start the friendship in the current group
-- `/yamato_interact <type>` - trigger a friendship interaction
-- `/yamato_status` - show friendship status
-- `/yamato_memories` - view shared memories
-- `/gift_to_yamato <type> <message>` - send a virtual gift
-- `/yamato_activities` - show recent friendship activity
-- `/yamato_help` - show friendship help
-
-Available interaction types are `waifu`, `compliment`, `moment`, `tease`, and `deep`.
-
-Available gift types are `flower`, `book`, `sword`, `heart`, `star`, and `treasure`.
-
----
-
-## 🌸 Nico Robin Flirting
-
-- `/flirt <message>` - try a flirt attempt
-- `/flirt_stats` - view your flirting statistics
-- `/flirt_categories` - list flirting categories
-- `/flirt_achievements` - show earned achievements
-- `/flirt_help` - show flirting help
-- `/flirt_example` - show example flirt lines
-- `/flirt_random` - generate a random flirt line
-
-The flirting system currently uses these categories: charming, intellectual, mysterious, playful, romantic, and confident.
-
----
-
-## 🎭 Nico Robin Moments
-
-- `/pat` - Robin pats someone
-- `/slap` - Robin gives a reality check
-- `/hug` - Robin gives a warm hug
-- `/robin_smile` - show Robin smiling
-- `/robin_blush` - show Robin blushing
-- `/robin_angry` - show Robin’s serious side
-- `/robin_confused` - show Robin confused
-- `/robin_dance` - show Robin dancing
-- `/robin_sleep` - show Robin sleeping
-- `/robin_moments` - list the moment commands
-
----
-
-## 🎉 Fun And Utility
-
-- `/ping` - check whether the bot is online
-- `/robin` - get a random Robin quote
-
----
-
-## 🛟 Support Commands
-
-- `/start` - show the DM welcome and bot intro, or a short group-safe reply in groups
-- `/start help` - open the help menu directly in DM
-- `/help` - show the main help message
-- `/management` - show the moderation and settings guide
-
----
-
-## 🚀 Getting Started
-
-1. Add Nico Robin Bot to your Telegram group.
-2. Grant the bot the admin permissions it needs for moderation.
-3. Turn on the features you want, starting with `/toggleai on` if you want moderation enabled.
-4. Configure welcome, filters, points, or ACN features as needed.
-5. Use `/help` or `/management` in chat to review the command guides.
-
----
-
-## 📞 Need Help?
-
-- Use `/help` for the general command guide.
-- Use `/management` for moderation and settings commands.
-- Use each feature’s dedicated help command for deeper usage.
-
-Nico Robin Bot helps keep Telegram groups organized, expressive, and easier to manage. 🌸
+Nico Robin Bot - Features Guide
+🌸 What is Nico Robin Bot?
+Nico Robin is a smart Telegram group management bot that helps keep your communities safe and organized automatically. Think of it as a helpful assistant that works 24/7 to manage your group without needing constant human supervision.
+ 
+
+ 
+🛡️ Smart Content Protection
+Automatic Bad Content Detection
+● Finds inappropriate messages automatically using smart pattern recognition
+● Blocks spam, hate speech, and harassment before they reach your members
+● Detects personal information sharing to protect privacy
+● Identifies self-harm content and alerts admins for help
+● Works instantly - no delays waiting for human review
+ 
+Smart Actions
+● Warns users who break rules with automatic messages
+● Deletes harmful content immediately
+● Temporarily bans repeat offenders
+● Notifies group admins about serious issues
+ 
+
+ 
+👥 Group Management Tools
+Easy Admin Controls
+● Simple commands like /toggleai on to turn protection on/off
+● Admin-only access - only trusted users can manage settings
+● Group-specific settings - each group can have different rules
+● No technical knowledge needed - just type simple commands
+ 
+Member Management
+● Automatic user tracking to see who's causing problems
+● Warning system that keeps track of rule violations
+● Fair enforcement - same rules apply to everyone
+● Audit logs to see what actions were taken and why
+ 
+
+ 
+🚀 Performance & Reliability
+Ultra-Fast & Lightweight
+● Instant responses - processes messages in milliseconds
+● Works on any server - even small hosting plans like 512MB Heroku dynos
+● No internet required for content checking - completely offline
+● Always available - works 24/7 without interruptions
+ 
+Cost-Free Operation
+● No monthly fees for external services
+● No API limits or usage restrictions
+● Zero hidden costs - completely free to run
+● Saves money compared to other moderation bots
+ 
+
+ 
+🌍 Multi-Language Support
+Global Ready
+● Multiple languages supported for international groups
+● Cultural awareness - understands different contexts
+● Easy translation of bot messages
+● Works worldwide without regional restrictions
+ 
+
+ 
+🔧 Easy Setup & Use
+Quick Installation
+● Simple deployment - works on popular hosting platforms
+● One-command setup for basic protection
+● Automatic updates when improvements are available
+● Clear documentation with step-by-step guides
+ 
+User-Friendly Interface
+● Intuitive commands that anyone can learn
+● Help messages built into the bot
+● Error prevention - bot guides you if you make mistakes
+● Professional support available when needed
+ 
+
+ 
+📊 Smart Analytics
+Insights & Reports
+● Activity tracking to see how active your group is
+● Moderation statistics to understand what's being blocked
+● Performance metrics to ensure everything runs smoothly
+● Historical data to review past actions and decisions
+ 
+
+ 
+🔒 Privacy & Security
+Data Protection
+● No personal data collection beyond what's necessary
+● Secure message processing - content is checked safely
+● Privacy-first approach - member information is protected
+● Compliance ready - follows data protection best practices
+ 
+
+ 
+🎯 Perfect For
+Community Managers
+● Large Telegram groups that need automatic moderation
+● Business communities requiring professional content standards
+● Educational groups wanting safe learning environments
+● Support communities needing to maintain respectful discussions
+ 
+Group Types
+● Customer support groups - keep conversations professional
+● Gaming communities - prevent toxic behavior
+● Educational classes - maintain focus and respect
+● Business teams - ensure workplace-appropriate communication
+ 
+
+ 
+💡 Why Choose Nico Robin?
+Smart Technology
+● Pattern-based detection that understands different types of harmful content
+● Traditional machine learning for reliable performance
+● Smart text analysis for specific types of harmful content
+● Consistent accuracy - reliable performance without internet dependency
+ 
+Human-Friendly
+● No technical skills required to operate
+● Clear explanations for all actions taken
+● Fair and transparent moderation decisions
+● Helpful support when you need assistance
+ 
+
+ 
+🎮 Bot Commands
+🛡️ Moderation & Protection
+● /toggleai on/off - Enable/disable smart content protection
+● /ban - Ban a user (reply to message or mention user)
+● /unban - Remove ban from a user
+● /kick - Remove user from group (they can rejoin)
+● /mute - Stop user from sending messages
+● /unmute - Allow muted user to speak again
+● /warn [reason] - Give warning to a user
+● /warns - Check user's warning count
+● /resetwarn - Reset user's warnings to zero
+● /slowmode [seconds] - Set rate limiting for messages
+ 
+📝 Content Management
+● /del - Delete the message you replied to
+● /purge - Delete multiple messages at once
+● /pin - Pin a message to the top of chat
+● /filter [word] - Block specific words/phrases
+● /stop [word] - Remove word from filter list
+● /filters - Show all active word filters
+● /filteraction [action] - Set what happens when filter triggers
+ 
+👋 Welcome & Goodbye
+● /setwelcome [message] - Set welcome message for new members
+● /resetwelcome - Remove custom welcome message
+● /welcome on/off - Enable/disable welcome messages
+● /setfarewell [message] - Set goodbye message for leaving members
+● /farewell on/off - Enable/disable farewell messages
+● /cleanwelcome on/off - Delete welcome messages after time
+● /welcometest - Test your welcome message
+● /setrules [text] - Set group rules
+● /rules - Show group rules
+ 
+📊 Group Information
+● /stats - Show group statistics
+● /id - Get your user ID or chat ID
+● /whois - Get detailed info about a user
+● /info - Same as whois command
+ 
+📝 Notes & Reminders
+● /save [name] [text] - Save a note with hashtag
+● /get [name] - Retrieve a saved note
+● /notes - List all saved notes
+● /clear [name] - Delete a saved note
+● #notename - Quick access to saved notes
+ 
+⚙️ Group Settings
+● /setlocale [language] - Change bot language
+● /setwarnlimit [number] - Set warnings before auto-ban
+● /setwarnaction [action] - Set action when limit reached
+● /setflood [number] - Set message flood limit
+● /setfloodmode [mode] - Set flood punishment mode
+● /flood on/off - Enable/disable flood control
+● /captcha on/off - Enable new member verification
+ 
+🤝 Federation (Multi-Group)
+● /newfed [name] - Create federation of groups (group owner only)
+● /joinfed [fed_id] - Join existing federation
+ 
+⏰ Scheduling
+● /schedule [time] [message] - Schedule announcement
+ 
+🎉 Fun & Utility
+● /ping - Check if bot is online
+● /robin - Get a random Robin quote
+ 
+
+ 
+🚀 Getting Started
+1. Add Nico Robin to your Telegram group
+2. Make it an admin with necessary permissions
+3. Type `/toggleai on` to enable smart protection
+4. Customize settings if needed (optional)
+5. Enjoy a safer, cleaner community!
+ 
+
+ 
+📞 Need Help?
+● Built-in help commands within the bot
+● Comprehensive documentation available
+● Community support from other users
+● Professional assistance for complex setups
+ 
+
+ 
+Nico Robin - Making Telegram communities safer, one message at a time. 🌸

@@ -39,7 +39,11 @@ async def joinfed(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat = update.effective_chat
     if msg is None or chat is None or not context.args:
         return
-    fed_id = uuid.UUID(context.args[0])
+    try:
+        fed_id = uuid.UUID(context.args[0])
+    except ValueError:
+        await msg.reply_text("🚫 Invalid federation ID. Please provide a valid UUID.")
+        return
     async with async_session_factory() as session:
         async with session.begin():
             await GroupService.ensure_group(session, chat)

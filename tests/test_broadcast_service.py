@@ -63,7 +63,9 @@ async def test_broadcast_retries_failed_group(monkeypatch: pytest.MonkeyPatch) -
 
 
 @pytest.mark.asyncio
-async def test_handle_channel_post_deduplicates_repeat_message(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_handle_channel_post_deduplicates_repeat_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls: list[bool] = []
 
     async def fake_broadcast(*args, **kwargs):
@@ -81,7 +83,9 @@ async def test_handle_channel_post_deduplicates_repeat_message(monkeypatch: pyte
         "_get_channel_state",
         staticmethod(fake_get_channel_state),
     )
-    monkeypatch.setattr(BroadcastService, "is_acn_channel", staticmethod(fake_is_acn_channel))
+    monkeypatch.setattr(
+        BroadcastService, "is_acn_channel", staticmethod(fake_is_acn_channel)
+    )
     monkeypatch.setattr(BroadcastService, "broadcast_to_main_groups", fake_broadcast)
 
     update = SimpleNamespace(
@@ -93,14 +97,18 @@ async def test_handle_channel_post_deduplicates_repeat_message(monkeypatch: pyte
         )
     )
 
-    result = await BroadcastService.handle_channel_post(update, SimpleNamespace(bot=SimpleNamespace()))
+    result = await BroadcastService.handle_channel_post(
+        update, SimpleNamespace(bot=SimpleNamespace())
+    )
 
     assert result is True
     assert calls == []
 
 
 @pytest.mark.asyncio
-async def test_handle_channel_edited_post_updates_copied_message(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_handle_channel_edited_post_updates_copied_message(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     bot = FakeBot()
     context = SimpleNamespace(bot=bot)
     delivery = SimpleNamespace(destination_group_id=101, destination_message_id=9001)
@@ -116,7 +124,9 @@ async def test_handle_channel_edited_post_updates_copied_message(monkeypatch: py
         "_get_deliveries_for_source",
         staticmethod(fake_get_deliveries_for_source),
     )
-    monkeypatch.setattr(BroadcastService, "is_acn_channel", staticmethod(fake_is_acn_channel))
+    monkeypatch.setattr(
+        BroadcastService, "is_acn_channel", staticmethod(fake_is_acn_channel)
+    )
 
     update = SimpleNamespace(
         edited_channel_post=SimpleNamespace(

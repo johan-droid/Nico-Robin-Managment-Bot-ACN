@@ -5,8 +5,10 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_permission_role_recognition():
-    with patch('src.bot.services.acn_service.get_redis') as mock_redis, \
-         patch('src.bot.services.acn_service.async_session_factory') as mock_db:
+    with (
+        patch("src.bot.services.acn_service.get_redis") as mock_redis,
+        patch("src.bot.services.acn_service.async_session_factory") as mock_db,
+    ):
 
         # Setting up mocks to avoid database connection
         mock_redis.return_value.get = AsyncMock(return_value=None)
@@ -18,8 +20,10 @@ async def test_permission_role_recognition():
         class MockSessionContext:
             async def __aenter__(self):
                 return self
+
             async def __aexit__(self, exc_type, exc, tb):
                 pass
+
             async def execute(self, *args, **kwargs):
                 return MockResult()
 

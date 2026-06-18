@@ -132,7 +132,9 @@ def test_dispatcher_registers_command_registry(monkeypatch: pytest.MonkeyPatch) 
         del name
         return SimpleNamespace(register=lambda app: None)
 
-    monkeypatch.setattr(dispatcher, "register_command_handlers", fake_register_command_handlers)
+    monkeypatch.setattr(
+        dispatcher, "register_command_handlers", fake_register_command_handlers
+    )
     monkeypatch.setattr(dispatcher, "import_module", fake_import_module)
 
     app = SimpleNamespace(add_handler=lambda *args, **kwargs: None)

@@ -89,8 +89,7 @@ async def feature_gate_check(
     if feature_name is None:
         return
     can_use, reason = await FeatureService.can_use_feature(
-        chat.id, feature_name, user.id,
-        chat=chat, context=context
+        chat.id, feature_name, user.id, chat=chat, context=context
     )
     if can_use:
         return

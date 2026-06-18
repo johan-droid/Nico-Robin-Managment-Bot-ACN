@@ -52,7 +52,9 @@ async def is_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
 
     bot_member = await bot.get_chat_member(chat.id, bot.id)
     if bot_member.status not in {"administrator", "creator"}:
-        raise BotPermissionError("Bot must be an administrator with can_restrict_members")
+        raise BotPermissionError(
+            "Bot must be an administrator with can_restrict_members"
+        )
     if bot_member.status == "administrator" and not getattr(
         bot_member, "can_restrict_members", False
     ):
@@ -145,9 +147,9 @@ def require_captain_commander(func: Handler) -> Handler:
         if chat is not None:
             allowed = await ACNService.is_admin_or_owner(user.id, chat, context)
         else:
-            allowed = await ACNService.is_captain(user.id) or await ACNService.is_commander(
+            allowed = await ACNService.is_captain(
                 user.id
-            )
+            ) or await ACNService.is_commander(user.id)
 
         if allowed:
             await func(update, context)

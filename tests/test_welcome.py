@@ -55,4 +55,4 @@ async def test_resetwelcome_requires_admin(monkeypatch: pytest.MonkeyPatch) -> N
 
     assert touched_database is False
     assert len(message.replies) == 1
-    assert "authority" in message.replies[0]
+    assert "Access denied" in message.replies[0]

@@ -33,9 +33,11 @@ class Group(TimestampMixin, Base):
     farewell_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     rules: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    welcome_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    welcome_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
     farewell_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=True, nullable=False
+        Boolean, default=False, nullable=False
     )
     clean_welcome: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     welcome_dm_text: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -46,7 +48,7 @@ class Group(TimestampMixin, Base):
         Boolean, default=False, nullable=False
     )
     antispam_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=True, nullable=False
+        Boolean, default=False, nullable=False
     )
     antiraid_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False
@@ -70,7 +72,7 @@ class Group(TimestampMixin, Base):
 
     # Swear word settings
     swear_words_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=True, nullable=False
+        Boolean, default=False, nullable=False
     )
     default_swear_severity: Mapped[str] = mapped_column(
         String(20), default="moderate", nullable=False

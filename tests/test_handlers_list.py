@@ -10,7 +10,9 @@ def test_command_registry_is_unique() -> None:
 
 
 def test_command_registry_includes_core_handlers() -> None:
-    mapping = {binding.command: binding.callback.__name__ for binding in COMMAND_BINDINGS}
+    mapping = {
+        binding.command: binding.callback.__name__ for binding in COMMAND_BINDINGS
+    }
 
     assert mapping["start"] == "start"
     assert mapping["ping"] == "ping"

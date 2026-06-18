@@ -36,6 +36,8 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_point_transactions_transaction_uid", table_name="point_transactions")
+    op.drop_index(
+        "ix_point_transactions_transaction_uid", table_name="point_transactions"
+    )
     op.drop_column("point_transactions", "transaction_uid")
     op.drop_column("user_points", "last_earned")

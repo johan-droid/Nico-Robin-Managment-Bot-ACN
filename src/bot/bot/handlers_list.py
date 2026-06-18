@@ -128,7 +128,9 @@ COMMAND_BINDINGS: tuple[CommandBinding, ...] = (
     CommandBinding("testbroadcast", acn_broadcast_plugin.test_broadcast),
     CommandBinding("broadcasthelp", acn_broadcast_plugin.broadcast_help),
     CommandBinding("addbroadcast", acn_broadcast_plugin.add_broadcast_channel_cmd),
-    CommandBinding("removebroadcast", acn_broadcast_plugin.remove_broadcast_channel_cmd),
+    CommandBinding(
+        "removebroadcast", acn_broadcast_plugin.remove_broadcast_channel_cmd
+    ),
     CommandBinding("addmaingroup", acn_broadcast_plugin.add_main_group_cmd),
     # ── Channel Guard ──
     CommandBinding("channelpost", channel_guard_plugin.channel_post_cmd),

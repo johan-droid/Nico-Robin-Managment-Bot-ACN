@@ -233,16 +233,19 @@ async def _wait_for_db() -> None:
 
 async def _auto_migrate() -> None:
     """Run Alembic migrations automatically on startup."""
-    if not getattr(settings, "auto_migrate_on_startup", settings.environment != "production"):
+    if not getattr(
+        settings, "auto_migrate_on_startup", settings.environment != "production"
+    ):
         logger.info("database_auto_migration_disabled")
         return
 
     try:
         import asyncio
 
-        from alembic import command as alembic_cmd
         from alembic.config import Config as AlembicConfig
         from sqlalchemy import text
+
+        from alembic import command as alembic_cmd
 
         async with engine.begin() as conn:
             await conn.execute(

@@ -55,7 +55,9 @@ async def test_log_command_logs_and_reraises(monkeypatch: pytest.MonkeyPatch) ->
 
 
 @pytest.mark.asyncio
-async def test_error_handler_logs_and_notifies_private_group(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_error_handler_logs_and_notifies_private_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     logged: list[dict] = []
 
     def fake_error(*args, **kwargs):

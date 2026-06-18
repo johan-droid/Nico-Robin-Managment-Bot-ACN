@@ -92,7 +92,11 @@ def _info(update):
 
 
 async def _report(ctx, err, cat, sev, info):
-    if sev == "IGNORE" or settings.log_channel_id is None or settings.log_channel_id == 0:
+    if (
+        sev == "IGNORE"
+        or settings.log_channel_id is None
+        or settings.log_channel_id == 0
+    ):
         return
     now = time.time()
     _err_times[:] = [t for t in _err_times if t > now - 60]

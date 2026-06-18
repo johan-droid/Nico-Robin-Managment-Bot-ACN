@@ -93,8 +93,15 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_broadcast_deliveries_destination_group_id", table_name="broadcast_deliveries")
-    op.drop_index("ix_broadcast_deliveries_source_message_id", table_name="broadcast_deliveries")
-    op.drop_index("ix_broadcast_deliveries_source_channel_id", table_name="broadcast_deliveries")
+    op.drop_index(
+        "ix_broadcast_deliveries_destination_group_id",
+        table_name="broadcast_deliveries",
+    )
+    op.drop_index(
+        "ix_broadcast_deliveries_source_message_id", table_name="broadcast_deliveries"
+    )
+    op.drop_index(
+        "ix_broadcast_deliveries_source_channel_id", table_name="broadcast_deliveries"
+    )
     op.drop_table("broadcast_deliveries")
     op.drop_table("broadcast_channel_state")

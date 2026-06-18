@@ -114,6 +114,7 @@ class Settings(BaseSettings):
         if not isinstance(value, str) or not value.strip():
             raise ValueError("BOT_TOKEN is required and must be non-empty")
         return value.strip()
+
     bot_mode: Literal["auto", "polling", "webhook"] = Field(
         default="auto", alias="BOT_MODE"
     )
@@ -291,9 +292,7 @@ class Settings(BaseSettings):
                 raise ValueError("WEBHOOK_URL is required when BOT_MODE=webhook")
             parsed = urlparse(webhook_url)
             if parsed.scheme.lower() != "https":
-                raise ValueError(
-                    "WEBHOOK_URL must use https:// when BOT_MODE=webhook"
-                )
+                raise ValueError("WEBHOOK_URL must use https:// when BOT_MODE=webhook")
         return self
 
     @property

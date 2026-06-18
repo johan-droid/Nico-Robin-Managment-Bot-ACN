@@ -68,7 +68,9 @@ def _private_welcome_text(first_name: str, start_param: str | None) -> str:
     return intro
 
 
-async def _record_private_start(context: ContextTypes.DEFAULT_TYPE, user, start_param: str | None) -> None:
+async def _record_private_start(
+    context: ContextTypes.DEFAULT_TYPE, user, start_param: str | None
+) -> None:
     db = get_runtime(context)["db"]
     await db.execute(
         """
@@ -111,9 +113,13 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     if chat.type == "private":
         if start_param == "help":
-            await message.reply_text(_help_text(), reply_markup=_start_keyboard(context))
+            await message.reply_text(
+                _help_text(), reply_markup=_start_keyboard(context)
+            )
         elif start_param == "about":
-            await message.reply_text(_about_text(), reply_markup=_start_keyboard(context))
+            await message.reply_text(
+                _about_text(), reply_markup=_start_keyboard(context)
+            )
         else:
             await message.reply_text(
                 _private_welcome_text(user.first_name or "there", start_param),
@@ -137,7 +143,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
 
-async def handle_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def handle_start_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+) -> None:
     query = update.callback_query
     if query is None or query.data is None:
         return
@@ -145,15 +153,21 @@ async def handle_start_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if query.data == "start:help":
         await query.answer()
         if query.message is not None:
-            await query.message.edit_text(_help_text(), reply_markup=_start_keyboard(context))
+            await query.message.edit_text(
+                _help_text(), reply_markup=_start_keyboard(context)
+            )
         return
 
     if query.data == "start:about":
         await query.answer()
         if query.message is not None:
-            await query.message.edit_text(_about_text(), reply_markup=_start_keyboard(context))
+            await query.message.edit_text(
+                _about_text(), reply_markup=_start_keyboard(context)
+            )
 
 
 def register(application) -> None:
     application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CallbackQueryHandler(handle_start_callback, pattern=r"^start:(help|about)$"))
+    application.add_handler(
+        CallbackQueryHandler(handle_start_callback, pattern=r"^start:(help|about)$")
+    )

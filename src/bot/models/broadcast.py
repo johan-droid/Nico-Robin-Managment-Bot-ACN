@@ -35,9 +35,15 @@ class BroadcastDelivery(Base, TimestampMixin):
         ),
     )
 
-    delivery_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    source_channel_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
-    source_message_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
+    delivery_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    source_channel_id: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, index=True
+    )
+    source_message_id: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, index=True
+    )
     destination_group_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("groups.group_id", ondelete="CASCADE"),

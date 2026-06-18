@@ -10,7 +10,6 @@ from telegram.error import TelegramError
 from telegram.ext import CommandHandler, ContextTypes
 
 from src.bot.database import async_session_factory
-from src.bot.services.acn_service import acn_only, admin_captain_commander_only
 from src.bot.services.audit_service import AuditService
 from src.bot.services.event_service import emit_user_action
 from src.bot.services.group_service import GroupService
@@ -145,7 +144,8 @@ async def _apply_unmute(
     )
 
 
-@admin_captain_commander_only
+@group_only
+@admin_only
 @bot_rights_required("can_restrict_members")
 async def ban(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -199,7 +199,8 @@ async def ban(
         await msg.reply_text(f"🌸 Failed to ban user: {str(e)}")
 
 
-@admin_captain_commander_only
+@group_only
+@admin_only
 @bot_rights_required("can_restrict_members")
 async def unban(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -216,7 +217,8 @@ async def unban(
     await msg.reply_text(gettext("unban.success", target=target.label))
 
 
-@admin_captain_commander_only
+@group_only
+@admin_only
 @bot_rights_required("can_restrict_members")
 async def kick(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -297,7 +299,8 @@ async def _auto_action(
         await _apply_mute(context, chat.id, target.user_id, timedelta(hours=1))
 
 
-@admin_captain_commander_only
+@group_only
+@admin_only
 @bot_rights_required("can_restrict_members")
 async def warn(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -367,7 +370,8 @@ async def warn(
         )
 
 
-@admin_captain_commander_only
+@group_only
+@admin_only
 async def warns(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> Coroutine[Any, Any, None]:
@@ -395,7 +399,8 @@ async def warns(
     await msg.reply_text("\n".join(lines))
 
 
-@admin_captain_commander_only
+@group_only
+@admin_only
 async def resetwarn(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ) -> Coroutine[Any, Any, None]:

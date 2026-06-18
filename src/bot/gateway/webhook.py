@@ -158,7 +158,6 @@ def create_app(ptb_app: Application) -> FastAPI:
             "moderation_provider": settings.moderation_provider,
         }
 
-
     @app.get("/metrics")
     async def metrics(authorization: str | None = Header(default=None)) -> Response:
         _check_api_key(authorization)

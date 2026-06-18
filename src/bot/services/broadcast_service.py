@@ -273,6 +273,7 @@ class BroadcastService:
 
         # Send to each main group
         for group_id in main_groups:
+
             async def _copy_message(target_group_id: int = group_id) -> object:
                 return await context.bot.copy_message(
                     chat_id=target_group_id,
@@ -447,6 +448,7 @@ class BroadcastService:
 
         successful = 0
         for delivery in deliveries:
+
             async def _edit_copy(
                 current_delivery: BroadcastDelivery = delivery,
             ) -> object:

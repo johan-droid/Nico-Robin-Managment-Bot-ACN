@@ -1,5 +1,5 @@
 {
-  "admin.no_authority": "🌸 \"Interesting... but you lack the authority.\" — Robin",
+  "admin.no_authority": "🚫 Access denied. This command is restricted to group administrators only.",
   "admin.captain_commander_only": "🌸 Only the captain or commanders can change feature settings.",
   "admin.owner_only": "🌸 This page belongs to the captain of this archive.",
   "admin.sudo_only": "🌸 Only the archaeologists of Ohara may touch this record.",

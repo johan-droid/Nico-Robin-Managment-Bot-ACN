@@ -23,7 +23,9 @@ class FakeMessage:
 
 
 class FakeBot:
-    def __init__(self, bot_status: str, bot_can_restrict: bool, user_status: str) -> None:
+    def __init__(
+        self, bot_status: str, bot_can_restrict: bool, user_status: str
+    ) -> None:
         self.id = 99
         self._bot_status = bot_status
         self._bot_can_restrict = bot_can_restrict
@@ -96,12 +98,18 @@ async def test_require_admin_blocks_non_admin_with_friendly_message() -> None:
     await protected(update, context)
 
     assert calls == []
-    assert message.replies == ["🌸 \"Interesting... but you lack the authority.\" — Robin"]
+    assert message.replies == [
+        "🚫 Access denied. This command is restricted to group administrators only."
+    ]
 
 
 @pytest.mark.asyncio
-async def test_feature_enabled_blocks_disabled_feature(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_is_enabled(group_id: int, feature_name: str, user_id: int | None = None) -> bool:
+async def test_feature_enabled_blocks_disabled_feature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_is_enabled(
+        group_id: int, feature_name: str, user_id: int | None = None
+    ) -> bool:
         return False
 
     monkeypatch.setattr(
@@ -131,8 +139,12 @@ async def test_feature_enabled_blocks_disabled_feature(monkeypatch: pytest.Monke
 
 
 @pytest.mark.asyncio
-async def test_feature_enabled_allows_enabled_feature(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_is_enabled(group_id: int, feature_name: str, user_id: int | None = None) -> bool:
+async def test_feature_enabled_allows_enabled_feature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fake_is_enabled(
+        group_id: int, feature_name: str, user_id: int | None = None
+    ) -> bool:
         return True
 
     monkeypatch.setattr(
@@ -160,7 +172,9 @@ async def test_feature_enabled_allows_enabled_feature(monkeypatch: pytest.Monkey
 
 
 @pytest.mark.asyncio
-async def test_require_captain_commander_blocks_other_users(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_require_captain_commander_blocks_other_users(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def fake_is_captain(user_id: int) -> bool:
         return False
 
@@ -186,4 +200,6 @@ async def test_require_captain_commander_blocks_other_users(monkeypatch: pytest.
     await protected(update, context)
 
     assert calls == []
-    assert message.replies == ["🌸 Only the captain or commanders can change feature settings."]
+    assert message.replies == [
+        "🌸 Only the captain or commanders can change feature settings."
+    ]

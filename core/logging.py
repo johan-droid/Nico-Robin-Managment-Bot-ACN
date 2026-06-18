@@ -36,13 +36,17 @@ def setup_logging(level: str = "INFO", log_dir: str | None = None) -> None:
     root_logger.addHandler(console)
 
     file_name = logs_dir / f"nico-robin-{datetime.now().strftime('%Y%m%d')}.log"
-    file_handler = RotatingFileHandler(file_name, maxBytes=10_000_000, backupCount=5, encoding="utf-8")
+    file_handler = RotatingFileHandler(
+        file_name, maxBytes=10_000_000, backupCount=5, encoding="utf-8"
+    )
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     root_logger.addHandler(file_handler)
 
     error_name = logs_dir / f"nico-robin-errors-{datetime.now().strftime('%Y%m%d')}.log"
-    error_handler = RotatingFileHandler(error_name, maxBytes=10_000_000, backupCount=10, encoding="utf-8")
+    error_handler = RotatingFileHandler(
+        error_name, maxBytes=10_000_000, backupCount=10, encoding="utf-8"
+    )
     error_handler.setLevel(logging.ERROR)
     error_handler.setFormatter(formatter)
     root_logger.addHandler(error_handler)
@@ -52,4 +56,6 @@ def setup_logging(level: str = "INFO", log_dir: str | None = None) -> None:
     threading.excepthook = lambda args: _fatal_exception(  # type: ignore[assignment]
         args.exc_type, args.exc_value, args.exc_traceback
     )
-    logging.getLogger(__name__).info("logging_configured", extra={"level": level, "log_dir": str(logs_dir)})
+    logging.getLogger(__name__).info(
+        "logging_configured", extra={"level": level, "log_dir": str(logs_dir)}
+    )

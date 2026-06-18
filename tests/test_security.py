@@ -86,7 +86,9 @@ def test_secret_masking_redacts_urls_and_keys() -> None:
     )
 
 
-def test_get_redis_uses_noop_for_local_loopback(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_redis_uses_noop_for_local_loopback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     rate_limiter.get_redis.cache_clear()
     monkeypatch.setattr(
         rate_limiter,

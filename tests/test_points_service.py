@@ -98,7 +98,10 @@ class FakeSession:
             user_id = _extract_int_value(compiled, "user_id")
             rows = [
                 user_points
-                for (stored_user_id, stored_group_id), user_points in self.storage.user_points.items()
+                for (
+                    stored_user_id,
+                    stored_group_id,
+                ), user_points in self.storage.user_points.items()
                 if stored_group_id == group_id
                 and (user_id is None or stored_user_id == user_id)
             ]
@@ -229,7 +232,9 @@ async def test_add_points_rejects_duplicate_transaction(point_service) -> None:
 
 
 @pytest.mark.asyncio
-async def test_add_points_honors_cooldown(point_service, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_add_points_honors_cooldown(
+    point_service, monkeypatch: pytest.MonkeyPatch
+) -> None:
     service, storage = point_service
     current_time = [1_000]
     monkeypatch.setattr(point_service_module.time, "time", lambda: current_time[0])
@@ -261,7 +266,9 @@ async def test_add_points_honors_cooldown(point_service, monkeypatch: pytest.Mon
 
 
 @pytest.mark.asyncio
-async def test_recalculate_group_points_rebuilds_balances(point_service, monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_recalculate_group_points_rebuilds_balances(
+    point_service, monkeypatch: pytest.MonkeyPatch
+) -> None:
     service, storage = point_service
     monkeypatch.setattr(point_service_module.time, "time", lambda: 2_000)
 

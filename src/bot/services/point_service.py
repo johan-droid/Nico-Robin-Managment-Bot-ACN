@@ -307,7 +307,10 @@ class PointService:
                     elapsed = now - int(self.cooldowns[cooldown_key])
                     if elapsed < cooldown_seconds:
                         remaining = cooldown_seconds - elapsed
-                        return False, f"Cooldown active. Try again in {remaining} seconds."
+                        return (
+                            False,
+                            f"Cooldown active. Try again in {remaining} seconds.",
+                        )
 
                 result = await session.execute(
                     select(UserPoints).where(

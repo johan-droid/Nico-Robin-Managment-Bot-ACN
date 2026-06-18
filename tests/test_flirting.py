@@ -16,7 +16,9 @@ def test_flirt_response_buckets_have_enough_lines() -> None:
 
 def test_match_flirt_category_picks_the_expected_bucket() -> None:
     assert _match_flirt_category("You are beautiful and gorgeous") == "charming"
-    assert _match_flirt_category("That was a smart and intelligent idea") == "intellectual"
+    assert (
+        _match_flirt_category("That was a smart and intelligent idea") == "intellectual"
+    )
     assert _match_flirt_category("plain text with no trigger") is None
 
 

@@ -38,7 +38,9 @@ async def acn_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             )
 
             # System checks
-            is_infrastructure_allowed = not settings.allowed_group_ids or chat.id in settings.allowed_group_ids
+            is_infrastructure_allowed = (
+                not settings.allowed_group_ids or chat.id in settings.allowed_group_ids
+            )
 
             # Product check
             is_product_whitelisted = False
@@ -51,7 +53,6 @@ async def acn_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             )
             if result.scalar_one_or_none():
                 is_product_whitelisted = True
-
 
             # Format response
             if role == "captain":
@@ -85,7 +86,9 @@ async def acn_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 response += f"• Bot Mode: {'webhook' if settings.is_webhook_mode else 'polling'}\n"
                 response += f"• Webhook Configured: {'✅ Yes' if settings.resolved_webhook_url else '❌ No'}\n"
                 response += f"• Database URL Set: {'✅ Yes' if settings.database_url else '❌ No'}\n"
-                response += f"• Redis URL Set: {'✅ Yes' if settings.redis_url else '❌ No'}\n"
+                response += (
+                    f"• Redis URL Set: {'✅ Yes' if settings.redis_url else '❌ No'}\n"
+                )
 
             await msg.reply_text(response, parse_mode="Markdown")
 
