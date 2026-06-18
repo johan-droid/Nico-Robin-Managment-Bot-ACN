@@ -107,6 +107,13 @@ class Settings(BaseSettings):
     )
 
     bot_token: str = Field(default="", alias="BOT_TOKEN")
+
+    @field_validator("bot_token", mode="before")
+    @classmethod
+    def validate_bot_token(cls, value: object) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("BOT_TOKEN is required and must be non-empty")
+        return value.strip()
     bot_mode: Literal["auto", "polling", "webhook"] = Field(
         default="auto", alias="BOT_MODE"
     )

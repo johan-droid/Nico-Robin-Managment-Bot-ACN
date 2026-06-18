@@ -108,7 +108,7 @@ async def rate_limit_check(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def _increment_sliding_window(redis: Any, key: str, now: float) -> int:
     """Increment a Redis sorted-set sliding window counter."""
-    member = f"{now}:{id(now)}"
+    member = f"{now}:{time.time_ns()}"
     pipe = redis.pipeline()
     pipe.zadd(key, {member: now})
     pipe.zremrangebyscore(key, 0, now - _WINDOW)

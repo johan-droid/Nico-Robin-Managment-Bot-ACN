@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import structlog
 from telegram.ext import Application, MessageHandler, TypeHandler
 from telegram.ext import filters as tg_filters
 
@@ -19,6 +20,8 @@ from src.bot.bot.middleware.request_logger import log_update_details
 from src.bot.bot.middleware.security import rate_limit_check
 from src.bot.config import Settings, settings
 
+logger = structlog.get_logger(__name__)
+
 
 async def _rate_limit_gate(update, context) -> None:
     """Rate limiting gate. Blocks abusive users before plugin handlers run."""
@@ -30,9 +33,13 @@ async def _rate_limit_gate(update, context) -> None:
         await feature_gate_check(update, context)
     except _StopProcessing:
         raise
-    except Exception:
-        # Prevent leaking tracebacks if rate limiter itself crashes
-        pass
+    except Exception as exc:
+        logger.error(
+            "middleware_crash",
+            error=str(exc)[:500],
+            error_type=type(exc).__name__,
+        )
+        raise
 
 
 def create_application(app_settings: Settings = settings) -> Application:

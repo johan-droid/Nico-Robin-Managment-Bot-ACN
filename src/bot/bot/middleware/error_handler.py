@@ -24,6 +24,7 @@ from telegram.error import (
 )
 from telegram.ext import ContextTypes
 
+from src.bot.bot.middleware.group_guard import _StopProcessing
 from src.bot.config import settings
 
 logger = structlog.get_logger(__name__)
@@ -32,7 +33,7 @@ _err_times: list[float] = []
 
 async def error_handler(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     err = ctx.error
-    if err is None or type(err).__name__ == "_StopProcessing":
+    if err is None or isinstance(err, _StopProcessing):
         return
     cat, user_msg, sev = _classify(err)
     info = _info(update)
@@ -89,7 +90,7 @@ def _info(update):
 
 
 async def _report(ctx, err, cat, sev, info):
-    if sev == "IGNORE" or not settings.log_channel_id:
+    if sev == "IGNORE" or settings.log_channel_id is None:
         return
     now = time.time()
     _err_times[:] = [t for t in _err_times if t > now - 60]

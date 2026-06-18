@@ -50,15 +50,22 @@ async def ping(update, context) -> None:
 
 def register_all_handlers(application: Application) -> None:
     for module_name in PLUGIN_MODULES:
-        module = import_module(module_name)
-        register: Callable[[Application], None] | None = getattr(
-            module, "register", None
-        )
-        if register is None:
-            logger.warning("plugin_missing_register", module=module_name)
-            continue
-        register(application)
-        logger.info("plugin_registered", module=module_name)
+        try:
+            module = import_module(module_name)
+            register: Callable[[Application], None] | None = getattr(
+                module, "register", None
+            )
+            if register is None:
+                logger.warning("plugin_missing_register", module=module_name)
+                continue
+            register(application)
+            logger.info("plugin_registered", module=module_name)
+        except Exception as exc:
+            logger.error(
+                "plugin_registration_failed",
+                module=module_name,
+                error=str(exc)[:500],
+            )
 
     # Register the centralized command registry as a safety net. The registry
     # deduplicates commands that were already registered by plugin modules.
