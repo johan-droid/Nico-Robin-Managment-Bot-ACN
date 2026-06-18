@@ -145,7 +145,6 @@ async def _apply_unmute(
     )
 
 
-@acn_only
 @admin_captain_commander_only
 @bot_rights_required("can_restrict_members")
 async def ban(
@@ -200,7 +199,6 @@ async def ban(
         await msg.reply_text(f"🌸 Failed to ban user: {str(e)}")
 
 
-@acn_only
 @admin_captain_commander_only
 @bot_rights_required("can_restrict_members")
 async def unban(
@@ -218,7 +216,6 @@ async def unban(
     await msg.reply_text(gettext("unban.success", target=target.label))
 
 
-@acn_only
 @admin_captain_commander_only
 @bot_rights_required("can_restrict_members")
 async def kick(
@@ -300,7 +297,6 @@ async def _auto_action(
         await _apply_mute(context, chat.id, target.user_id, timedelta(hours=1))
 
 
-@acn_only
 @admin_captain_commander_only
 @bot_rights_required("can_restrict_members")
 async def warn(
@@ -371,7 +367,6 @@ async def warn(
         )
 
 
-@acn_only
 @admin_captain_commander_only
 async def warns(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -400,7 +395,6 @@ async def warns(
     await msg.reply_text("\n".join(lines))
 
 
-@acn_only
 @admin_captain_commander_only
 async def resetwarn(
     update: Update, context: ContextTypes.DEFAULT_TYPE
