@@ -101,6 +101,7 @@ logs/
 data/
 archive/
 scratch/
+ruff_bin/
 *.bak
 *.dir
 test_repo/
