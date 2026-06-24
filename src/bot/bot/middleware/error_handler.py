@@ -22,7 +22,7 @@ from telegram.error import (
     TelegramError,
     TimedOut,
 )
-from telegram.ext import ContextTypes
+from telegram.ext import ApplicationHandlerStop, ContextTypes
 
 from src.bot.bot.middleware.group_guard import _StopProcessing
 from src.bot.config import settings
@@ -33,7 +33,7 @@ _err_times: list[float] = []
 
 async def error_handler(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     err = ctx.error
-    if err is None or isinstance(err, _StopProcessing):
+    if err is None or isinstance(err, (_StopProcessing, ApplicationHandlerStop)):
         return
     cat, user_msg, sev = _classify(err)
     info = _info(update)

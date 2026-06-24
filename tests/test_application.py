@@ -50,6 +50,8 @@ def test_application_registers_documented_pdf_commands() -> None:
         "help",
         "ping",
         "ban",
+        "unban",
+        "kick",
         "mute",
         "warn",
         "filter",
@@ -61,6 +63,10 @@ def test_application_registers_documented_pdf_commands() -> None:
         "flood",
         "addswear",
         "purgechannels",
+        "channelpost",
+        "channelphoto",
+        "addpurgechannel",
+        "removepurgechannel",
     }
 
     assert documented_commands <= commands
