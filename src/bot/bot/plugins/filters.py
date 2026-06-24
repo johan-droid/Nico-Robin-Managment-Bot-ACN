@@ -23,7 +23,7 @@ VALID_ACTIONS = {"reply", "delete", "warn", "ban", "mute"}
 
 
 def _filter_help() -> str:
-    return "🌸 Usage: /filter trigger response | /filter trigger /regex response"
+    return "🌸 Usage: /filter trigger response | /filter trigger /mode response (modes: word, exact, regex)"
 
 
 @group_only
@@ -39,7 +39,16 @@ async def add_filter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         return
     trigger = args[0]
     regex = len(args) > 1 and args[1] == "/regex"
-    response_start = 2 if regex else 1
+    match_mode = "contains"
+    response_start = 1
+
+    if len(args) > 1 and args[1].startswith("/"):
+        mode_arg = args[1][1:].lower()
+        if mode_arg in {"word", "exact", "regex"}:
+            match_mode = mode_arg
+            regex = mode_arg == "regex"
+            response_start = 2
+
     response = " ".join(args[response_start:]).strip()
     if not response and msg.reply_to_message:
         response = (
@@ -60,6 +69,7 @@ async def add_filter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
                 response=response,
                 action=group.filter_action,
                 regex=regex,
+                match_mode=match_mode,
                 created_by=update.effective_user.id if update.effective_user else None,
             )
             await AuditService.log_action(
@@ -86,13 +96,14 @@ async def stop_filter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     async with async_session_factory() as session:
         async with session.begin():
             removed = await FilterService.remove_filter(session, chat.id, args[0])
-            await AuditService.log_action(
-                session,
-                group_id=chat.id,
-                action="filter_remove",
-                actor_id=update.effective_user.id if update.effective_user else None,
-                reason=args[0],
-            )
+            if removed:
+                await AuditService.log_action(
+                    session,
+                    group_id=chat.id,
+                    action="filter_remove",
+                    actor_id=update.effective_user.id if update.effective_user else None,
+                    reason=args[0],
+                )
     if removed:
         await msg.reply_text(gettext("filter.removed"))
     else:
@@ -194,6 +205,14 @@ async def handle_filters(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if await is_telegram_admin(context, chat.id, user.id):
         return
     async with async_session_factory() as session:
+        group = await GroupService.get_group(session, chat.id)
+        if not group:
+            return
+
+        from src.bot.services.feature_service import FeatureService
+        is_enabled = await FeatureService.is_feature_enabled(chat.id, "filters")
+        if not is_enabled:
+            return
         matches = await FilterService.match_filters(session, chat.id, msg.text)
     if not matches:
         return

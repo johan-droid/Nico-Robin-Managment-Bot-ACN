@@ -183,6 +183,8 @@ async def handle_flood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         async with session.begin():
             group = await GroupService.ensure_group(session, chat)
             await UserService.ensure_user(session, user)
+        if not group:
+            return
         limit = group.flood_limit
         enabled = group.antispam_enabled
         action = group.flood_action

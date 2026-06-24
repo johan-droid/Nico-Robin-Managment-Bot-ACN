@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import structlog
-from telegram.ext import Application, MessageHandler, TypeHandler
+from telegram.ext import (
+    Application,
+    ApplicationHandlerStop,
+    MessageHandler,
+    TypeHandler,
+)
 from telegram.ext import filters as tg_filters
 
 from src.bot.bot.dispatcher import register_all_handlers
@@ -31,7 +36,7 @@ async def _rate_limit_gate(update, context) -> None:
             raise _StopProcessing()
         await command_input_guard(update, context)
         await feature_gate_check(update, context)
-    except _StopProcessing:
+    except (_StopProcessing, ApplicationHandlerStop):
         raise
     except Exception as exc:
         logger.error(

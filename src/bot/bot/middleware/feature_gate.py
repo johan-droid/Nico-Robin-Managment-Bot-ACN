@@ -1,75 +1,18 @@
 from __future__ import annotations
 
 from telegram import Update
-from telegram.ext import ContextTypes
+from telegram.ext import ApplicationHandlerStop, ContextTypes
 
+from src.bot.bot.handlers_list import COMMAND_BINDINGS
 from src.bot.services.feature_service import FeatureService
 
-COMMAND_FEATURES: dict[str, str] = {
-    "ban": "moderation",
-    "unban": "moderation",
-    "kick": "moderation",
-    "mute": "moderation",
-    "unmute": "moderation",
-    "warn": "moderation",
-    "warns": "moderation",
-    "resetwarn": "moderation",
-    "slowmode": "moderation",
-    "del": "moderation",
-    "pin": "moderation",
-    "filter": "filters",
-    "stop": "filters",
-    "filters": "filters",
-    "filteraction": "filters",
-    "setwelcome": "welcome",
-    "resetwelcome": "welcome",
-    "welcome": "welcome",
-    "setfarewell": "welcome",
-    "farewell": "welcome",
-    "cleanwelcome": "welcome",
-    "welcometest": "welcome",
-    "save": "notes",
-    "get": "notes",
-    "notes": "notes",
-    "clear": "notes",
-    "purge": "purge",
-    "schedule": "scheduler",
-    "captcha": "captcha",
-    "newfed": "federation",
-    "joinfed": "federation",
-    "addbroadcast": "acn_broadcast",
-    "removebroadcast": "acn_broadcast",
-    "broadcastchannels": "acn_broadcast",
-    "broadcaststatus": "acn_broadcast",
-    "broadcasthelp": "acn_broadcast",
-    "testbroadcast": "acn_broadcast",
-    "flirt": "flirting",
-    "flirt_stats": "flirting",
-    "flirt_categories": "flirting",
-    "flirt_achievements": "flirting",
-    "flirt_example": "flirting",
-    "points": "points",
-    "leaderboard": "points",
-    "apploids": "points",
-    "buy_apploid": "points",
-    "equip_apploid": "points",
-    "point_stats": "points",
-    "earn_points": "points",
-    "point_help": "points",
-    "profile": "profile",
-    "setbio": "profile",
-    "toggleai": "ai_moderation",
-    "setflood": "flood_control",
-    "setfloodmode": "flood_control",
-    "flood": "flood_control",
-    "addswear": "swear_words",
-    "delswear": "swear_words",
-    "swearlist": "swear_words",
-    "swearsettings": "swear_words",
-    "export_my_data": "profile",
-    "delete_my_data": "profile",
-    "clear_user_data": "security",
-}
+# Build mapping dynamically
+COMMAND_FEATURES: dict[str, str] = {}
+for binding in COMMAND_BINDINGS:
+    if binding.feature_gate:
+        COMMAND_FEATURES[binding.command.casefold()] = binding.feature_gate
+        for alias in binding.aliases:
+            COMMAND_FEATURES[alias.casefold()] = binding.feature_gate
 
 
 async def feature_gate_check(
@@ -94,4 +37,4 @@ async def feature_gate_check(
     if can_use:
         return
     await message.reply_text(f"🚫 {reason}")
-    raise RuntimeError("_feature_blocked")
+    raise ApplicationHandlerStop()

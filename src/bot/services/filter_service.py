@@ -25,6 +25,7 @@ class FilterService:
         action: str,
         regex: bool,
         created_by: int | None,
+        match_mode: str = "contains",
     ) -> Filter:
         normalized = trigger.lower()
         result = await session.execute(
@@ -41,6 +42,7 @@ class FilterService:
                 response=response,
                 action=action,
                 regex=regex,
+                match_mode=match_mode,
                 created_by=created_by,
             )
             session.add(item)
@@ -79,13 +81,22 @@ class FilterService:
         lowered = text.lower()
         matches: list[MatchedFilter] = []
         for item in items:
-            if item.regex:
+            mode = getattr(item, "match_mode", "contains")
+
+            if item.regex or mode == "regex":
                 try:
                     match = re.search(item.trigger, text, flags=re.IGNORECASE)
+                    if match:
+                        matches.append(MatchedFilter(item, match.group(0)))
                 except re.error:
                     continue
-                if match:
-                    matches.append(MatchedFilter(item, match.group(0)))
-            elif item.trigger in lowered:
-                matches.append(MatchedFilter(item, item.trigger))
+            elif mode == "exact":
+                if item.trigger == lowered:
+                    matches.append(MatchedFilter(item, item.trigger))
+            elif mode == "word":
+                if re.search(rf"\b{re.escape(item.trigger)}\b", text, flags=re.IGNORECASE):
+                    matches.append(MatchedFilter(item, item.trigger))
+            else: # contains
+                if item.trigger in lowered:
+                    matches.append(MatchedFilter(item, item.trigger))
         return matches
