@@ -11,6 +11,7 @@ import uvicorn
 from telegram import BotCommand
 
 from src.bot.bot.app import create_application
+from src.bot.bot.handlers_list import COMMAND_BINDINGS
 from src.bot.client.websocket_client import (
     initialize_websocket_client,
     shutdown_websocket_client,
@@ -32,128 +33,6 @@ _ALLOWED_UPDATES = [
     "callback_query",
     "chat_member",
     "my_chat_member",
-]
-
-_BOT_COMMANDS = [
-    # ── Core ──────────────────────────────────────────────
-    BotCommand("start", "DM welcome and bot intro"),
-    BotCommand("help", "Show the main help message"),
-    BotCommand("ping", "Check if the bot is alive"),
-    BotCommand("robin", "Get a Nico Robin quote"),
-    # ── Feature Management ────────────────────────────────
-    BotCommand("features", "Show feature status"),
-    BotCommand("enable", "Enable a feature"),
-    BotCommand("disable", "Disable a feature"),
-    BotCommand("toggle", "Toggle a feature"),
-    BotCommand("my_features", "Show features for your role"),
-    BotCommand("feature_info", "Show one feature's details"),
-    BotCommand("management", "Show management command guide"),
-    BotCommand("enable_category", "Enable a feature category"),
-    BotCommand("disable_category", "Disable a feature category"),
-    # ── Moderation ────────────────────────────────────────
-    BotCommand("ban", "Ban a user"),
-    BotCommand("unban", "Unban a user"),
-    BotCommand("kick", "Kick a user"),
-    BotCommand("mute", "Mute a user"),
-    BotCommand("unmute", "Unmute a user"),
-    BotCommand("warn", "Warn a user"),
-    BotCommand("warns", "Show warning count"),
-    BotCommand("resetwarn", "Reset warnings"),
-    BotCommand("del", "Delete a replied message"),
-    BotCommand("pin", "Pin a message"),
-    BotCommand("slowmode", "Set slow mode"),
-    # ── Filters ───────────────────────────────────────────
-    BotCommand("filter", "Add a word filter"),
-    BotCommand("stop", "Remove a word filter"),
-    BotCommand("filters", "List word filters"),
-    BotCommand("filteraction", "Set filter action"),
-    # ── Welcome & Rules ───────────────────────────────────
-    BotCommand("setwelcome", "Set welcome text"),
-    BotCommand("resetwelcome", "Reset welcome text"),
-    BotCommand("welcome", "Toggle welcome messages"),
-    BotCommand("setwelcomedm", "Set welcome DM text"),
-    BotCommand("welcomedm", "Toggle welcome DM"),
-    BotCommand("setfarewell", "Set goodbye text"),
-    BotCommand("farewell", "Toggle goodbye messages"),
-    BotCommand("cleanwelcome", "Toggle welcome cleanup"),
-    BotCommand("welcometest", "Preview welcome message"),
-    BotCommand("setrules", "Set group rules"),
-    BotCommand("rules", "Show group rules"),
-    # ── Notes ─────────────────────────────────────────────
-    BotCommand("save", "Save a note"),
-    BotCommand("get", "Retrieve a note"),
-    BotCommand("notes", "List notes"),
-    BotCommand("clear", "Delete a note"),
-    # ── Locks ─────────────────────────────────────────────
-    BotCommand("lock", "Lock a message type"),
-    BotCommand("unlock", "Unlock a message type"),
-    BotCommand("locks", "Show locked types"),
-    # ── Purge & Schedule ──────────────────────────────────
-    BotCommand("purge", "Delete multiple messages"),
-    BotCommand("schedule", "Schedule an announcement"),
-    # ── Safety & Security Settings ────────────────────────
-    BotCommand("setlocale", "Change group language"),
-    BotCommand("setwarnlimit", "Set warning limit"),
-    BotCommand("setwarnaction", "Set warning action"),
-    BotCommand("setflood", "Set flood limit"),
-    BotCommand("setfloodmode", "Set flood punishment mode"),
-    BotCommand("flood", "Show flood settings"),
-    BotCommand("toggleai", "Toggle AI moderation"),
-    BotCommand("captcha", "Toggle CAPTCHA verification"),
-    BotCommand("nightmode", "Toggle night mode"),
-    BotCommand("setlogchannel", "Set log channel"),
-    BotCommand("removelogchannel", "Remove log channel"),
-    # ── User Info & Profiles ──────────────────────────────
-    BotCommand("id", "Show user or chat ID"),
-    BotCommand("whois", "Inspect a user"),
-    BotCommand("info", "Inspect a user"),
-    BotCommand("profile", "Show a member profile"),
-    BotCommand("setbio", "Set your profile bio"),
-    # ── Stats ─────────────────────────────────────────────
-    BotCommand("stats", "Show group statistics"),
-    # ── Swear Words ───────────────────────────────────────
-    BotCommand("addswear", "Add a swear word"),
-    BotCommand("delswear", "Remove a swear word"),
-    BotCommand("swearlist", "List swear words"),
-    BotCommand("swearsettings", "View swear word settings"),
-    # ── Federation ────────────────────────────────────────
-    BotCommand("newfed", "Create a federation"),
-    BotCommand("joinfed", "Join a federation"),
-    # ── ACN Loyalty ───────────────────────────────────────
-    BotCommand("acn_status", "Show ACN role and loyalty"),
-    BotCommand("loyalty_leaderboard", "Show ACN leaderboard"),
-    BotCommand("acn_info", "Show ACN group info"),
-    BotCommand("acn_members", "List ACN members"),
-    BotCommand("addacngroup", "Add group to ACN"),
-    BotCommand("addacn", "Add an ACN member"),
-    BotCommand("removeacn", "Remove an ACN member"),
-    # ── ACN Broadcast ────────────────────────────────────
-    BotCommand("broadcastchannels", "List broadcast channels"),
-    BotCommand("broadcaststatus", "Show broadcast status"),
-    BotCommand("testbroadcast", "Test a broadcast"),
-    BotCommand("broadcasthelp", "Show broadcast help"),
-    BotCommand("addbroadcast", "Add a broadcast channel"),
-    BotCommand("removebroadcast", "Remove a broadcast channel"),
-    BotCommand("addmaingroup", "Add a main ACN group"),
-    # ── Channel Guard ─────────────────────────────────────
-    BotCommand("channelpost", "Send a message to a channel"),
-    BotCommand("channelphoto", "Send a photo to a channel"),
-    BotCommand("addpurgechannel", "Add an auto-purge channel"),
-    BotCommand("removepurgechannel", "Remove an auto-purge channel"),
-    BotCommand("purgechannels", "List purge channels"),
-    # ── Points ────────────────────────────────────────────
-    BotCommand("points", "Show your points and level"),
-    BotCommand("leaderboard", "Show point leaderboard"),
-    BotCommand("award", "Award points to a user"),
-    BotCommand("apploids", "Show your apploids"),
-    BotCommand("buy_apploid", "Buy an apploid"),
-    BotCommand("equip_apploid", "Equip an apploid"),
-    # ── Flirting ──────────────────────────────────────────
-    BotCommand("flirt", "Flirt with Nico Robin"),
-    BotCommand("flirt_stats", "Show flirting stats"),
-    # ── Yamato Friendship ─────────────────────────────────
-    BotCommand("bond_with_yamato", "Bond with Yamato"),
-    BotCommand("yamato_status", "Show friendship status"),
 ]
 
 
@@ -196,16 +75,24 @@ def _acquire_single_instance_lock() -> None:
     _BOT_LOCK_HANDLE = lock_handle
 
 
+
+_BOT_COMMAND_MENU_LIMIT = 100
+
+def _get_menu_commands() -> list[BotCommand]:
+    menu = []
+    for binding in COMMAND_BINDINGS:
+        if binding.show_in_main_menu:
+            menu.append(BotCommand(binding.command, binding.description or binding.command))
+    return menu[:_BOT_COMMAND_MENU_LIMIT]
+
 async def _set_command_menu(application) -> None:
-    """Register the hardcoded slash-command menu with Telegram."""
-    command_menu = _BOT_COMMANDS[:_BOT_COMMAND_MENU_LIMIT]
+    """Register the generated slash-command menu with Telegram."""
+    command_menu = _get_menu_commands()
     await application.bot.set_my_commands(command_menu)
     logger.info(
         "bot_command_menu_configured",
         command_count=len(command_menu),
-        omitted_count=max(0, len(_BOT_COMMANDS) - len(command_menu)),
     )
-
 
 async def _wait_for_db() -> None:
     """Wait for the database to be ready before starting."""

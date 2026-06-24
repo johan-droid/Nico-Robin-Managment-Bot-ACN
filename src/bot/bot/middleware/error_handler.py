@@ -69,8 +69,6 @@ def _classify(e):
         return ("migration", "🌸 Chat migrated.", "LOW")
     if isinstance(e, TelegramError):
         return ("telegram_api", "🌸 Telegram issue. Try again.", "MEDIUM")
-    if isinstance(e, RuntimeError) and str(e) == "_feature_blocked":
-        return ("feature_blocked", "", "IGNORE")
     t = f"{type(e).__module__}.{type(e).__name__}".lower()
     if "sqlalchemy" in t or "asyncpg" in t:
         return ("database", "🌸 Temp data issue. Try again.", "HIGH")

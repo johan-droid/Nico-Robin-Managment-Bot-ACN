@@ -37,6 +37,7 @@ class Filter(TimestampMixin, Base):
     action: Mapped[str] = mapped_column(String(32), default="reply", nullable=False)
     response: Mapped[str | None] = mapped_column(Text, nullable=True)
     regex: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    match_mode: Mapped[str] = mapped_column(String(32), default="contains", nullable=False)
     created_by: Mapped[int | None] = mapped_column(
         BigInteger,
         ForeignKey("users.user_id", ondelete="SET NULL"),

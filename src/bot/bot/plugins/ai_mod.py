@@ -135,7 +135,7 @@ async def handle_ai_moderation(
         async with session.begin():
             group = await GroupService.ensure_group(session, chat)
             await UserService.ensure_user(session, user)
-    if not group.ai_mod_enabled:
+    if not group or not group.ai_mod_enabled:
         return
     result = await get_moderation_engine().moderate(
         msg.text,
