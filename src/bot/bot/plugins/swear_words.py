@@ -121,13 +121,13 @@ async def add_swear_word(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             actor_id=update.effective_user.id if update.effective_user else None,
             target_id=None,
             reason=f"Added swear word: {word} ({severity})",
-                extra={
-                    "word": word,
-                    "severity": severity,
-                    "punishment": punishment,
-                    "duration": duration,
-                },
-            )
+            extra={
+                "word": word,
+                "severity": severity,
+                "punishment": punishment,
+                "duration": duration,
+            },
+        )
 
         duration_text = f" ({human_duration(duration)})" if duration > 0 else ""
         await msg.reply_text(
@@ -171,8 +171,8 @@ async def remove_swear_word(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 actor_id=update.effective_user.id if update.effective_user else None,
                 target_id=None,
                 reason=f"Removed swear word: {word}",
-                    extra={"word": word},
-                )
+                extra={"word": word},
+            )
         if deleted_count > 0:
             await msg.reply_text(f"🌸 Removed swear word '{word}'")
         else:
@@ -294,11 +294,11 @@ async def swear_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             # Log the action
             await AuditService.log_action(
                 session=session,
-            group_id=chat.id,
-            action="swear_settings",
-            actor_id=update.effective_user.id if update.effective_user else None,
-            target_id=None,
-            reason="Updated swear word settings",
+                group_id=chat.id,
+                action="swear_settings",
+                actor_id=update.effective_user.id if update.effective_user else None,
+                target_id=None,
+                reason="Updated swear word settings",
                 extra={
                     "severity": severity,
                     "punishment": punishment,
@@ -418,7 +418,9 @@ async def handle_swear_words(
                     key=lambda m: (
                         0
                         if m.severity == "mild"
-                        else 1 if m.severity == "moderate" else 2
+                        else 1
+                        if m.severity == "moderate"
+                        else 2
                     ),
                 )
 
@@ -460,6 +462,7 @@ async def handle_swear_words(
 
     except Exception as e:
         import structlog
+
         structlog.get_logger(__name__).error("swear_word_error", error=str(e))
 
 

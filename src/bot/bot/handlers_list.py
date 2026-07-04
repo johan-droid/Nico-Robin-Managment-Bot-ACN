@@ -86,82 +86,231 @@ async def _reply_in_chunks(message, text: str, limit: int = 3500) -> None:
 
 COMMAND_BINDINGS: tuple[CommandBinding, ...] = (
     # ── Core ──
-    CommandBinding("start", welcome_plugin.start, "DM welcome and bot intro", show_in_main_menu=True),
-    CommandBinding("help", welcome_plugin.help_cmd, "Main help message", show_in_main_menu=True),
+    CommandBinding(
+        "start",
+        welcome_plugin.start,
+        "DM welcome and bot intro",
+        show_in_main_menu=True,
+    ),
+    CommandBinding(
+        "help", welcome_plugin.help_cmd, "Main help message", show_in_main_menu=True
+    ),
     CommandBinding("ping", ping, "Alive check", show_in_main_menu=True),
-    CommandBinding("management", feature_management_plugin.management_help, "Management command guide", show_in_main_menu=True),
-
+    CommandBinding(
+        "management",
+        feature_management_plugin.management_help,
+        "Management command guide",
+        show_in_main_menu=True,
+    ),
     # ── Features ──
-    CommandBinding("features", feature_management_plugin.features, "Feature status", show_in_main_menu=True),
-
+    CommandBinding(
+        "features",
+        feature_management_plugin.features,
+        "Feature status",
+        show_in_main_menu=True,
+    ),
     # ── Moderation ──
     CommandBinding("ban", admin_plugin.ban, "Ban user", "moderation", True),
     CommandBinding("unban", admin_plugin.unban, "Unban user", "moderation", False),
     CommandBinding("kick", admin_plugin.kick, "Kick user", "moderation", False),
     CommandBinding("mute", admin_plugin.mute, "Mute user", "moderation", True),
     CommandBinding("warn", admin_plugin.warn, "Warn user", "moderation", True),
-
     # ── Filters ──
     CommandBinding("filter", filters_plugin.add_filter, "Add filter", "filters", False),
     CommandBinding("stop", filters_plugin.stop_filter, "Stop filter", "filters", False),
-    CommandBinding("filters", filters_plugin.list_filters, "List filters", "filters", True),
-    CommandBinding("filteraction", filters_plugin.filter_action, "Set filter action", "filters", False),
-
+    CommandBinding(
+        "filters", filters_plugin.list_filters, "List filters", "filters", True
+    ),
+    CommandBinding(
+        "filteraction",
+        filters_plugin.filter_action,
+        "Set filter action",
+        "filters",
+        False,
+    ),
     # ── Welcome & Rules ──
-    CommandBinding("setwelcome", welcome_plugin.setwelcome, "Set welcome text", "welcome", False),
-    CommandBinding("setwelcomedm", welcome_plugin.setwelcomedm, "Set welcome DM", "welcome", False),
-    CommandBinding("welcomedm", welcome_plugin.welcomedm_toggle, "Toggle welcome DM", "welcome", False),
-    CommandBinding("resetwelcome", welcome_plugin.resetwelcome, "Reset welcome", "welcome", False),
-    CommandBinding("welcome", welcome_plugin.welcome_toggle, "Toggle welcome", "welcome", True),
-    CommandBinding("setfarewell", welcome_plugin.setfarewell, "Set farewell text", "welcome", False),
-    CommandBinding("farewell", welcome_plugin.farewell_toggle, "Toggle farewell", "welcome", False),
-    CommandBinding("cleanwelcome", welcome_plugin.cleanwelcome, "Toggle clean welcome", "welcome", False),
+    CommandBinding(
+        "setwelcome", welcome_plugin.setwelcome, "Set welcome text", "welcome", False
+    ),
+    CommandBinding(
+        "setwelcomedm", welcome_plugin.setwelcomedm, "Set welcome DM", "welcome", False
+    ),
+    CommandBinding(
+        "welcomedm",
+        welcome_plugin.welcomedm_toggle,
+        "Toggle welcome DM",
+        "welcome",
+        False,
+    ),
+    CommandBinding(
+        "resetwelcome", welcome_plugin.resetwelcome, "Reset welcome", "welcome", False
+    ),
+    CommandBinding(
+        "welcome", welcome_plugin.welcome_toggle, "Toggle welcome", "welcome", True
+    ),
+    CommandBinding(
+        "setfarewell", welcome_plugin.setfarewell, "Set farewell text", "welcome", False
+    ),
+    CommandBinding(
+        "farewell", welcome_plugin.farewell_toggle, "Toggle farewell", "welcome", False
+    ),
+    CommandBinding(
+        "cleanwelcome",
+        welcome_plugin.cleanwelcome,
+        "Toggle clean welcome",
+        "welcome",
+        False,
+    ),
     CommandBinding("setrules", welcome_plugin.setrules, "Set rules", "welcome", False),
     CommandBinding("rules", welcome_plugin.rules, "View rules", "welcome", True),
-    CommandBinding("welcometest", welcome_plugin.welcometest, "Test welcome", "welcome", False),
-
+    CommandBinding(
+        "welcometest", welcome_plugin.welcometest, "Test welcome", "welcome", False
+    ),
     # ── Notes ──
     CommandBinding("save", notes_plugin.save, "Save note", "notes", False),
     CommandBinding("get", notes_plugin.get, "Get note", "notes", False),
     CommandBinding("notes", notes_plugin.notes, "List notes", "notes", True),
     CommandBinding("clear", notes_plugin.clear, "Clear note", "notes", False),
-
     # ── Locks ──
     CommandBinding("lock", locks_plugin.lock_cmd, "Lock media type", "locks", False),
-    CommandBinding("unlock", locks_plugin.unlock_cmd, "Unlock media type", "locks", False),
+    CommandBinding(
+        "unlock", locks_plugin.unlock_cmd, "Unlock media type", "locks", False
+    ),
     CommandBinding("locks", locks_plugin.locks_cmd, "List active locks", "locks", True),
-
     # ── Flood & AI ──
-    CommandBinding("toggleai", ai_mod_plugin.toggleai, "Toggle AI mod", "ai_moderation", False),
-    CommandBinding("setflood", flood_control_plugin.setflood, "Set flood limit", "flood_control", False),
-    CommandBinding("setfloodmode", flood_control_plugin.setfloodmode, "Set flood mode", "flood_control", False),
-    CommandBinding("flood", flood_control_plugin.flood, "Toggle flood control", "flood_control", False),
-
+    CommandBinding(
+        "toggleai", ai_mod_plugin.toggleai, "Toggle AI mod", "ai_moderation", False
+    ),
+    CommandBinding(
+        "setflood",
+        flood_control_plugin.setflood,
+        "Set flood limit",
+        "flood_control",
+        False,
+    ),
+    CommandBinding(
+        "setfloodmode",
+        flood_control_plugin.setfloodmode,
+        "Set flood mode",
+        "flood_control",
+        False,
+    ),
+    CommandBinding(
+        "flood",
+        flood_control_plugin.flood,
+        "Toggle flood control",
+        "flood_control",
+        False,
+    ),
     # ── Swear Words ──
-    CommandBinding("addswear", swear_words_plugin.add_swear_word, "Add swear word", "swear_words", False),
-    CommandBinding("delswear", swear_words_plugin.remove_swear_word, "Delete swear word", "swear_words", False),
-    CommandBinding("swearlist", swear_words_plugin.list_swear_words, "List swear words", "swear_words", False),
-    CommandBinding("swearsettings", swear_words_plugin.swear_settings, "Swear settings", "swear_words", False),
-
+    CommandBinding(
+        "addswear",
+        swear_words_plugin.add_swear_word,
+        "Add swear word",
+        "swear_words",
+        False,
+    ),
+    CommandBinding(
+        "delswear",
+        swear_words_plugin.remove_swear_word,
+        "Delete swear word",
+        "swear_words",
+        False,
+    ),
+    CommandBinding(
+        "swearlist",
+        swear_words_plugin.list_swear_words,
+        "List swear words",
+        "swear_words",
+        False,
+    ),
+    CommandBinding(
+        "swearsettings",
+        swear_words_plugin.swear_settings,
+        "Swear settings",
+        "swear_words",
+        False,
+    ),
     # ── Broadcast ──
-    CommandBinding("broadcastchannels", acn_broadcast_plugin.list_broadcast_channels, "List broadcast channels", "acn_broadcast", False),
-    CommandBinding("broadcaststatus", acn_broadcast_plugin.broadcast_status, "Broadcast status", "acn_broadcast", False),
-    CommandBinding("testbroadcast", acn_broadcast_plugin.test_broadcast, "Test broadcast", "acn_broadcast", False),
-    CommandBinding("broadcasthelp", acn_broadcast_plugin.broadcast_help, "Broadcast help", "acn_broadcast", False),
-    CommandBinding("addbroadcast", acn_broadcast_plugin.add_broadcast_channel_cmd, "Add broadcast channel", "acn_broadcast", False),
-    CommandBinding("removebroadcast", acn_broadcast_plugin.remove_broadcast_channel_cmd, "Remove broadcast channel", "acn_broadcast", False),
-    CommandBinding("addmaingroup", acn_broadcast_plugin.add_main_group_cmd, "Add main ACN group", "acn_broadcast", False),
-
+    CommandBinding(
+        "broadcastchannels",
+        acn_broadcast_plugin.list_broadcast_channels,
+        "List broadcast channels",
+        "acn_broadcast",
+        False,
+    ),
+    CommandBinding(
+        "broadcaststatus",
+        acn_broadcast_plugin.broadcast_status,
+        "Broadcast status",
+        "acn_broadcast",
+        False,
+    ),
+    CommandBinding(
+        "testbroadcast",
+        acn_broadcast_plugin.test_broadcast,
+        "Test broadcast",
+        "acn_broadcast",
+        False,
+    ),
+    CommandBinding(
+        "broadcasthelp",
+        acn_broadcast_plugin.broadcast_help,
+        "Broadcast help",
+        "acn_broadcast",
+        False,
+    ),
+    CommandBinding(
+        "addbroadcast",
+        acn_broadcast_plugin.add_broadcast_channel_cmd,
+        "Add broadcast channel",
+        "acn_broadcast",
+        False,
+    ),
+    CommandBinding(
+        "removebroadcast",
+        acn_broadcast_plugin.remove_broadcast_channel_cmd,
+        "Remove broadcast channel",
+        "acn_broadcast",
+        False,
+    ),
+    CommandBinding(
+        "addmaingroup",
+        acn_broadcast_plugin.add_main_group_cmd,
+        "Add main ACN group",
+        "acn_broadcast",
+        False,
+    ),
     # ── Channel Guard ──
-    CommandBinding("channelpost", channel_guard_plugin.channel_post_cmd, "Send a message to a channel"),
-    CommandBinding("channelphoto", channel_guard_plugin.channel_photo_cmd, "Send a photo to a channel"),
-    CommandBinding("addpurgechannel", channel_guard_plugin.add_purge_channel, "Add an auto-purge channel"),
-    CommandBinding("removepurgechannel", channel_guard_plugin.remove_purge_channel, "Remove an auto-purge channel"),
-    CommandBinding("purgechannels", channel_guard_plugin.list_purge_channels, "List purge channels"),
-
+    CommandBinding(
+        "channelpost",
+        channel_guard_plugin.channel_post_cmd,
+        "Send a message to a channel",
+    ),
+    CommandBinding(
+        "channelphoto",
+        channel_guard_plugin.channel_photo_cmd,
+        "Send a photo to a channel",
+    ),
+    CommandBinding(
+        "addpurgechannel",
+        channel_guard_plugin.add_purge_channel,
+        "Add an auto-purge channel",
+    ),
+    CommandBinding(
+        "removepurgechannel",
+        channel_guard_plugin.remove_purge_channel,
+        "Remove an auto-purge channel",
+    ),
+    CommandBinding(
+        "purgechannels", channel_guard_plugin.list_purge_channels, "List purge channels"
+    ),
     # ── Internal ──
-    CommandBinding("check_handlers", check_handlers, "Check handlers", show_in_main_menu=False),
+    CommandBinding(
+        "check_handlers", check_handlers, "Check handlers", show_in_main_menu=False
+    ),
 )
+
 
 def register_command_handlers(application: Application) -> None:
     existing_commands = {
@@ -178,7 +327,5 @@ def register_command_handlers(application: Application) -> None:
             cmd_casefold = cmd.casefold()
             if cmd_casefold in existing_commands:
                 continue
-            application.add_handler(
-                CommandHandler(cmd, log_command(binding.callback))
-            )
+            application.add_handler(CommandHandler(cmd, log_command(binding.callback)))
             existing_commands.add(cmd_casefold)

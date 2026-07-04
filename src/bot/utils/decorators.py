@@ -144,7 +144,9 @@ def require_captain_commander(func: Handler) -> Handler:
         if user is None:
             return
 
-        allowed = await ACNService.is_captain(user.id) or await ACNService.is_commander(user.id)
+        allowed = await ACNService.is_captain(user.id) or await ACNService.is_commander(
+            user.id
+        )
 
         if allowed:
             await func(update, context)

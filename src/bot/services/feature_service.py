@@ -121,7 +121,7 @@ class FeatureService:
             "permissions": ["member", "admin", "captain", "commander"],
         },
         # Utility features
-                "locks": {
+        "locks": {
             "name": "Media Locks",
             "description": "Lock specific media types from being sent",
             "category": "moderation",

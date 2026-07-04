@@ -16,6 +16,7 @@ class FakeMessage:
     async def reply_text(self, text: str) -> None:
         self.replies.append(text)
 
+
 class FakeUpdate(Update):
     def __init__(self, message) -> None:
         self._message = message
@@ -32,8 +33,11 @@ class FakeUpdate(Update):
     def effective_user(self):
         return User(id=7, first_name="Test", is_bot=False)
 
+
 @pytest.mark.asyncio
-async def test_feature_gate_blocks_disabled_feature(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_feature_gate_blocks_disabled_feature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def fake_can_use_feature(*args, **kwargs) -> tuple[bool, str]:
         return False, "Feature is disabled"
 
@@ -48,8 +52,11 @@ async def test_feature_gate_blocks_disabled_feature(monkeypatch: pytest.MonkeyPa
 
     assert message.replies == ["🚫 Feature is disabled"]
 
+
 @pytest.mark.asyncio
-async def test_feature_gate_allows_enabled_feature(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_feature_gate_allows_enabled_feature(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def fake_can_use_feature(*args, **kwargs) -> tuple[bool, str]:
         return True, ""
 

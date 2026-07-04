@@ -101,7 +101,9 @@ async def stop_filter(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                     session,
                     group_id=chat.id,
                     action="filter_remove",
-                    actor_id=update.effective_user.id if update.effective_user else None,
+                    actor_id=update.effective_user.id
+                    if update.effective_user
+                    else None,
                     reason=args[0],
                 )
     if removed:
@@ -210,6 +212,7 @@ async def handle_filters(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             return
 
         from src.bot.services.feature_service import FeatureService
+
         is_enabled = await FeatureService.is_feature_enabled(chat.id, "filters")
         if not is_enabled:
             return

@@ -94,9 +94,11 @@ class FilterService:
                 if item.trigger == lowered:
                     matches.append(MatchedFilter(item, item.trigger))
             elif mode == "word":
-                if re.search(rf"\b{re.escape(item.trigger)}\b", text, flags=re.IGNORECASE):
+                if re.search(
+                    rf"\b{re.escape(item.trigger)}\b", text, flags=re.IGNORECASE
+                ):
                     matches.append(MatchedFilter(item, item.trigger))
-            else: # contains
+            else:  # contains
                 if item.trigger in lowered:
                     matches.append(MatchedFilter(item, item.trigger))
         return matches

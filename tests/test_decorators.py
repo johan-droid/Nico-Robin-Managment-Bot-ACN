@@ -204,8 +204,11 @@ async def test_require_captain_commander_blocks_other_users(
         "🌸 Only the captain or commanders can change feature settings."
     ]
 
+
 @pytest.mark.asyncio
-async def test_require_captain_commander_allows_db_added_commander(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_require_captain_commander_allows_db_added_commander(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def fake_is_captain(user_id: int) -> bool:
         return False
 
@@ -231,8 +234,11 @@ async def test_require_captain_commander_allows_db_added_commander(monkeypatch: 
 
     assert calls == [True]
 
+
 @pytest.mark.asyncio
-async def test_require_captain_commander_blocks_telegram_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_require_captain_commander_blocks_telegram_admin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     async def fake_is_captain(user_id: int) -> bool:
         return False
 

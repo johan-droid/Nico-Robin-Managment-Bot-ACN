@@ -27,10 +27,22 @@ def test_command_handler_lines_are_human_readable() -> None:
     assert any(line.startswith("/filter -> ") for line in lines)
     assert any(line.startswith("/save -> ") for line in lines)
 
+
 def test_command_registry_no_help_cmd_placeholders() -> None:
     for binding in COMMAND_BINDINGS:
-        if binding.command in ["management", "features", "ban", "unban", "kick", "mute", "warn"]:
-            assert binding.callback.__name__ != "help_cmd", f"{binding.command} should not be mapped to help_cmd"
+        if binding.command in [
+            "management",
+            "features",
+            "ban",
+            "unban",
+            "kick",
+            "mute",
+            "warn",
+        ]:
+            assert binding.callback.__name__ != "help_cmd", (
+                f"{binding.command} should not be mapped to help_cmd"
+            )
+
 
 def test_no_duplicate_command_registrations() -> None:
     commands = [binding.command for binding in COMMAND_BINDINGS]

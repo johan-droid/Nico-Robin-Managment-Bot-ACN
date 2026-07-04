@@ -75,15 +75,18 @@ def _acquire_single_instance_lock() -> None:
     _BOT_LOCK_HANDLE = lock_handle
 
 
-
 _BOT_COMMAND_MENU_LIMIT = 100
+
 
 def _get_menu_commands() -> list[BotCommand]:
     menu = []
     for binding in COMMAND_BINDINGS:
         if binding.show_in_main_menu:
-            menu.append(BotCommand(binding.command, binding.description or binding.command))
+            menu.append(
+                BotCommand(binding.command, binding.description or binding.command)
+            )
     return menu[:_BOT_COMMAND_MENU_LIMIT]
+
 
 async def _set_command_menu(application) -> None:
     """Register the generated slash-command menu with Telegram."""
@@ -93,6 +96,7 @@ async def _set_command_menu(application) -> None:
         "bot_command_menu_configured",
         command_count=len(command_menu),
     )
+
 
 async def _wait_for_db() -> None:
     """Wait for the database to be ready before starting."""
@@ -190,8 +194,7 @@ async def _configure_telegram_webhook(ptb_app) -> None:
     parsed = urlsplit(webhook_url)
     if parsed.scheme.lower() != "https":
         raise RuntimeError(
-            "Webhook mode requires an HTTPS webhook URL. "
-            f"Resolved URL: {webhook_url!r}"
+            f"Webhook mode requires an HTTPS webhook URL. Resolved URL: {webhook_url!r}"
         )
 
     await ptb_app.bot.set_webhook(
