@@ -6,11 +6,11 @@ from dataclasses import dataclass
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
-from src.bot.bot.plugins import admin as admin_plugin
-from src.bot.bot.plugins import feature_management as feature_management_plugin
 from src.bot.bot.plugins import acn_broadcast as acn_broadcast_plugin
+from src.bot.bot.plugins import admin as admin_plugin
 from src.bot.bot.plugins import ai_mod as ai_mod_plugin
 from src.bot.bot.plugins import channel_guard as channel_guard_plugin
+from src.bot.bot.plugins import feature_management as feature_management_plugin
 from src.bot.bot.plugins import filters as filters_plugin
 from src.bot.bot.plugins import flood_control as flood_control_plugin
 from src.bot.bot.plugins import locks as locks_plugin

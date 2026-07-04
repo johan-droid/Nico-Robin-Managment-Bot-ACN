@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import ContextTypes
 
 from src.bot.utils.decorators import group_only
 

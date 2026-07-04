@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from io import BytesIO
 
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import ContextTypes
 
 from src.bot.database import async_session_factory
 from src.bot.services.acn_service import ACNService

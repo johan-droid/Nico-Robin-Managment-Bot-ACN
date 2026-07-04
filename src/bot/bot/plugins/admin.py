@@ -7,7 +7,7 @@ from typing import Any
 
 from telegram import Bot, ChatPermissions, Update
 from telegram.error import TelegramError
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import ContextTypes
 
 from src.bot.database import async_session_factory
 from src.bot.services.audit_service import AuditService

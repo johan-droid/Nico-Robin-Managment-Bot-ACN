@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import pytest
-from telegram import Update, Message, Chat, User
+from telegram import Chat, Update, User
 from telegram.ext import ApplicationHandlerStop
 
 from src.bot.bot.middleware.feature_gate import feature_gate_check
 from src.bot.services.feature_service import FeatureService
+
 
 class FakeMessage:
     def __init__(self, text: str = "") -> None:

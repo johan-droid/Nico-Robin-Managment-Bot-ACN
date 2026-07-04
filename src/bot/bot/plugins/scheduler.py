@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import ContextTypes
 
 from src.bot.tasks.announce_tasks import schedule_announcement
 from src.bot.utils.decorators import admin_only, group_only

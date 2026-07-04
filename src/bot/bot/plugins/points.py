@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import ContextTypes
 
 from src.bot.services.acn_service import acn_only
 from src.bot.services.point_service import point_service

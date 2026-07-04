@@ -1,5 +1,5 @@
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import ContextTypes
 
 from src.bot.bot.handlers_list import COMMAND_BINDINGS, _reply_in_chunks
 

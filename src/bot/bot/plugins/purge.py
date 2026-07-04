@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from telegram import Update
 from telegram.error import TelegramError
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import ContextTypes
 
 from src.bot.utils.decorators import admin_only, bot_rights_required, group_only
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import ContextTypes
 
 from src.bot.services.acn_service import acn_only
 from src.bot.services.bot_friendship_service import bot_friendship_service

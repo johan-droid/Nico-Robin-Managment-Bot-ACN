@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from telegram import Update
-from telegram.ext import CommandHandler, ContextTypes
+from telegram.ext import ContextTypes
 
 from src.bot.database import async_session_factory
 from src.bot.services.group_service import GroupService
