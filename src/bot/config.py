@@ -284,8 +284,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def require_encryption_key_in_production(self) -> Settings:
-        if self.environment == "production" and not self.data_encryption_key:
-            raise ValueError("DATA_ENCRYPTION_KEY is required in production")
+        if self.environment == "production":
+            if not self.data_encryption_key:
+                raise ValueError("DATA_ENCRYPTION_KEY is required in production")
+
+            # Validate encryption key strength
+            from src.bot.services.crypto_service import CryptoService
+            crypto = CryptoService(self.data_encryption_key)
+            if not crypto.enabled or not crypto.validate_key_strength(self.data_encryption_key):
+                raise ValueError("DATA_ENCRYPTION_KEY must be a valid Fernet key")
+
         if self.bot_mode == "webhook":
             webhook_url = self.resolved_webhook_url
             if not webhook_url:
@@ -293,6 +301,11 @@ class Settings(BaseSettings):
             parsed = urlparse(webhook_url)
             if parsed.scheme.lower() != "https":
                 raise ValueError("WEBHOOK_URL must use https:// when BOT_MODE=webhook")
+
+        # Validate database URL security
+        if self.environment == "production" and "password" in self.database_url.lower():
+            raise ValueError("Database URL should not contain plaintext password in production")
+
         return self
 
     @property

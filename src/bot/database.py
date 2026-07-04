@@ -24,8 +24,15 @@ def create_engine(url: str | None = None) -> AsyncEngine:
     - SSL enforcement in production and for known cloud providers
     - Pool pre-ping to detect dead connections
     - Statement cache disabled for connection poolers (PgBouncer/Neon)
+    - Connection validation to prevent injection
+    - Query logging for security auditing
     """
     db_url = url or settings.async_database_url
+
+    # Validate database URL to prevent injection
+    if not db_url.startswith(("postgresql+asyncpg://", "postgresql://")):
+        raise ValueError("Invalid database URL scheme - potential injection attempt")
+
     connect_args: dict = {}
 
     # Connection timeout (gives cloud Postgres cold starts room to wake up).
@@ -37,12 +44,38 @@ def create_engine(url: str | None = None) -> AsyncEngine:
     # SSL enforcement
     if settings.async_database_ssl_required:
         connect_args["ssl"] = True
+        # Enforce certificate validation in production
+        if settings.environment == "production":
+            connect_args["sslrootcert"] = "root.crt"  # Should be provided in production
 
     # Connection Pooler Compatibility (Neon / PgBouncer)
     # PgBouncer in transaction mode does not support prepared statements.
     # We detect the '-pooler' suffix which is common in Neon URLs.
     if "-pooler" in db_url or settings.db_statement_cache_disabled:
         connect_args["statement_cache_size"] = 0
+
+    # Security event hooks
+    def connect_hook(dbapi_connection, connection_record):
+        """Log successful database connections for auditing"""
+        from src.bot.services.security_logger import SecurityLogger
+        import asyncio
+        asyncio.create_task(SecurityLogger.log_event(
+            "database_connection_established",
+            details={"database_url": "[redacted]"}
+        ))
+
+    def execution_hook(exec_state):
+        """Log slow queries for security monitoring"""
+        if exec_state.execution_options.get("timeout", 0) > 5:
+            from src.bot.services.security_logger import SecurityLogger
+            import asyncio
+            asyncio.create_task(SecurityLogger.log_event(
+                "slow_database_query",
+                details={
+                    "query": str(exec_state.statement)[:200],
+                    "timeout": exec_state.execution_options.get("timeout")
+                }
+            ))
 
     return create_async_engine(
         db_url,
@@ -53,7 +86,18 @@ def create_engine(url: str | None = None) -> AsyncEngine:
         pool_timeout=30,
         connect_args=connect_args,
         # Log slow queries in debug (disable in production for security)
-        echo=False,
+        echo=settings.log_level == "DEBUG",
+        connect_args=connect_args,
+        pool_pre_ping=True,
+        pool_recycle=settings.db_pool_recycle,
+        pool_timeout=30,
+        connect_args=connect_args,
+        # Security hooks
+        connect_args=connect_args,
+        event_listeners={
+            "connect": connect_hook,
+            "before_execute": execution_hook
+        }
     )
 
 

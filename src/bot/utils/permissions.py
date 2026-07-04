@@ -21,10 +21,44 @@ async def is_telegram_admin(
     chat_id: int,
     user_id: int,
 ) -> bool:
+    """Check if user is admin with rate limiting to prevent enumeration attacks."""
     if is_sudo(user_id):
         return True
-    member = await context.bot.get_chat_member(chat_id, user_id)
-    return member.status in ADMIN_STATUSES
+
+    # Rate limit permission checks to prevent user enumeration
+    from src.bot.bot.middleware.rate_limiter import get_redis
+    try:
+        redis = get_redis()
+        key = f"perm_check:{user_id}:{chat_id}"
+        count = await redis.incr(key)
+        if count == 1:
+            await redis.expire(key, 60)  # 1 minute window
+        elif count > 20:  # Rate limit
+            await redis.expire(key, 3600)  # Extend to 1 hour if rate limited
+            from src.bot.services.security_logger import SecurityLogger
+            await SecurityLogger.log_event(
+                "permission_check_rate_limited",
+                user_id=user_id,
+                chat_id=chat_id,
+                severity="MEDIUM"
+            )
+            return False
+    except Exception:
+        pass  # Continue with normal check if Redis fails
+
+    try:
+        member = await context.bot.get_chat_member(chat_id, user_id)
+        return member.status in ADMIN_STATUSES
+    except Exception as e:
+        from src.bot.services.security_logger import SecurityLogger
+        await SecurityLogger.log_event(
+            "permission_check_failed",
+            user_id=user_id,
+            chat_id=chat_id,
+            severity="LOW",
+            details={"error": str(e)}
+        )
+        return False
 
 
 async def is_telegram_owner(

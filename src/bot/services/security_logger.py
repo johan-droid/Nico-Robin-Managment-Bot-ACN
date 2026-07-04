@@ -29,40 +29,98 @@ class SecurityLogger:
         chat_id: int | None = None,
         details: dict[str, Any] | None = None,
         severity: str = "MEDIUM",
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        source: str = "backend",
     ) -> None:
         """Log a security event to Redis stream and structured logs."""
+        # Validate and sanitize inputs
+        sanitized_details = {}
+        if details:
+            for key, value in details.items():
+                if key.lower() in ["password", "token", "secret", "key"]:
+                    sanitized_details[key] = "[REDACTED]"
+                else:
+                    sanitized_details[key] = str(value)[:500]  # Limit size
+
         event = {
             "type": event_type,
             "user_id": str(user_id) if user_id else "",
             "chat_id": str(chat_id) if chat_id else "",
-            "severity": severity,
+            "severity": severity.upper(),
             "timestamp": str(time.time()),
-            "details": str(details or {}),
+            "details": str(sanitized_details),
+            "ip_address": ip_address or "",
+            "user_agent": user_agent or "",
+            "source": source,
         }
 
-        # Structured log
-        logger.warning("security_event", **event)
+        # Validate severity
+        if event["severity"] not in ["LOW", "MEDIUM", "HIGH", "CRITICAL"]:
+            event["severity"] = "MEDIUM"
 
-        # Store in Redis stream (last 1000 events, auto-trimmed)
+        # Structured log with severity-based logging
+        log_method = {
+            "CRITICAL": logger.critical,
+            "HIGH": logger.error,
+            "MEDIUM": logger.warning,
+            "LOW": logger.info
+        }.get(event["severity"], logger.warning)
+
+        log_method("security_event", **event)
+
+        # Store in Redis stream with enhanced security
         try:
             redis = get_redis()
-            await redis.xadd("security:events", event, maxlen=1000)
-        except Exception:
-            pass
+            # Use a pipeline for atomic operations
+            async with redis.pipeline() as pipe:
+                # Add to main stream (last 1000 events)
+                await pipe.xadd("security:events", event, maxlen=1000)
+
+                # Add to severity-specific streams for filtering
+                await pipe.xadd(f"security:events:{event['severity']}", event, maxlen=500)
+
+                # Add to user-specific stream if user_id exists
+                if user_id:
+                    await pipe.xadd(f"security:user:{user_id}", event, maxlen=200)
+
+                await pipe.execute()
+        except Exception as e:
+            logger.error("redis_security_log_failed", error=str(e))
+
+        # Database audit logging with rate limiting
         try:
             async with async_session_factory() as session:
                 async with session.begin():
                     await SecurityAuditService.log_event(
                         session=session,
                         event_type=event_type,
-                        severity=severity,
+                        severity=event["severity"],
                         user_id=user_id,
                         group_id=chat_id,
                         reason=event_type,
-                        details=details or {},
+                        details=sanitized_details,
+                        ip_address=ip_address,
+                        user_agent=user_agent,
+                        source=source,
                     )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("db_audit_log_failed", error=str(e))
+
+        # Alert for critical events
+        if event["severity"] in ["CRITICAL", "HIGH"]:
+            try:
+                from src.bot.bot.instance import get_bot
+                bot = get_bot()
+                if bot:
+                    await SecurityLogger.alert_to_channel(
+                        bot,
+                        event_type,
+                        f"User {user_id} in chat {chat_id}: {str(sanitized_details)[:200]}",
+                        severity=event["severity"]
+                    )
+            except Exception:
+                pass
 
     @staticmethod
     async def alert_to_channel(

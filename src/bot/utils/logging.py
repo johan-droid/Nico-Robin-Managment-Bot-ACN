@@ -11,26 +11,34 @@ from typing import Any
 import structlog
 
 SECRET_PATTERNS = [
-    re.compile(r"\b\d{6,12}:[A-Za-z0-9_-]{20,}\b"),
-    re.compile(r"\b(?:postgres(?:ql)?://|redis://)[^\s]+", re.IGNORECASE),
-    re.compile(r"\b(?:sk|rk|pk)_[A-Za-z0-9_-]+\b"),
+    re.compile(r"\b\d{6,12}:[A-Za-z0-9_-]{20,}\b"),  # Telegram bot tokens
+    re.compile(r"\b(?:postgres(?:ql)?://|redis://)[^\s]+", re.IGNORECASE),  # DB URLs
+    re.compile(r"\b(?:sk|rk|pk)_[A-Za-z0-9_-]+\b"),  # API keys
+    re.compile(r"\b(?:password|passwd|pwd)=[^\s&]+", re.IGNORECASE),  # Passwords in URLs
+    re.compile(r"\b(?:token|secret|key)=[^\s&]+", re.IGNORECASE),  # Tokens in URLs
+    re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b", re.IGNORECASE),  # UUIDs
+    re.compile(r"\b(?:A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}\b"),  # AWS keys
 ]
 SECRET_KEYS = {
-    "bot_token",
-    "webhook_secret",
-    "metrics_api_key",
-    "data_encryption_key",
-    "database_url",
-    "redis_url",
-    "celery_broker_url",
-    "celery_result_backend",
+    "bot_token", "webhook_secret", "metrics_api_key", "data_encryption_key",
+    "database_url", "redis_url", "celery_broker_url", "celery_result_backend",
+    "password", "passwd", "pwd", "secret", "token", "key", "api_key",
+    "access_token", "refresh_token", "client_secret", "private_key"
 }
 
 
 def _mask_secret_text(value: str) -> str:
+    if not value or len(value) > 10000:  # Skip very large values
+        return value
+
     masked = value
     for pattern in SECRET_PATTERNS:
         masked = pattern.sub("[redacted]", masked)
+
+    # Additional masking for common sensitive patterns
+    masked = re.sub(r"\b[0-9]{16}\b", "[redacted]", masked)  # Credit card numbers
+    masked = re.sub(r"\b[0-9]{3}-[0-9]{2}-[0-9]{4}\b", "[redacted]", masked)  # SSN pattern
+
     return masked
 
 
