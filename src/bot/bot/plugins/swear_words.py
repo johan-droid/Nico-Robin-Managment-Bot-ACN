@@ -464,6 +464,7 @@ async def handle_swear_words(
 
 
 def register(app) -> None:
+    pass
     app.add_handler(
         MessageHandler(tg_filters.TEXT & ~tg_filters.COMMAND, handle_swear_words),
         group=15,  # Run before general filters but after offline moderation

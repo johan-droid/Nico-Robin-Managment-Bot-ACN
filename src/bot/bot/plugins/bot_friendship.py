@@ -338,11 +338,5 @@ async def yamato_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 def register(app) -> None:
+    pass
     """Register bot friendship commands"""
-    app.add_handler(CommandHandler("bond_with_yamato", bond_with_yamato))
-    app.add_handler(CommandHandler("yamato_interact", yamato_interact))
-    app.add_handler(CommandHandler("yamato_status", yamato_status))
-    app.add_handler(CommandHandler("yamato_memories", yamato_memories))
-    app.add_handler(CommandHandler("gift_to_yamato", gift_to_yamato))
-    app.add_handler(CommandHandler("yamato_activities", yamato_activities))
-    app.add_handler(CommandHandler("yamato_help", yamato_help))

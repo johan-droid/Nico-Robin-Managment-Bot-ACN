@@ -190,6 +190,7 @@ async def check_locked_media(
 
 
 def register(application: Application) -> None:
+    pass
     # Run the message handler in group 1
     application.add_handler(
         MessageHandler(

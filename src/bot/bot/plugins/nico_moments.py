@@ -409,14 +409,5 @@ Each command shows a different GIF moment from One Piece!
 
 
 def register(app) -> None:
+    pass
     """Register all Nico Robin moment commands"""
-    app.add_handler(CommandHandler("pat", pat))
-    app.add_handler(CommandHandler("slap", slap))
-    app.add_handler(CommandHandler("hug", hug))
-    app.add_handler(CommandHandler("robin_smile", robin_smile))
-    app.add_handler(CommandHandler("robin_blush", robin_blush))
-    app.add_handler(CommandHandler("robin_angry", robin_angry))
-    app.add_handler(CommandHandler("robin_confused", robin_confused))
-    app.add_handler(CommandHandler("robin_dance", robin_dance))
-    app.add_handler(CommandHandler("robin_sleep", robin_sleep))
-    app.add_handler(CommandHandler("robin_moments", robin_moments))

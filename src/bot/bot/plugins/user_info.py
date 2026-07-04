@@ -47,6 +47,4 @@ async def whois(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def register(app) -> None:
-    app.add_handler(CommandHandler("id", id_command))
-    app.add_handler(CommandHandler("whois", whois))
-    app.add_handler(CommandHandler("info", whois))
+    pass

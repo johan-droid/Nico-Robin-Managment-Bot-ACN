@@ -43,4 +43,4 @@ async def purge(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def register(app) -> None:
-    app.add_handler(CommandHandler("purge", purge))
+    pass

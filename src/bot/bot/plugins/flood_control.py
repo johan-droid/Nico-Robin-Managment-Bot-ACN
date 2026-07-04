@@ -212,6 +212,7 @@ async def handle_flood(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 
 def register(app) -> None:
+    pass
     app.add_handler(
         MessageHandler(tg_filters.ALL & ~tg_filters.COMMAND, handle_flood),
         group=10,

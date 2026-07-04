@@ -345,8 +345,4 @@ async def clear_user_data_command(
 
 
 def register(app) -> None:
-    app.add_handler(CommandHandler("profile", profile_command))
-    app.add_handler(CommandHandler("setbio", setbio_command))
-    app.add_handler(CommandHandler("export_my_data", export_my_data_command))
-    app.add_handler(CommandHandler("delete_my_data", delete_my_data_command))
-    app.add_handler(CommandHandler("clear_user_data", clear_user_data_command))
+    pass

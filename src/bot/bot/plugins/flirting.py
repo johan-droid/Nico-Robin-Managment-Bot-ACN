@@ -603,11 +603,5 @@ async def _check_flirting_achievements(
 
 
 def register(app) -> None:
+    pass
     """Register flirting commands"""
-    app.add_handler(CommandHandler("flirt", flirt))
-    app.add_handler(CommandHandler("flirt_stats", flirt_stats))
-    app.add_handler(CommandHandler("flirt_categories", flirt_categories))
-    app.add_handler(CommandHandler("flirt_achievements", flirt_achievements))
-    app.add_handler(CommandHandler("flirt_help", flirt_help))
-    app.add_handler(CommandHandler("flirt_example", flirt_example))
-    app.add_handler(CommandHandler("flirt_random", flirt_random))

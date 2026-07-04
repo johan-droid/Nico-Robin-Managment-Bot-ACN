@@ -203,3 +203,62 @@ async def test_require_captain_commander_blocks_other_users(
     assert message.replies == [
         "🌸 Only the captain or commanders can change feature settings."
     ]
+
+@pytest.mark.asyncio
+async def test_require_captain_commander_allows_db_added_commander(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_is_captain(user_id: int) -> bool:
+        return False
+
+    async def fake_is_commander(user_id: int) -> bool:
+        return True
+
+    monkeypatch.setattr(decorator_utils.ACNService, "is_captain", fake_is_captain)
+    monkeypatch.setattr(decorator_utils.ACNService, "is_commander", fake_is_commander)
+
+    calls: list[bool] = []
+
+    @require_captain_commander
+    async def protected(update, context) -> None:
+        calls.append(True)
+
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=7),
+        effective_message=FakeMessage(),
+    )
+    context = SimpleNamespace(bot=FakeBot("administrator", True, "member"))
+
+    await protected(update, context)
+
+    assert calls == [True]
+
+@pytest.mark.asyncio
+async def test_require_captain_commander_blocks_telegram_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_is_captain(user_id: int) -> bool:
+        return False
+
+    async def fake_is_commander(user_id: int) -> bool:
+        return False
+
+    monkeypatch.setattr(decorator_utils.ACNService, "is_captain", fake_is_captain)
+    monkeypatch.setattr(decorator_utils.ACNService, "is_commander", fake_is_commander)
+
+    calls: list[bool] = []
+
+    @require_captain_commander
+    async def protected(update, context) -> None:
+        calls.append(True)
+
+    message = FakeMessage()
+    update = SimpleNamespace(
+        effective_user=SimpleNamespace(id=7),
+        effective_message=message,
+        effective_chat=SimpleNamespace(id=-100),
+    )
+    context = SimpleNamespace(bot=FakeBot("administrator", True, "administrator"))
+
+    await protected(update, context)
+
+    assert calls == []
+    assert message.replies == [
+        "🌸 Only the captain or commanders can change feature settings."
+    ]

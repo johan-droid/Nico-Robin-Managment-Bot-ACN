@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
+from src.bot.bot.plugins import admin as admin_plugin
+from src.bot.bot.plugins import feature_management as feature_management_plugin
 from src.bot.bot.plugins import acn_broadcast as acn_broadcast_plugin
 from src.bot.bot.plugins import ai_mod as ai_mod_plugin
 from src.bot.bot.plugins import channel_guard as channel_guard_plugin
@@ -87,17 +89,17 @@ COMMAND_BINDINGS: tuple[CommandBinding, ...] = (
     CommandBinding("start", welcome_plugin.start, "DM welcome and bot intro", show_in_main_menu=True),
     CommandBinding("help", welcome_plugin.help_cmd, "Main help message", show_in_main_menu=True),
     CommandBinding("ping", ping, "Alive check", show_in_main_menu=True),
-    CommandBinding("management", welcome_plugin.help_cmd, "Management command guide", show_in_main_menu=True),
+    CommandBinding("management", feature_management_plugin.management_help, "Management command guide", show_in_main_menu=True),
 
     # ── Features ──
-    CommandBinding("features", welcome_plugin.help_cmd, "Feature status", show_in_main_menu=True),
+    CommandBinding("features", feature_management_plugin.features, "Feature status", show_in_main_menu=True),
 
     # ── Moderation ──
-    CommandBinding("ban", welcome_plugin.help_cmd, "Ban user", "moderation", True),
-    CommandBinding("unban", welcome_plugin.help_cmd, "Unban user", "moderation", False),
-    CommandBinding("kick", welcome_plugin.help_cmd, "Kick user", "moderation", False),
-    CommandBinding("mute", welcome_plugin.help_cmd, "Mute user", "moderation", True),
-    CommandBinding("warn", welcome_plugin.help_cmd, "Warn user", "moderation", True),
+    CommandBinding("ban", admin_plugin.ban, "Ban user", "moderation", True),
+    CommandBinding("unban", admin_plugin.unban, "Unban user", "moderation", False),
+    CommandBinding("kick", admin_plugin.kick, "Kick user", "moderation", False),
+    CommandBinding("mute", admin_plugin.mute, "Mute user", "moderation", True),
+    CommandBinding("warn", admin_plugin.warn, "Warn user", "moderation", True),
 
     # ── Filters ──
     CommandBinding("filter", filters_plugin.add_filter, "Add filter", "filters", False),

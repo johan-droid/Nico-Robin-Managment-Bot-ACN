@@ -153,6 +153,7 @@ async def handle_ai_moderation(
 
 
 def register(app) -> None:
+    pass
     app.add_handler(
         MessageHandler(tg_filters.TEXT & ~tg_filters.COMMAND, handle_ai_moderation),
         group=30,

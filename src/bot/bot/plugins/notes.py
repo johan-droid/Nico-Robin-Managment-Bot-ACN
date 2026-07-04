@@ -131,6 +131,7 @@ async def clear(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def register(app) -> None:
+    pass
     app.add_handler(
         MessageHandler(tg_filters.Regex(r"^#[A-Za-z0-9_]+"), hashtag_note), group=25
     )

@@ -220,6 +220,7 @@ async def handle_filters(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 def register(app) -> None:
+    pass
     app.add_handler(
         MessageHandler(tg_filters.TEXT & ~tg_filters.COMMAND, handle_filters),
         group=20,

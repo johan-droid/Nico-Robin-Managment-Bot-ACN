@@ -426,11 +426,5 @@ async def acn_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def register(app) -> None:
+    pass
     """Register ACN loyalty commands"""
-    app.add_handler(CommandHandler("acn_status", acn_status))
-    app.add_handler(CommandHandler("loyalty_leaderboard", loyalty_leaderboard))
-    app.add_handler(CommandHandler("addacngroup", add_acn_group))
-    app.add_handler(CommandHandler("addacn", add_acn_member))
-    app.add_handler(CommandHandler("removeacn", remove_acn_member))
-    app.add_handler(CommandHandler("acn_members", acn_members))
-    app.add_handler(CommandHandler("acn_info", acn_info))

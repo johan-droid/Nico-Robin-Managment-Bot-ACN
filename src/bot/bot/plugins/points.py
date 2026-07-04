@@ -449,14 +449,5 @@ async def point_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 def register(app) -> None:
+    pass
     """Register point system commands"""
-    app.add_handler(CommandHandler("points", points))
-    app.add_handler(CommandHandler("leaderboard", leaderboard))
-    app.add_handler(CommandHandler("award", award_points))
-    app.add_handler(CommandHandler("recalculate_points", recalculate_points))
-    app.add_handler(CommandHandler("apploids", apploids))
-    app.add_handler(CommandHandler("buy_apploid", buy_apploid))
-    app.add_handler(CommandHandler("equip_apploid", equip_apploid))
-    app.add_handler(CommandHandler("point_stats", point_stats))
-    app.add_handler(CommandHandler("earn_points", earn_points))
-    app.add_handler(CommandHandler("point_help", point_help))

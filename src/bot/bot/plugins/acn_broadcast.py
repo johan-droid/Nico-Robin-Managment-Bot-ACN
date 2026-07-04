@@ -336,6 +336,7 @@ async def handle_channel_edited_post(
 
 
 def register(app) -> None:
+    pass
     """Register ACN broadcast commands and handlers"""
     # Channel post handlers (for automatic broadcasting)
     app.add_handler(

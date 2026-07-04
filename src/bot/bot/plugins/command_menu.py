@@ -17,4 +17,4 @@ async def allcommands(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await _reply_in_chunks(msg, "\n".join(lines))
 
 def register(app):
-    app.add_handler(CommandHandler(["commands", "allcommands"], allcommands))
+    pass

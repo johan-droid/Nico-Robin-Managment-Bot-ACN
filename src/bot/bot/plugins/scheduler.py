@@ -40,4 +40,4 @@ async def schedule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 def register(app) -> None:
-    app.add_handler(CommandHandler("schedule", schedule))
+    pass

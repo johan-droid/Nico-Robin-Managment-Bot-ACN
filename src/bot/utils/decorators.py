@@ -141,15 +141,10 @@ def require_captain_commander(func: Handler) -> Handler:
     @wraps(func)
     async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         user = update.effective_user
-        chat = getattr(update, "effective_chat", None)
         if user is None:
             return
-        if chat is not None:
-            allowed = await ACNService.is_admin_or_owner(user.id, chat, context)
-        else:
-            allowed = await ACNService.is_captain(
-                user.id
-            ) or await ACNService.is_commander(user.id)
+
+        allowed = await ACNService.is_captain(user.id) or await ACNService.is_commander(user.id)
 
         if allowed:
             await func(update, context)

@@ -335,6 +335,7 @@ async def channel_photo_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 def register(app) -> None:
+    pass
     """Register channel guard handlers and commands."""
     # Auto-purge handler — runs at group=0 (high priority)
     app.add_handler(

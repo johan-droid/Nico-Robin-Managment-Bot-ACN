@@ -486,6 +486,7 @@ async def welcometest(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 def register(app) -> None:
+    pass
     app.add_handler(
         MessageHandler(tg_filters.StatusUpdate.NEW_CHAT_MEMBERS, welcome_new_members),
         group=5,

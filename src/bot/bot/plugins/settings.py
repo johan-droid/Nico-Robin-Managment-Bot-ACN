@@ -196,8 +196,4 @@ async def removelogchannel(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 def register(app) -> None:
-    app.add_handler(CommandHandler("setlocale", setlocale))
-    app.add_handler(CommandHandler("setwarnlimit", setwarnlimit))
-    app.add_handler(CommandHandler("setwarnaction", setwarnaction))
-    app.add_handler(CommandHandler("setlogchannel", setlogchannel))
-    app.add_handler(CommandHandler("removelogchannel", removelogchannel))
+    pass

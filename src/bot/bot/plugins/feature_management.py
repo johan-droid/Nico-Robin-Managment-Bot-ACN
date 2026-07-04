@@ -531,16 +531,5 @@ async def disable_category(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 def register(app) -> None:
+    pass
     """Register feature management commands"""
-    app.add_handler(CommandHandler("management", management_help))
-    app.add_handler(CommandHandler("enable", enable_feature))
-    app.add_handler(CommandHandler("disable", disable_feature))
-    app.add_handler(CommandHandler("toggle", toggle_feature))
-    app.add_handler(CommandHandler("features", features))
-    app.add_handler(CommandHandler("feature_info", feature_info))
-    app.add_handler(CommandHandler("feature_logs", feature_logs))
-    app.add_handler(CommandHandler("feature_stats", feature_stats))
-    app.add_handler(CommandHandler("my_features", my_features))
-    app.add_handler(CommandHandler("reset_features", reset_features))
-    app.add_handler(CommandHandler("enable_category", enable_category))
-    app.add_handler(CommandHandler("disable_category", disable_category))

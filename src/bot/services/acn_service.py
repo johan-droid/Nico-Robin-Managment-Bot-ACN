@@ -116,7 +116,9 @@ class ACNService:
     @staticmethod
     async def is_commander(user_id: int) -> bool:
         """Check if user is a commander"""
-        return user_id in ACNService.COMMANDER_IDS
+        if user_id in ACNService.COMMANDER_IDS:
+            return True
+        return await ACNService.get_user_role(user_id) == "commander"
 
     @staticmethod
     async def is_admin_or_owner(

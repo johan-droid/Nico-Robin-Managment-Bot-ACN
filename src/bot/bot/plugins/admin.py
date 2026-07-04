@@ -481,14 +481,4 @@ async def slowmode(
 
 
 def register(app) -> None:
-    app.add_handler(CommandHandler("ban", ban))
-    app.add_handler(CommandHandler("unban", unban))
-    app.add_handler(CommandHandler("kick", kick))
-    app.add_handler(CommandHandler("mute", mute))
-    app.add_handler(CommandHandler("unmute", unmute))
-    app.add_handler(CommandHandler("warn", warn))
-    app.add_handler(CommandHandler("warns", warns))
-    app.add_handler(CommandHandler("resetwarn", resetwarn))
-    app.add_handler(CommandHandler("pin", pin))
-    app.add_handler(CommandHandler("del", delete_message))
-    app.add_handler(CommandHandler("slowmode", slowmode))
+    pass
