@@ -276,3 +276,47 @@ def owner_only(func: Handler) -> Handler:
         await func(update, context)
 
     return cast(Handler, wrapper)
+
+
+def moderator_only(func: Handler) -> Handler:
+    @wraps(func)
+    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        user = update.effective_user
+        chat = update.effective_chat
+        message = update.effective_message
+        if user is None or chat is None:
+            await _reply(update, gettext("admin.no_authority"))
+            return
+        if is_anonymous_admin_message(message):
+            await SecurityLogger.log_event(
+                event_type="anonymous_admin_rejected",
+                user_id=None,
+                chat_id=chat.id,
+                severity="MEDIUM",
+                details={"command": message.text if message and message.text else ""},
+            )
+            await _reply(update, "🌸 Sensitive commands cannot be issued anonymously.")
+            return
+        try:
+            if not await is_telegram_admin(context, chat.id, user.id):
+                await SecurityLogger.log_event(
+                    event_type="permission_denied",
+                    user_id=user.id,
+                    chat_id=chat.id,
+                    severity="MEDIUM",
+                    details={"scope": "moderator_only"},
+                )
+                await _reply(update, gettext("admin.no_authority"))
+                return
+        except TelegramError:
+            await SecurityLogger.log_event(
+                event_type="permission_check_failed",
+                user_id=user.id,
+                chat_id=chat.id,
+                severity="HIGH",
+                details={"scope": "moderator_only"},
+            )
+            await _reply(update, gettext("admin.no_authority"))
+            return
+        await func(update, context)
+    return cast(Handler, wrapper)

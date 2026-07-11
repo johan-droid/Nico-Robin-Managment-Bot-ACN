@@ -1,10 +1,12 @@
+from __future__ import annotations
+import asyncio
 """Global error handler — prevents stack trace leakage.
 
 Catches ALL unhandled exceptions, sends safe messages to users,
 and forwards full diagnostics to the log channel.
 """
 
-from __future__ import annotations
+
 
 import html
 import time
@@ -42,11 +44,43 @@ async def error_handler(update: object, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "unhandled_exception", category=cat, error=str(err)[:500], severity=sev, **info
     )
     logger.error("unhandled_exception_traceback", traceback=tb, **info)
-    if isinstance(update, Update) and update.effective_message and user_msg:
-        try:
-            await update.effective_message.reply_text(user_msg)
-        except Exception:
-            pass
+
+    if isinstance(err, RetryAfter):
+        # Wait and retry for FloodWait
+        logger.warning(f"Rate limited by Telegram API. Waiting {err.retry_after}s.")
+        await asyncio.sleep(err.retry_after)
+        # Ideally we would retry the specific API call, but in a global handler,
+        # we can't easily re-invoke the failed callback.
+        # But we must send a fallback response to the user.
+        if isinstance(update, Update) and update.effective_message:
+            try:
+                await update.effective_message.reply_text(f"🛡️ Rate limited. I'll process this in {err.retry_after}s.")
+            except Exception:
+                pass
+    elif isinstance(err, Forbidden):
+        logger.warning(f"Forbidden error: {err}")
+    elif isinstance(err, BadRequest):
+        logger.warning(f"BadRequest error: {err}")
+        if isinstance(update, Update) and update.effective_message:
+            try:
+                await update.effective_message.reply_text(user_msg or "🌸 Bad request format.")
+            except Exception:
+                pass
+    elif isinstance(err, (TimedOut, NetworkError)):
+        # Exponential backoff for network errors could be implemented around specific API calls.
+        logger.warning(f"Network error: {err}")
+        if isinstance(update, Update) and update.effective_message:
+            try:
+                await update.effective_message.reply_text(user_msg or "🌸 Network issue. Try again.")
+            except Exception:
+                pass
+    else:
+        if isinstance(update, Update) and update.effective_message and user_msg:
+            try:
+                await update.effective_message.reply_text(user_msg)
+            except Exception:
+                pass
+
     await _report(ctx, err, cat, sev, info)
 
 

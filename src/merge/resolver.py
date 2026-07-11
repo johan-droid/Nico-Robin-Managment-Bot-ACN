@@ -1,3 +1,15 @@
+
+import os
+import logging
+ENABLE_DEV_COMMANDS = os.environ.get("ENABLE_DEV_COMMANDS", "false").lower() == "true"
+
+def _run_subprocess(cmd, *args, **kwargs):
+    logging.info(f"Attempting to run subprocess: {cmd}")
+    if not ENABLE_DEV_COMMANDS:
+        raise RuntimeError("Dangerous execution commands are disabled in production.")
+    import subprocess
+    return subprocess.run(cmd, *args, **kwargs)
+
 #!/usr/bin/env python3
 import argparse
 import subprocess
@@ -9,7 +21,7 @@ LOG_FILE = ".merge_resolver.log"
 
 
 def run_cmd(cmd):
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    result = _run_subprocess(cmd, shell=True, capture_output=True, text=True)
     return result.stdout.strip(), result.stderr.strip(), result.returncode
 
 

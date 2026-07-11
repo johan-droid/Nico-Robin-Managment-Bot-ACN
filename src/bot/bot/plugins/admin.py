@@ -238,7 +238,7 @@ async def kick(
 
 
 @group_only
-@admin_only
+@moderator_only
 @bot_rights_required("can_restrict_members")
 async def mute(
     update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -300,7 +300,7 @@ async def _auto_action(
 
 
 @group_only
-@admin_only
+@moderator_only
 @bot_rights_required("can_restrict_members")
 async def warn(
     update: Update, context: ContextTypes.DEFAULT_TYPE

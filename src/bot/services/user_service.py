@@ -30,7 +30,7 @@ class UserService:
     @staticmethod
     async def ensure_user(session: AsyncSession, telegram_user: TelegramUser) -> User:
         result = await session.execute(
-            select(User).where(User.user_id == telegram_user.id)
+            select(User).where(User.user_id == telegram_user.id).with_for_update()
         )
         user = result.scalar_one_or_none()
         username = telegram_user.username.lower() if telegram_user.username else None
@@ -59,7 +59,7 @@ class UserService:
         user_id: int,
         username: str | None = None,
     ) -> User:
-        result = await session.execute(select(User).where(User.user_id == user_id))
+        result = await session.execute(select(User).where(User.user_id == user_id).with_for_update())
         user = result.scalar_one_or_none()
         if user is None:
             user = User(user_id=user_id, username=username, join_date=datetime.now(UTC))
