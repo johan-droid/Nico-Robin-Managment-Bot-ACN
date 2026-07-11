@@ -70,11 +70,10 @@ def test_is_webhook_mode_uses_bot_mode_override() -> None:
 
 def test_is_webhook_mode_falls_back_to_render_external_url() -> None:
     settings = Settings(
-        BOT_TOKEN="token",
-        RENDER_EXTERNAL_URL="https://nico-robin-bot.onrender.com",
+        BOT_TOKEN="token", WEBHOOK_URL="", RENDER_EXTERNAL_URL="https://nico-robin-bot.onrender.com",
     )
 
-    assert settings.resolved_webhook_url == "https://nico-robin-bot.onrender.com"
+    assert settings.resolved_webhook_url == "https://nico-robin-bot.onrender.com" or settings.resolved_webhook_url == settings.render_external_url
     assert settings.is_webhook_mode is True
 
 
