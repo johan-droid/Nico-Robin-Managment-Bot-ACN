@@ -1,13 +1,12 @@
-from __future__ import annotations
-import asyncio
 """Global error handler — prevents stack trace leakage.
 
 Catches ALL unhandled exceptions, sends safe messages to users,
 and forwards full diagnostics to the log channel.
 """
 
+from __future__ import annotations
 
-
+import asyncio
 import html
 import time
 import traceback
