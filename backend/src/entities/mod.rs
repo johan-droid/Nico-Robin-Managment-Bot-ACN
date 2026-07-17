@@ -3,9 +3,10 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Error};
 use tracing::info;
 
+/// Establishes a PostgreSQL connection pool with the given settings.
 pub async fn establish_connection(settings: &crate::config::Settings) -> Result<PgPool, Error> {
     let clean_url = settings.database_url_clean();
-    
+
     info!(
         max_connections = settings.db_pool_size,
         connect_timeout_seconds = settings.db_connect_timeout,
@@ -23,10 +24,9 @@ pub async fn establish_connection(settings: &crate::config::Settings) -> Result<
     Ok(pool)
 }
 
+/// Verifies the database connection by executing a simple query.
 pub async fn verify_database(pool: &PgPool) -> Result<(), Error> {
-    sqlx::query("SELECT 1")
-        .execute(pool)
-        .await?;
+    sqlx::query("SELECT 1").execute(pool).await?;
     info!("database_ping_successful");
     Ok(())
 }
