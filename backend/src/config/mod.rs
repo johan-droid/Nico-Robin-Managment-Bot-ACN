@@ -14,14 +14,57 @@ where
         .collect()
 }
 
+// Default value functions grouped by category
+mod defaults {
+    pub fn bot_mode() -> String { "auto".to_string() }
+    pub fn webhook_path() -> String { "/telegram/webhook".to_string() }
+    pub fn true_val() -> bool { true }
+    pub fn port() -> u16 { 8000 }
+    pub fn websocket_port() -> u16 { 8001 }
+    pub fn cors() -> String { "*".to_string() }
+    pub fn ping_interval() -> u32 { 25 }
+    pub fn ping_timeout() -> u32 { 5 }
+    pub fn batch_size() -> u32 { 100 }
+    pub fn retention_hours() -> u32 { 24 }
+    pub fn rl_user() -> u32 { 20 }
+    pub fn rl_group() -> u32 { 60 }
+    pub fn rl_global() -> u32 { 300 }
+    pub fn rl_cooldown() -> u32 { 30 }
+    pub fn rl_ban_threshold() -> u32 { 5 }
+    pub fn db_pool() -> u32 { 10 }
+    pub fn db_overflow() -> u32 { 5 }
+    pub fn db_timeout() -> u32 { 30 }
+    pub fn db_query_timeout() -> u32 { 10 }
+    pub fn db_recycle() -> u32 { 1800 }
+    pub fn redis_url() -> String { "redis://localhost:6379/0".to_string() }
+    pub fn moderation_provider() -> String { "disabled".to_string() }
+    pub fn ai_threshold() -> f32 { 0.75 }
+    pub fn bot_name() -> String { "Nico Robin".to_string() }
+    pub fn locale() -> String { "en".to_string() }
+    pub fn prefix() -> String { "/".to_string() }
+    pub fn environment() -> String { "local".to_string() }
+    pub fn log_level() -> String { "INFO".to_string() }
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct Settings {
+    // Bot Configuration
     #[serde(rename = "bot_token")]
     pub bot_token: String,
 
-    #[serde(rename = "bot_mode", default = "default_bot_mode")]
+    #[serde(rename = "bot_mode", default = "defaults::bot_mode")]
     pub bot_mode: String,
 
+    #[serde(rename = "bot_name", default = "defaults::bot_name")]
+    pub bot_name: String,
+
+    #[serde(rename = "default_locale", default = "defaults::locale")]
+    pub default_locale: String,
+
+    #[serde(rename = "default_prefix", default = "defaults::prefix")]
+    pub default_prefix: String,
+
+    // Webhook Configuration
     #[serde(rename = "webhook_url", default)]
     pub webhook_url: String,
 
@@ -31,45 +74,52 @@ pub struct Settings {
     #[serde(rename = "webhook_secret", default)]
     pub webhook_secret: String,
 
-    #[serde(rename = "webhook_path", default = "default_webhook_path")]
+    #[serde(rename = "webhook_path", default = "defaults::webhook_path")]
     pub webhook_path: String,
 
     #[serde(rename = "webhook_path_token", default)]
     pub webhook_path_token: String,
 
-    #[serde(rename = "webhook_require_secret_header", default = "default_true")]
+    #[serde(rename = "webhook_require_secret_header", default = "defaults::true_val")]
     pub webhook_require_secret_header: bool,
 
-    #[serde(rename = "webhook_drop_pending_updates", default = "default_true")]
+    #[serde(rename = "webhook_drop_pending_updates", default = "defaults::true_val")]
     pub webhook_drop_pending_updates: bool,
 
-    #[serde(rename = "port", default = "default_port")]
+    // Server Configuration
+    #[serde(rename = "port", default = "defaults::port")]
     pub port: u16,
 
+    #[serde(rename = "environment", default = "defaults::environment")]
+    pub environment: String,
+
+    #[serde(rename = "log_level", default = "defaults::log_level")]
+    pub log_level: String,
+
     // WebSocket Configuration
-    #[serde(rename = "websocket_enabled", default = "default_true")]
+    #[serde(rename = "websocket_enabled", default = "defaults::true_val")]
     pub websocket_enabled: bool,
 
-    #[serde(rename = "websocket_port", default = "default_websocket_port")]
+    #[serde(rename = "websocket_port", default = "defaults::websocket_port")]
     pub websocket_port: u16,
 
-    #[serde(rename = "websocket_cors_origin", default = "default_cors")]
+    #[serde(rename = "websocket_cors_origin", default = "defaults::cors")]
     pub websocket_cors_origin: String,
 
-    #[serde(rename = "websocket_ping_interval", default = "default_ping_interval")]
+    #[serde(rename = "websocket_ping_interval", default = "defaults::ping_interval")]
     pub websocket_ping_interval: u32,
 
-    #[serde(rename = "websocket_ping_timeout", default = "default_ping_timeout")]
+    #[serde(rename = "websocket_ping_timeout", default = "defaults::ping_timeout")]
     pub websocket_ping_timeout: u32,
 
     // Real-time Events Configuration
-    #[serde(rename = "realtime_events_enabled", default = "default_true")]
+    #[serde(rename = "realtime_events_enabled", default = "defaults::true_val")]
     pub realtime_events_enabled: bool,
 
-    #[serde(rename = "event_batch_size", default = "default_batch_size")]
+    #[serde(rename = "event_batch_size", default = "defaults::batch_size")]
     pub event_batch_size: u32,
 
-    #[serde(rename = "event_retention_hours", default = "default_retention_hours")]
+    #[serde(rename = "event_retention_hours", default = "defaults::retention_hours")]
     pub event_retention_hours: u32,
 
     // User/Group IDs configurations
@@ -96,35 +146,35 @@ pub struct Settings {
     pub data_encryption_key: Option<String>,
 
     // Rate limiting settings
-    #[serde(rename = "rate_limit_user", default = "default_rl_user")]
+    #[serde(rename = "rate_limit_user", default = "defaults::rl_user")]
     pub rate_limit_user: u32,
 
-    #[serde(rename = "rate_limit_group", default = "default_rl_group")]
+    #[serde(rename = "rate_limit_group", default = "defaults::rl_group")]
     pub rate_limit_group: u32,
 
-    #[serde(rename = "rate_limit_global", default = "default_rl_global")]
+    #[serde(rename = "rate_limit_global", default = "defaults::rl_global")]
     pub rate_limit_global: u32,
 
-    #[serde(rename = "rate_limit_cooldown", default = "default_rl_cooldown")]
+    #[serde(rename = "rate_limit_cooldown", default = "defaults::rl_cooldown")]
     pub rate_limit_cooldown: u32,
 
-    #[serde(rename = "rate_limit_ban_threshold", default = "default_rl_ban_threshold")]
+    #[serde(rename = "rate_limit_ban_threshold", default = "defaults::rl_ban_threshold")]
     pub rate_limit_ban_threshold: u32,
 
     // Database configurations
-    #[serde(rename = "db_pool_size", default = "default_db_pool")]
+    #[serde(rename = "db_pool_size", default = "defaults::db_pool")]
     pub db_pool_size: u32,
 
-    #[serde(rename = "db_max_overflow", default = "default_db_overflow")]
+    #[serde(rename = "db_max_overflow", default = "defaults::db_overflow")]
     pub db_max_overflow: u32,
 
-    #[serde(rename = "db_connect_timeout", default = "default_db_timeout")]
+    #[serde(rename = "db_connect_timeout", default = "defaults::db_timeout")]
     pub db_connect_timeout: u32,
 
-    #[serde(rename = "db_query_timeout", default = "default_db_query_timeout")]
+    #[serde(rename = "db_query_timeout", default = "defaults::db_query_timeout")]
     pub db_query_timeout: u32,
 
-    #[serde(rename = "db_pool_recycle", default = "default_db_recycle")]
+    #[serde(rename = "db_pool_recycle", default = "defaults::db_recycle")]
     pub db_pool_recycle: u32,
 
     #[serde(rename = "db_ssl_required", default)]
@@ -133,7 +183,7 @@ pub struct Settings {
     #[serde(rename = "database_url")]
     pub database_url: String,
 
-    #[serde(rename = "redis_url", default = "default_redis_url")]
+    #[serde(rename = "redis_url", default = "defaults::redis_url")]
     pub redis_url: String,
 
     // Celery equivalent configurations
@@ -143,65 +193,22 @@ pub struct Settings {
     #[serde(rename = "celery_result_backend", default)]
     pub celery_result_backend: String,
 
-    #[serde(rename = "moderation_provider", default = "default_moderation_provider")]
+    // Moderation Configuration
+    #[serde(rename = "moderation_provider", default = "defaults::moderation_provider")]
     pub moderation_provider: String,
 
     #[serde(rename = "ai_moderation_enabled", default)]
     pub ai_moderation_enabled: bool,
 
-    #[serde(rename = "ai_score_threshold", default = "default_ai_threshold")]
+    #[serde(rename = "ai_score_threshold", default = "defaults::ai_threshold")]
     pub ai_score_threshold: f32,
 
     #[serde(rename = "log_channel_id", default)]
     pub log_channel_id: Option<i64>,
 
-    #[serde(rename = "bot_name", default = "default_bot_name")]
-    pub bot_name: String,
-
-    #[serde(rename = "default_locale", default = "default_locale")]
-    pub default_locale: String,
-
-    #[serde(rename = "default_prefix", default = "default_prefix")]
-    pub default_prefix: String,
-
-    #[serde(rename = "environment", default = "default_environment")]
-    pub environment: String,
-
-    #[serde(rename = "log_level", default = "default_log_level")]
-    pub log_level: String,
-
-    #[serde(rename = "auto_migrate_on_startup", default = "default_true")]
+    #[serde(rename = "auto_migrate_on_startup", default = "defaults::true_val")]
     pub auto_migrate_on_startup: bool,
 }
-
-fn default_bot_mode() -> String { "auto".to_string() }
-fn default_webhook_path() -> String { "/telegram/webhook".to_string() }
-fn default_true() -> bool { true }
-fn default_port() -> u16 { 8000 }
-fn default_websocket_port() -> u16 { 8001 }
-fn default_cors() -> String { "*".to_string() }
-fn default_ping_interval() -> u32 { 25 }
-fn default_ping_timeout() -> u32 { 5 }
-fn default_batch_size() -> u32 { 100 }
-fn default_retention_hours() -> u32 { 24 }
-fn default_rl_user() -> u32 { 20 }
-fn default_rl_group() -> u32 { 60 }
-fn default_rl_global() -> u32 { 300 }
-fn default_rl_cooldown() -> u32 { 30 }
-fn default_rl_ban_threshold() -> u32 { 5 }
-fn default_db_pool() -> u32 { 10 }
-fn default_db_overflow() -> u32 { 5 }
-fn default_db_timeout() -> u32 { 30 }
-fn default_db_query_timeout() -> u32 { 10 }
-fn default_db_recycle() -> u32 { 1800 }
-fn default_redis_url() -> String { "redis://localhost:6379/0".to_string() }
-fn default_moderation_provider() -> String { "disabled".to_string() }
-fn default_ai_threshold() -> f32 { 0.75 }
-fn default_bot_name() -> String { "Nico Robin".to_string() }
-fn default_locale() -> String { "en".to_string() }
-fn default_prefix() -> String { "/".to_string() }
-fn default_environment() -> String { "local".to_string() }
-fn default_log_level() -> String { "INFO".to_string() }
 
 impl Settings {
     pub fn load() -> Result<Self, envy::Error> {

@@ -3,6 +3,7 @@ use tracing_subscriber::fmt;
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::EnvFilter;
 
+/// Configures structured logging based on the log level and environment.
 pub fn configure_logging(log_level: &str, environment: &str) {
     let parsed_level = match log_level.to_uppercase().as_str() {
         "DEBUG" => Level::DEBUG,
