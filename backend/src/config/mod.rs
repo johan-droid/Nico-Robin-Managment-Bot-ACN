@@ -1,5 +1,4 @@
 use serde::{Deserialize, Deserializer};
-use std::env;
 
 fn deserialize_comma_separated_ints<'de, D>(deserializer: D) -> Result<Vec<i64>, D::Error>
 where
@@ -16,34 +15,94 @@ where
 
 // Default value functions grouped by category
 mod defaults {
-    pub fn bot_mode() -> String { "auto".to_string() }
-    pub fn webhook_path() -> String { "/telegram/webhook".to_string() }
-    pub fn true_val() -> bool { true }
-    pub fn port() -> u16 { 8000 }
-    pub fn websocket_port() -> u16 { 8001 }
-    pub fn cors() -> String { "*".to_string() }
-    pub fn ping_interval() -> u32 { 25 }
-    pub fn ping_timeout() -> u32 { 5 }
-    pub fn batch_size() -> u32 { 100 }
-    pub fn retention_hours() -> u32 { 24 }
-    pub fn rl_user() -> u32 { 20 }
-    pub fn rl_group() -> u32 { 60 }
-    pub fn rl_global() -> u32 { 300 }
-    pub fn rl_cooldown() -> u32 { 30 }
-    pub fn rl_ban_threshold() -> u32 { 5 }
-    pub fn db_pool() -> u32 { 10 }
-    pub fn db_overflow() -> u32 { 5 }
-    pub fn db_timeout() -> u32 { 30 }
-    pub fn db_query_timeout() -> u32 { 10 }
-    pub fn db_recycle() -> u32 { 1800 }
-    pub fn redis_url() -> String { "redis://localhost:6379/0".to_string() }
-    pub fn moderation_provider() -> String { "disabled".to_string() }
-    pub fn ai_threshold() -> f32 { 0.75 }
-    pub fn bot_name() -> String { "Nico Robin".to_string() }
-    pub fn locale() -> String { "en".to_string() }
-    pub fn prefix() -> String { "/".to_string() }
-    pub fn environment() -> String { "local".to_string() }
-    pub fn log_level() -> String { "INFO".to_string() }
+    pub fn bot_mode() -> String {
+        "auto".to_string()
+    }
+    pub fn webhook_path() -> String {
+        "/telegram/webhook".to_string()
+    }
+    pub fn true_val() -> bool {
+        true
+    }
+    pub fn false_val() -> bool {
+        false
+    }
+    pub fn port() -> u16 {
+        8000
+    }
+    pub fn websocket_port() -> u16 {
+        8001
+    }
+    #[allow(dead_code)]
+    pub fn cors() -> String {
+        "*".to_string()
+    }
+    pub fn ping_interval() -> u32 {
+        25
+    }
+    pub fn ping_timeout() -> u32 {
+        5
+    }
+    pub fn batch_size() -> u32 {
+        100
+    }
+    pub fn retention_hours() -> u32 {
+        24
+    }
+    pub fn rl_user() -> u32 {
+        20
+    }
+    pub fn rl_group() -> u32 {
+        60
+    }
+    pub fn rl_global() -> u32 {
+        300
+    }
+    pub fn rl_cooldown() -> u32 {
+        30
+    }
+    pub fn rl_ban_threshold() -> u32 {
+        5
+    }
+    pub fn db_pool() -> u32 {
+        10
+    }
+    pub fn db_overflow() -> u32 {
+        5
+    }
+    pub fn db_timeout() -> u32 {
+        30
+    }
+    pub fn db_query_timeout() -> u32 {
+        10
+    }
+    pub fn db_recycle() -> u32 {
+        1800
+    }
+    pub fn redis_url() -> String {
+        "redis://localhost:6379/0".to_string()
+    }
+    pub fn moderation_provider() -> String {
+        "disabled".to_string()
+    }
+    pub fn ai_threshold() -> f32 {
+        0.75
+    }
+    pub fn bot_name() -> String {
+        "Nico Robin".to_string()
+    }
+    pub fn locale() -> String {
+        "en".to_string()
+    }
+    pub fn prefix() -> String {
+        "/".to_string()
+    }
+    pub fn environment() -> String {
+        "local".to_string()
+    }
+    pub fn log_level() -> String {
+        "INFO".to_string()
+    }
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -80,10 +139,16 @@ pub struct Settings {
     #[serde(rename = "webhook_path_token", default)]
     pub webhook_path_token: String,
 
-    #[serde(rename = "webhook_require_secret_header", default = "defaults::true_val")]
+    #[serde(
+        rename = "webhook_require_secret_header",
+        default = "defaults::true_val"
+    )]
     pub webhook_require_secret_header: bool,
 
-    #[serde(rename = "webhook_drop_pending_updates", default = "defaults::true_val")]
+    #[serde(
+        rename = "webhook_drop_pending_updates",
+        default = "defaults::true_val"
+    )]
     pub webhook_drop_pending_updates: bool,
 
     // Server Configuration
@@ -97,16 +162,19 @@ pub struct Settings {
     pub log_level: String,
 
     // WebSocket Configuration
-    #[serde(rename = "websocket_enabled", default = "defaults::true_val")]
+    #[serde(rename = "websocket_enabled", default = "defaults::false_val")]
     pub websocket_enabled: bool,
 
     #[serde(rename = "websocket_port", default = "defaults::websocket_port")]
     pub websocket_port: u16,
 
-    #[serde(rename = "websocket_cors_origin", default = "defaults::cors")]
+    #[serde(rename = "websocket_cors_origin", default)]
     pub websocket_cors_origin: String,
 
-    #[serde(rename = "websocket_ping_interval", default = "defaults::ping_interval")]
+    #[serde(
+        rename = "websocket_ping_interval",
+        default = "defaults::ping_interval"
+    )]
     pub websocket_ping_interval: u32,
 
     #[serde(rename = "websocket_ping_timeout", default = "defaults::ping_timeout")]
@@ -119,23 +187,42 @@ pub struct Settings {
     #[serde(rename = "event_batch_size", default = "defaults::batch_size")]
     pub event_batch_size: u32,
 
-    #[serde(rename = "event_retention_hours", default = "defaults::retention_hours")]
+    #[serde(
+        rename = "event_retention_hours",
+        default = "defaults::retention_hours"
+    )]
     pub event_retention_hours: u32,
 
     // User/Group IDs configurations
-    #[serde(rename = "sudo_users", default, deserialize_with = "deserialize_comma_separated_ints")]
+    #[serde(
+        rename = "sudo_users",
+        default,
+        deserialize_with = "deserialize_comma_separated_ints"
+    )]
     pub sudo_users: Vec<i64>,
 
     #[serde(rename = "captain_id", default)]
     pub captain_id: i64,
 
-    #[serde(rename = "commander_ids", default, deserialize_with = "deserialize_comma_separated_ints")]
+    #[serde(
+        rename = "commander_ids",
+        default,
+        deserialize_with = "deserialize_comma_separated_ints"
+    )]
     pub commander_ids: Vec<i64>,
 
-    #[serde(rename = "allowed_group_ids", default, deserialize_with = "deserialize_comma_separated_ints")]
+    #[serde(
+        rename = "allowed_group_ids",
+        default,
+        deserialize_with = "deserialize_comma_separated_ints"
+    )]
     pub allowed_group_ids: Vec<i64>,
 
-    #[serde(rename = "purge_channel_ids", default, deserialize_with = "deserialize_comma_separated_ints")]
+    #[serde(
+        rename = "purge_channel_ids",
+        default,
+        deserialize_with = "deserialize_comma_separated_ints"
+    )]
     pub purge_channel_ids: Vec<i64>,
 
     // Security Configuration
@@ -158,7 +245,10 @@ pub struct Settings {
     #[serde(rename = "rate_limit_cooldown", default = "defaults::rl_cooldown")]
     pub rate_limit_cooldown: u32,
 
-    #[serde(rename = "rate_limit_ban_threshold", default = "defaults::rl_ban_threshold")]
+    #[serde(
+        rename = "rate_limit_ban_threshold",
+        default = "defaults::rl_ban_threshold"
+    )]
     pub rate_limit_ban_threshold: u32,
 
     // Database configurations
@@ -177,7 +267,7 @@ pub struct Settings {
     #[serde(rename = "db_pool_recycle", default = "defaults::db_recycle")]
     pub db_pool_recycle: u32,
 
-    #[serde(rename = "db_ssl_required", default)]
+    #[serde(rename = "db_ssl_required", default = "defaults::true_val")]
     pub db_ssl_required: bool,
 
     #[serde(rename = "database_url")]
@@ -194,7 +284,10 @@ pub struct Settings {
     pub celery_result_backend: String,
 
     // Moderation Configuration
-    #[serde(rename = "moderation_provider", default = "defaults::moderation_provider")]
+    #[serde(
+        rename = "moderation_provider",
+        default = "defaults::moderation_provider"
+    )]
     pub moderation_provider: String,
 
     #[serde(rename = "ai_moderation_enabled", default)]
@@ -213,7 +306,50 @@ pub struct Settings {
 impl Settings {
     pub fn load() -> Result<Self, envy::Error> {
         let _ = dotenvy::dotenv();
-        envy::from_env::<Settings>()
+        let settings = envy::from_env::<Settings>()?;
+
+        // Validate critical settings after loading
+        settings.validate()?;
+
+        Ok(settings)
+    }
+
+    /// Validates critical settings after loading.
+    fn validate(&self) -> Result<(), envy::Error> {
+        let is_production = self.environment.to_lowercase() == "production";
+
+        // Validate bot_token
+        if self.bot_token.is_empty() {
+            eprintln!("CRITICAL: BOT_TOKEN is empty. Bot cannot function without a token.");
+            return Err(envy::Error::Custom("BOT_TOKEN is required".to_string()));
+        }
+
+        // Validate database_url
+        if self.database_url.is_empty() {
+            eprintln!("CRITICAL: DATABASE_URL is empty.");
+            return Err(envy::Error::Custom("DATABASE_URL is required".to_string()));
+        }
+
+        // In production, enforce stricter checks
+        if is_production {
+            // Require webhook_secret in production
+            if self.webhook_secret.is_empty() {
+                eprintln!("CRITICAL: WEBHOOK_SECRET must be set in production mode.");
+                return Err(envy::Error::Custom(
+                    "WEBHOOK_SECRET is required in production".to_string(),
+                ));
+            }
+
+            // Validate database URL uses SSL in production
+            if self.db_ssl_required
+                && !self.database_url.contains("sslmode=require")
+                && !self.database_url.contains("sslmode=verify-full")
+            {
+                eprintln!("WARNING: DB_SSL_REQUIRED is true but DATABASE_URL does not specify sslmode=require. Consider adding it.");
+            }
+        }
+
+        Ok(())
     }
 
     pub fn database_url_clean(&self) -> String {
@@ -221,6 +357,28 @@ impl Settings {
         if url.starts_with("postgres://") {
             url = url.replacen("postgres://", "postgresql://", 1);
         }
+        // Enforce SSL mode if required
+        if self.db_ssl_required {
+            if !url.contains("sslmode=") {
+                if url.contains('?') {
+                    url.push_str("&sslmode=require");
+                } else {
+                    url.push_str("?sslmode=require");
+                }
+            }
+        }
         url
+    }
+
+    /// Returns the proper CORS origin. In production, restrict to specific origin.
+    pub fn cors_origin(&self) -> &str {
+        if !self.websocket_cors_origin.is_empty() && self.websocket_cors_origin != "*" {
+            &self.websocket_cors_origin
+        } else if self.environment.to_lowercase() == "production" {
+            // In production with no explicit CORS, restrict to self
+            ""
+        } else {
+            "*"
+        }
     }
 }

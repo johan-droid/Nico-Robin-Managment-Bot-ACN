@@ -1,0 +1,37 @@
+# Git
+.git/
+.gitignore
+
+# Rust build artifacts
+target/
+**/*.rs.bk
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Logs
+*.log
+logs/
+
+# Temp files
+*.tmp
+*.swp
+*.swo
+data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+Dockerfile
+Dockerfile.bak
+docker-compose.yml
