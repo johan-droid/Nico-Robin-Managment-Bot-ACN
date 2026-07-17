@@ -1,49 +1,66 @@
 ```
-# Compiled and build artifacts
-*.pyc
-__pycache__/
-*.o
-*.obj
-*.exe
-*.dll
-*.so
-*.a
-*.out
-
-# Dependencies
-.venv/
-venv/
-node_modules/
-.mypy_cache/
-.pytest_cache/
-dist/
-build/
-target/
-.gradle/
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
-
-# Environment
+# Environment variables
 .env
 .env.local
 .env.*
 
-# Editors
-.vscode/
-.idea/
+# Logs
+*.log
 
-# System files
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.gitattributes
+.next
 .DS_Store
 Thumbs.db
 
-# Coverage
-coverage/
-htmlcov/
-.coverage
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp.cjs
+.pnp.loader.mjs
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build outputs
+dist/
+build/
+target/
+*.out
+*.exe
+*.dll
+*.so
+*.a
+*.class
 
 # Compressed files
 *.zip
@@ -64,46 +81,48 @@ htmlcov/
 *.Z
 *.lz
 *.lzo
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.tar.zst
 
-# Additional ignores
-# Python packaging/build
-*.egg-info/
-.eggs/
-pip-wheel-metadata/
-*.egg
-# SQLite databases
-*.db
-*.sqlite3
-# Python env
-.envrc
-# Jupyter
-.ipynb_checkpoints/
-# Editor backups
+# OS generated
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+.directory
+.Trashes
+*.nib
+*~.nib
+.nib
+*.plist
+*.lock
+config.log
+*.stackdump
 *~
-# Terraform
-.terraform/
-# Coverage reports
-coverage.xml
-# VS Code workspace files
-*.code-workspace
+.DS_Store
+._*
+.Spotlight-V100
+.Trash
+ehthumbs.db
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
 
-# Celery
-celerybeat-schedule*
-celerybeat.pid
-dump.rdb
+# Testing
+coverage/
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
 
-# Telegram bot specific
-logs/
-data/
-archive/
-scratch/
-ruff_bin/
-*.bak
-*.dir
-test_repo/
+# CI/CD
+.semaphore/
+.github/
+.gitlab/
 
+# Dependencies
+.julia/
+zig-cache/
+zig-out/
+.gradle/
 ```
