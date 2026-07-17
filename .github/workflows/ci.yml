@@ -38,7 +38,7 @@ jobs:
       BOT_TOKEN: test-token
       WEBHOOK_URL: https://example.test
       WEBHOOK_SECRET: ci-secret
-      DATABASE_URL: postgresql+asyncpg://robin:password@localhost:5432/robin_test
+      DATABASE_URL: postgresql://robin:password@localhost:5432/robin_test
       REDIS_URL: redis://localhost:6379/0
       CELERY_BROKER_URL: redis://localhost:6379/1
       CELERY_RESULT_BACKEND: redis://localhost:6379/2
@@ -51,26 +51,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
         with:
-          python-version: "3.11"
-          cache: pip
+          components: clippy, rustfmt
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('backend/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
-      - name: Ruff
-        run: ruff check .
+      - name: Check formatting
+        working-directory: backend
+        run: cargo fmt --all -- --check
 
-      - name: Black
-        run: black --check .
+      - name: Run Clippy linter
+        working-directory: backend
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
-      - name: Pytest
-        run: python -m pytest tests
+      - name: Build
+        working-directory: backend
+        run: cargo build --verbose
 
-      - name: Bandit
-        run: bandit -c pyproject.toml -r src/bot
-
-      - name: Pip Audit
-        run: pip-audit --no-deps -r requirements.txt
+      - name: Run tests
+        working-directory: backend
+        run: cargo test --verbose

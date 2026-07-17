@@ -1,16 +1,3 @@
-# Ignore Rust build target in backend
-/backend/target/
-
-# Ignore env files in backend
-/backend/.env
-/backend/.env.*
-
-# Ignore logs
-/backend/logs/
-/backend/data/
-
-# OS/IDEs
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+```
+# Configuration and workflow files only - no build artifacts or dependencies detected
+```
