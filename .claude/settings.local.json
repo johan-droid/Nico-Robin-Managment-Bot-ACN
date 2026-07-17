@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /d D:\\\\Nico Robin Bot ACN)",
+      "Bash(python -c \"import sys; print\\(sys.version\\)\")",
+      "Bash(pip-audit *)",
+      "Bash(python *)",
+      "Bash(pip install *)",
+      "Bash(bandit *)",
+      "Bash(hadolint --version)",
+      "Bash(alembic current *)"
+    ]
+  }
+}
