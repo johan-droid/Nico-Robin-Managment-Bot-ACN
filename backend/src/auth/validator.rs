@@ -131,6 +131,7 @@ impl InputValidator {
     }
 
     /// Validates a chat/group ID.
+    #[allow(dead_code)]
     pub fn validate_chat_id(chat_id: i64) -> bool {
         // Chat IDs should be non-zero
         chat_id != 0

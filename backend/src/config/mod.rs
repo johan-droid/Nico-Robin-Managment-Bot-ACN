@@ -106,6 +106,7 @@ mod defaults {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[allow(dead_code)]
 pub struct Settings {
     // Bot Configuration
     #[serde(rename = "bot_token")]
@@ -358,19 +359,18 @@ impl Settings {
             url = url.replacen("postgres://", "postgresql://", 1);
         }
         // Enforce SSL mode if required
-        if self.db_ssl_required {
-            if !url.contains("sslmode=") {
-                if url.contains('?') {
-                    url.push_str("&sslmode=require");
-                } else {
-                    url.push_str("?sslmode=require");
-                }
+        if self.db_ssl_required && !url.contains("sslmode=") {
+            if url.contains('?') {
+                url.push_str("&sslmode=require");
+            } else {
+                url.push_str("?sslmode=require");
             }
         }
         url
     }
 
     /// Returns the proper CORS origin. In production, restrict to specific origin.
+    #[allow(dead_code)]
     pub fn cors_origin(&self) -> &str {
         if !self.websocket_cors_origin.is_empty() && self.websocket_cors_origin != "*" {
             &self.websocket_cors_origin

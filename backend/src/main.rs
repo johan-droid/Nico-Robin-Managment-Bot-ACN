@@ -53,6 +53,7 @@ fn log_robin_banner() {
 
 /// Shared application state.
 #[derive(Clone)]
+#[allow(dead_code)]
 struct AppState {
     settings: Arc<Settings>,
     bot: Bot,
@@ -244,8 +245,6 @@ async fn webhook_handler_route(
 
 /// Builds the command handler for text messages.
 fn build_handler() -> UpdateHandler<teloxide::RequestError> {
-    use dptree::case;
-
     let handler = dptree::entry()
         .branch(
             Update::filter_message()

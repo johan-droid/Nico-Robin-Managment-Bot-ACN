@@ -50,6 +50,7 @@ impl RateLimiter {
     }
 
     /// Check if a request from a group should be allowed.
+    #[allow(dead_code)]
     pub fn check_group(&self, group_id: i64, settings: &Settings) -> bool {
         let mut buckets = self.buckets.lock().unwrap();
         let now = Instant::now();
@@ -79,6 +80,7 @@ impl RateLimiter {
     }
 
     /// Reset all rate limit buckets.
+    #[allow(dead_code)]
     pub fn reset(&self) {
         let mut buckets = self.buckets.lock().unwrap();
         buckets.clear();
@@ -115,7 +117,7 @@ mod tests {
     #[test]
     fn test_rate_limiter_exhaustion() {
         let rl = RateLimiter::new();
-        let mut settings = test_settings();
+        let settings = test_settings();
         // Override for test purposes - but we can't mutate easily, so just check basic functionality
         assert!(rl.check_user(99999, &settings));
     }

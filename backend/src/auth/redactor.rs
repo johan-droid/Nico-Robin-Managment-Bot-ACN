@@ -71,20 +71,17 @@ pub fn redact_sensitive(input: &str) -> String {
                 }
             }
 
-            while let Some(pos) = result.find(&key_colon) {
+            if let Some(pos) = result.find(&key_colon) {
                 let val_start = pos + key_colon.len();
                 let remaining = &result[val_start..];
                 let trimmed = remaining.trim_start();
-                if let Some(val_end) = trimmed
-                    .find(|c: char| c == ' ' || c == ',' || c == '}' || c == '\n' || c == '\r')
-                {
+                if let Some(val_end) = trimmed.find([' ', ',', '}', '\n', '\r']) {
                     let abs_start = val_start + (remaining.len() - trimmed.len());
                     let val = &trimmed[..val_end];
                     if !val.is_empty() && val.len() <= 50 {
                         result.replace_range(abs_start..abs_start + val_end, "[REDACTED]");
                     }
                 }
-                break;
             }
         }
     }
@@ -118,8 +115,10 @@ fn regex_escape(s: &str) -> String {
 
 /// A wrapper for sensitive string values that redacts them in Debug/Display.
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct SecretString(String);
 
+#[allow(dead_code)]
 impl SecretString {
     pub fn new(value: String) -> Self {
         Self(value)

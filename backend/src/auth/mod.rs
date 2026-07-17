@@ -6,6 +6,7 @@ use crate::config::Settings;
 
 /// Role-based access control for the bot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum UserRole {
     Normal,
     Commander,
@@ -14,6 +15,7 @@ pub enum UserRole {
 }
 
 /// Determines the role of a user based on configured IDs.
+#[allow(dead_code)]
 pub fn get_user_role(user_id: i64, settings: &Settings) -> UserRole {
     if settings.sudo_users.contains(&user_id) {
         return UserRole::Sudo;
@@ -28,12 +30,14 @@ pub fn get_user_role(user_id: i64, settings: &Settings) -> UserRole {
 }
 
 /// Checks if a user is authorized to execute a command that requires a minimum role.
+#[allow(dead_code)]
 pub fn require_role(user_id: i64, required_role: UserRole, settings: &Settings) -> bool {
     let user_role = get_user_role(user_id, settings);
     role_rank(user_role) >= role_rank(required_role)
 }
 
 /// Checks if a chat/group is in the allowed list.
+#[allow(dead_code)]
 pub fn is_group_allowed(chat_id: i64, settings: &Settings) -> bool {
     // If no allowed groups are configured, allow all
     if settings.allowed_group_ids.is_empty() {
@@ -42,6 +46,7 @@ pub fn is_group_allowed(chat_id: i64, settings: &Settings) -> bool {
     settings.allowed_group_ids.contains(&chat_id)
 }
 
+#[allow(dead_code)]
 fn role_rank(role: UserRole) -> u8 {
     match role {
         UserRole::Normal => 0,
