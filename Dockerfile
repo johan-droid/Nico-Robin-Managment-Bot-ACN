@@ -1,7 +1,7 @@
 # Root-level Dockerfile that builds from the backend directory
 # This is needed for Render and other platforms that expect Dockerfile at root
 
-FROM lukemathwalker/cargo-chef:latest-rust-1.78-slim AS chef
+FROM lukemathwalker/cargo-chef:latest-rust-1.86-slim AS chef
 WORKDIR /app
 
 FROM chef AS planner
