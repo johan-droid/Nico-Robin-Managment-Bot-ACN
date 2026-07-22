@@ -4,9 +4,8 @@ services:
     runtime: docker
     plan: starter
     branch: main
-    rootDir: /
+    rootDir: backend
     dockerfilePath: Dockerfile
-    dockerBuildFlags: --no-cache
     autoDeployTrigger: checksPass
     envVars:
       - key: BOT_TOKEN
