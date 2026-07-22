@@ -1,8 +1,14 @@
 # Root-level Dockerfile that builds from the backend directory
-# Uses official Rust image directly for maximum compatibility
+# Uses official Rust image with required system dependencies
 
 FROM rust:1.88-slim-bookworm AS builder
 WORKDIR /app
+
+# Install build dependencies required by openssl-sys and other native crates
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy the backend source
 COPY backend/ .
