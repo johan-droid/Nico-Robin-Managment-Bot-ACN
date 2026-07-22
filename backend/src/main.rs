@@ -93,6 +93,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bot = Bot::new(&settings.bot_token);
     info!("telegram_bot_initialized");
 
+    // Spawn health check server
+    let health_port = settings.port;
+    tokio::spawn(async move {
+        start_health_server(health_port).await;
+    });
+
     // Build shared state
     let filter_cache = preload_filter_cache(&db_pool).await;
     let swear_cache = preload_swear_cache(&db_pool).await;
@@ -177,4 +183,42 @@ async fn preload_swear_cache(pool: &sqlx::PgPool) -> SwearCache {
     }
     info!(groups = map.len(), "swear_cache_loaded");
     Arc::new(RwLock::new(map))
+}
+
+async fn start_health_server(port: u16) {
+    let addr = format!("0.0.0.0:{}", port);
+    let listener = match tokio::net::TcpListener::bind(&addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::error!("Failed to bind health check port {}: {}", port, e);
+            return;
+        }
+    };
+    tracing::info!("Health check server listening on {}", addr);
+
+    loop {
+        match listener.accept().await {
+            Ok((mut socket, _)) => {
+                tokio::spawn(async move {
+                    let mut buf = [0; 1024];
+                    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+                    if let Ok(n) = socket.read(&mut buf).await {
+                        if n > 0 {
+                            let req = String::from_utf8_lossy(&buf[..n]);
+                            if req.starts_with("GET /health") {
+                                let response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK";
+                                let _ = socket.write_all(response.as_bytes()).await;
+                            } else {
+                                let response = "HTTP/1.1 404 NOT FOUND\r\nContent-Length: 9\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nNot Found";
+                                let _ = socket.write_all(response.as_bytes()).await;
+                            }
+                        }
+                    }
+                });
+            }
+            Err(e) => {
+                tracing::error!("Health check accept error: {}", e);
+            }
+        }
+    }
 }

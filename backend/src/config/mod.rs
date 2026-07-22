@@ -108,23 +108,6 @@ pub struct Settings {
 
     // User/Group IDs
     #[serde(
-        rename = "sudo_users",
-        default,
-        deserialize_with = "deserialize_comma_separated_ints"
-    )]
-    pub sudo_users: Vec<i64>,
-
-    #[serde(rename = "captain_id", default)]
-    pub captain_id: i64,
-
-    #[serde(
-        rename = "commander_ids",
-        default,
-        deserialize_with = "deserialize_comma_separated_ints"
-    )]
-    pub commander_ids: Vec<i64>,
-
-    #[serde(
         rename = "allowed_group_ids",
         default,
         deserialize_with = "deserialize_comma_separated_ints"

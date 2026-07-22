@@ -37,7 +37,7 @@ pub async fn handle_help(bot: Bot, msg: Message) -> Result<(), teloxide::Request
             ("/notes", "List all notes"),
             ("/clear <name>", "Delete a note"),
         ]),
-        ("Moderation", "Commander+", &[
+        ("Moderation", "Admins", &[
             ("/ban @user", "Ban a user"),
             ("/unban @user", "Unban a user"),
             ("/kick @user", "Kick a user"),
@@ -50,12 +50,12 @@ pub async fn handle_help(bot: Bot, msg: Message) -> Result<(), teloxide::Request
             ("/del", "Delete replied message"),
             ("/pin", "Pin replied message"),
         ]),
-        ("Filters", "Captain+", &[
+        ("Filters", "Admins", &[
             ("/filter <trigger> <response>", "Add auto-reply filter"),
             ("/stop <trigger>", "Remove a filter"),
             ("/filters", "List all filters"),
         ]),
-        ("Welcome", "Captain+", &[
+        ("Welcome", "Admins", &[
             ("/setwelcome <msg>", "Set welcome message"),
             ("/resetwelcome", "Remove welcome message"),
             ("/welcome", "Preview welcome message"),
@@ -65,13 +65,13 @@ pub async fn handle_help(bot: Bot, msg: Message) -> Result<(), teloxide::Request
             ("/cleanwelcome", "Toggle auto-delete welcome"),
             ("/welcometest", "Test welcome with your name"),
         ]),
-        ("Security", "Captain+", &[
+        ("Security", "Admins", &[
             ("/setflood <count>", "Set flood limit"),
             ("/flood", "Show flood settings"),
             ("/addswear <word>", "Add swear word"),
             ("/delswear <word>", "Remove swear word"),
         ]),
-        ("Features", "Captain+", &[
+        ("Features", "Admins", &[
             ("/features", "List all features"),
             ("/enable <name>", "Enable a feature"),
             ("/disable <name>", "Disable a feature"),
@@ -82,7 +82,7 @@ pub async fn handle_help(bot: Bot, msg: Message) -> Result<(), teloxide::Request
             ("/enablecategory <cat>", "Enable a category"),
             ("/disablecategory <cat>", "Disable a category"),
         ]),
-        ("Federation", "Sudo", &[
+        ("Federation", "Admins", &[
             ("/newfed <name>", "Create a federation"),
             ("/joinfed <fed_id>", "Join group to federation"),
         ]),
