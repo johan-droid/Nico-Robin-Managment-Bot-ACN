@@ -88,7 +88,6 @@ pub async fn resolve_username(bot: &Bot, chat_id: ChatId, username: &str) -> Opt
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn test_extract_target_user_from_reply() {

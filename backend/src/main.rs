@@ -99,7 +99,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("telegram_bot_initialized");
 
     // Spawn health check server
-    let health_port = settings.port;
+    let health_port = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+        .unwrap_or(settings.port);
+    info!(port = health_port, "spawning_health_check_server");
     tokio::spawn(async move {
         start_health_server(health_port).await;
     });
