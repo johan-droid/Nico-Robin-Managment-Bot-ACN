@@ -32,6 +32,5 @@ data/
 Thumbs.db
 
 # Docker
-Dockerfile
 Dockerfile.bak
 docker-compose.yml
