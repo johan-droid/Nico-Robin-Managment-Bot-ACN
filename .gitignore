@@ -1,20 +1,58 @@
-# Compiled and build artifacts
-*.pyc
+# Environment variables
+.env
+.env.local
+.env.*
+
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+.env/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/
+target/
 *.o
 *.obj
-*.exe
-*.dll
 *.so
-*.a
-*.out
-*.class
-*.jar
-*.war
+*.dll
+*.exe
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage
+.coverage
+htmlcov/
+coverage/
+
+# Compressed files
 *.zip
-*.tar.gz
-*.tar
 *.gz
+*.tar
+*.tgz
 *.bz2
 *.xz
 *.7z
@@ -29,42 +67,23 @@ __pycache__/
 *.Z
 *.lz
 *.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
 
-# Dependencies
-node_modules/
-venv/
-.venv/
-.env
-.env.local
-.env.*
-.target/
-target/
-.gradle/
+# MyPy
 .mypy_cache/
+__pycache__/
+
+# Pytest
 .pytest_cache/
-.coverage
-coverage/
-htmlcov/
 
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-*.swo
+# Gradle
+.gradle/
 
-# Editors
-.vscode/
-.idea/
-*.swp
-*.swo
+# Julia
+julia-*/
 
-# System files
-.DS_Store
-Thumbs.db
-
-# Rust specific
-Cargo.lock
-*.rs.bk
-doc/
-!doc/api/
-target/
+# Zig
+zig*/
