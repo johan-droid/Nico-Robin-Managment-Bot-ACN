@@ -4,7 +4,7 @@ services:
     runtime: docker
     plan: starter
     branch: main
-    rootDir: backend
+    rootDir: /
     dockerfilePath: Dockerfile
     dockerBuildFlags: --no-cache
     healthCheckPath: /health

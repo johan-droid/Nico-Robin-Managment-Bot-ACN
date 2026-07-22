@@ -1,0 +1,21 @@
+# Cloudflare Tunnel configuration
+# This tunnels the bot's webhook endpoint through Cloudflare.
+# 
+# Usage:
+#   1. Install cloudflared: https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/
+#   2. Authenticate: cloudflared tunnel login
+#   3. Create tunnel: cloudflared tunnel create nico-robin-bot
+#   4. Run: cloudflared tunnel --config cloudflared/config.yml run nico-robin-bot
+#
+# Then set WEBHOOK_URL=https://your-tunnel-domain.trycloudflare.com/webhook
+# and BOT_MODE=webhook in your environment.
+
+tunnel: nico-robin-bot
+credentials-file: /home/ashutosh/.cloudflared/nico-robin-bot.json
+
+ingress:
+  # Route bot health check and webhook
+  - hostname: bot.yourdomain.com
+    service: http://localhost:8000
+  # Catch-all rule
+  - service: http_status:404
