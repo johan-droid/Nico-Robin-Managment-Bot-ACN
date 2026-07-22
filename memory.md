@@ -24,7 +24,7 @@
 
 ### Dependencies
 - tokio 1.38, serde 1.0, serde_json 1.0, envy 0.4, dotenvy 0.15
-- sqlx 0.7 (runtime-tokio-rustls, postgres, chrono, json), teloxide 0.12 (macros, rustls)
+- sqlx 0.7 (runtime-tokio-rustls, postgres, chrono, json), teloxide 0.12 (macros, rustls, ctrlc_handler)
 - chrono 0.4, tracing 0.1, tracing-subscriber 0.3 (json, env-filter)
 - uuid 1.24.0 (v4)
 
