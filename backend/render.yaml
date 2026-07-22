@@ -16,24 +16,13 @@ services:
       - key: DATABASE_URL
         fromDatabase:
           name: nico-robin-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: nico-robin-redis
-          property: connectionString
+          property: internalConnectionString
       - key: ENVIRONMENT
         value: production
       - key: LOG_LEVEL
         value: INFO
       - key: ALLOWED_GROUP_IDS
         sync: false
-
-  - type: redis
-    name: nico-robin-redis
-    plan: starter
-    ipAllowList: []
-    maxmemoryPolicy: allkeys-lru
 
 databases:
   - name: nico-robin-db

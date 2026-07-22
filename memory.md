@@ -6,7 +6,7 @@
 - **Language**: Rust (2021 edition)
 - **Framework**: teloxide 0.12
 - **Database**: PostgreSQL with sqlx 0.7
-- **Deployment**: Railway (Docker)
+- **Deployment**: Render / Railway (Docker)
 - **Total Code**: ~4100 lines of Rust
 
 ## Current Status
@@ -24,7 +24,7 @@
 
 ### Dependencies
 - tokio 1.38, serde 1.0, serde_json 1.0, envy 0.4, dotenvy 0.15
-- sqlx 0.7 (runtime-tokio, postgres, chrono, json), teloxide 0.12 (macros)
+- sqlx 0.7 (runtime-tokio-rustls, postgres, chrono, json), teloxide 0.12 (macros, rustls)
 - chrono 0.4, tracing 0.1, tracing-subscriber 0.3 (json, env-filter)
 - uuid 1.24.0 (v4)
 

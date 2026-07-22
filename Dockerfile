@@ -4,12 +4,6 @@
 FROM rust:1.88-slim-bookworm AS builder
 WORKDIR /app
 
-# Install build dependencies for openssl-sys
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
 # Copy the backend source
 COPY backend/ .
 
@@ -19,13 +13,13 @@ RUN cargo build --release --bin nico_robin_bot
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 
-# Install runtime dependencies: libssl3 for OpenSSL, ca-certificates for HTTPS
+# Install runtime dependencies: ca-certificates for HTTPS
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/nico_robin_bot /app/nico_robin_bot
+RUN chmod +x /app/nico_robin_bot
 
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
