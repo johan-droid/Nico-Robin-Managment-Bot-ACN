@@ -1,17 +1,13 @@
 # Root-level Dockerfile that builds from the backend directory
-# This is needed for Render and other platforms that expect Dockerfile at root
+# Uses official Rust image directly for maximum compatibility
 
-FROM lukemathwalker/cargo-chef:latest-rust-1.86-slim AS chef
+FROM rust:1.88-slim-bookworm AS builder
 WORKDIR /app
 
-FROM chef AS planner
+# Copy the backend source
 COPY backend/ .
-RUN cargo chef prepare --recipe-path recipe.json
 
-FROM chef AS builder
-COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
-COPY backend/ .
+# Build the release binary
 RUN cargo build --release --bin nico_robin_bot
 
 FROM debian:bookworm-slim AS runtime

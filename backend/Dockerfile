@@ -1,13 +1,6 @@
-FROM lukemathwalker/cargo-chef:latest-rust-1.78-slim AS chef
+FROM rust:1.88-slim-bookworm AS builder
 WORKDIR /app
 
-FROM chef AS planner
-COPY . .
-RUN cargo chef prepare --recipe-path recipe.json
-
-FROM chef AS builder
-COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release --bin nico_robin_bot
 
@@ -25,7 +18,6 @@ USER appuser
 
 EXPOSE 8000
 
-# Health check: the /health endpoint is now served by the built-in axum HTTP server
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
