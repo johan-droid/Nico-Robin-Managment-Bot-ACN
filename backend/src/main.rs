@@ -58,9 +58,14 @@ async fn run_migrations(pool: &sqlx::PgPool) -> Result<(), Box<dyn std::error::E
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::Write;
+    println!("nico_robin_bot: starting up...");
+    let _ = std::io::stdout().flush();
+
     // Load configuration
     let settings = Settings::load().map_err(|e| {
-        eprintln!("Failed to load configuration: {e:?}");
+        eprintln!("Failed to load configuration: {:?}", e);
+        let _ = std::io::stderr().flush();
         e
     })?;
 
@@ -206,10 +211,26 @@ async fn start_health_server(port: u16) {
                         if n > 0 {
                             let req = String::from_utf8_lossy(&buf[..n]);
                             if req.starts_with("GET /health") {
-                                let response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nOK";
+                                let response = [
+                                    "HTTP/1.1 200 OK",
+                                    "Content-Length: 2",
+                                    "Content-Type: text/plain",
+                                    "Connection: close",
+                                    "",
+                                    "OK",
+                                ]
+                                .join("\r\n");
                                 let _ = socket.write_all(response.as_bytes()).await;
                             } else {
-                                let response = "HTTP/1.1 404 NOT FOUND\r\nContent-Length: 9\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nNot Found";
+                                let response = [
+                                    "HTTP/1.1 404 NOT FOUND",
+                                    "Content-Length: 9",
+                                    "Content-Type: text/plain",
+                                    "Connection: close",
+                                    "",
+                                    "Not Found",
+                                ]
+                                .join("\r\n");
                                 let _ = socket.write_all(response.as_bytes()).await;
                             }
                         }

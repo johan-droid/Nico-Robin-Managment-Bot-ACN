@@ -9,14 +9,15 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    openssl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/nico_robin_bot /app/nico_robin_bot
 RUN chmod +x /app/nico_robin_bot
 
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
+# RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# USER appuser
 
 EXPOSE 8000
 
-CMD ["/app/nico_robin_bot"]
+CMD ["/bin/sh", "-c", "/app/nico_robin_bot"]

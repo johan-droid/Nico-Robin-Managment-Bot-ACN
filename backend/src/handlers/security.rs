@@ -33,16 +33,25 @@ pub async fn handle_setflood(
     match crate::db::flood::set_flood_settings(pool, chat_id, count, mode, window).await {
         Ok(_) => {
             if count == 0 {
-                let _ = bot.send_message(msg.chat.id, "Flood protection disabled.").await;
+                let _ = bot
+                    .send_message(msg.chat.id, "Flood protection disabled.")
+                    .await;
             } else {
-                let _ = bot.send_message(
-                    msg.chat.id,
-                    format!("Flood limit set to {} messages per {} seconds.", count, window),
-                ).await;
+                let _ = bot
+                    .send_message(
+                        msg.chat.id,
+                        format!("Flood limit set to {} messages per {} seconds.", count, window),
+                    )
+                    .await;
             }
         }
         Err(e) => {
-            let _ = bot.send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string()))).await;
+            let _ = bot
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
+                .await;
         }
     }
     Ok(())
@@ -56,19 +65,26 @@ pub async fn handle_flood(
     let chat_id = msg.chat.id.0 as i64;
     match crate::db::flood::get_flood_settings(pool, chat_id).await {
         Ok(Some((limit, mode, window))) => {
-            let _ = bot.send_message(
-                msg.chat.id,
-                format!("Flood settings:\nLimit: {} messages per {} seconds\nMode: {}", limit, window, mode),
-            ).await;
+            let _ = bot
+                .send_message(
+                    msg.chat.id,
+                    format!("*Flood Settings:*\nLimit: {} messages\nWindow: {} seconds\nAction: {}", limit, window, mode),
+                )
+                .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                .await;
         }
         Ok(None) => {
-            let _ = bot.send_message(
-                msg.chat.id,
-                "No flood settings configured. Use /setflood <count> to set one.",
-            ).await;
+            let _ = bot
+                .send_message(msg.chat.id, "No flood settings set. Flood protection is off.")
+                .await;
         }
         Err(e) => {
-            let _ = bot.send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string()))).await;
+            let _ = bot
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
+                .await;
         }
     }
     Ok(())
@@ -106,7 +122,10 @@ pub async fn handle_addswear(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -152,7 +171,10 @@ pub async fn handle_delswear(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }

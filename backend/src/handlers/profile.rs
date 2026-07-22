@@ -33,7 +33,10 @@ pub async fn handle_profile(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -61,7 +64,10 @@ pub async fn handle_setbio(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -90,7 +96,10 @@ pub async fn handle_export(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -116,7 +125,10 @@ pub async fn handle_delete_data(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }

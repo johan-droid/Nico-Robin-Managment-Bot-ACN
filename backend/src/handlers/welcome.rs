@@ -27,7 +27,10 @@ pub async fn handle_setwelcome(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -48,7 +51,10 @@ pub async fn handle_resetwelcome(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -77,7 +83,10 @@ pub async fn handle_welcome_preview(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -105,7 +114,10 @@ pub async fn handle_setwelcomedm(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -133,7 +145,10 @@ pub async fn handle_setfarewell(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -162,7 +177,10 @@ pub async fn handle_farewell_preview(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -184,7 +202,10 @@ pub async fn handle_cleanwelcome(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -226,7 +247,10 @@ pub async fn handle_welcometest(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
