@@ -18,7 +18,7 @@ use teloxide::dptree;
 use teloxide::macros::BotCommands;
 use teloxide::prelude::*;
 use teloxide::types::Update;
-use crate::auth::{self, UserRole};
+use crate::auth;
 use crate::config::Settings;
 use crate::db;
 
@@ -558,11 +558,12 @@ fn user_id_from_msg(msg: &Message) -> UserId {
 async fn require_commander(
     bot: &Bot,
     msg: &Message,
-    user_id: i64,
-    settings: &Settings,
+    _user_id: i64,
+    _settings: &Settings,
 ) -> Result<(), teloxide::RequestError> {
-    if !auth::require_role(user_id, UserRole::Commander, settings) {
-        return deny_permission(bot, msg, "Commander+").await;
+    // Check if user is a Telegram group admin (owner or administrator)
+    if !auth::is_telegram_admin(bot, msg.chat.id, user_id_from_msg(msg)).await {
+        return deny_telegram_admin(bot, msg).await;
     }
     Ok(())
 }
@@ -570,10 +571,10 @@ async fn require_commander(
 async fn require_commander_with_admin(
     bot: &Bot,
     msg: &Message,
-    user_id: i64,
-    settings: &Settings,
+    _user_id: i64,
+    _settings: &Settings,
 ) -> Result<(), teloxide::RequestError> {
-    require_commander(bot, msg, user_id, settings).await?;
+    // Check if user is a Telegram group admin (owner or administrator)
     if !auth::is_telegram_admin(bot, msg.chat.id, user_id_from_msg(msg)).await {
         return deny_telegram_admin(bot, msg).await;
     }
@@ -583,11 +584,12 @@ async fn require_commander_with_admin(
 async fn require_captain(
     bot: &Bot,
     msg: &Message,
-    user_id: i64,
-    settings: &Settings,
+    _user_id: i64,
+    _settings: &Settings,
 ) -> Result<(), teloxide::RequestError> {
-    if !auth::require_role(user_id, UserRole::Captain, settings) {
-        return deny_permission(bot, msg, "Captain+").await;
+    // Check if user is a Telegram group admin (owner or administrator)
+    if !auth::is_telegram_admin(bot, msg.chat.id, user_id_from_msg(msg)).await {
+        return deny_telegram_admin(bot, msg).await;
     }
     Ok(())
 }
@@ -595,11 +597,12 @@ async fn require_captain(
 async fn require_sudo(
     bot: &Bot,
     msg: &Message,
-    user_id: i64,
-    settings: &Settings,
+    _user_id: i64,
+    _settings: &Settings,
 ) -> Result<(), teloxide::RequestError> {
-    if !auth::require_role(user_id, UserRole::Sudo, settings) {
-        return deny_permission(bot, msg, "Sudo").await;
+    // Check if user is a Telegram group admin (owner or administrator)
+    if !auth::is_telegram_admin(bot, msg.chat.id, user_id_from_msg(msg)).await {
+        return deny_telegram_admin(bot, msg).await;
     }
     Ok(())
 }
@@ -624,19 +627,6 @@ async fn require_feature(
         }
         Err(_) => Ok(()),
     }
-}
-
-async fn deny_permission(
-    bot: &Bot,
-    msg: &Message,
-    required: &str,
-) -> Result<(), teloxide::RequestError> {
-    bot.send_message(
-        msg.chat.id,
-        format!("This command requires {} privileges.", required),
-    )
-    .await?;
-    Ok(())
 }
 
 async fn deny_telegram_admin(

@@ -1,10 +1,10 @@
 # Root-level Dockerfile that builds from the backend directory
-# Uses official Rust image with required system dependencies
+# The bot runs in long-polling mode (no HTTP server)
 
 FROM rust:1.88-slim-bookworm AS builder
 WORKDIR /app
 
-# Install build dependencies required by openssl-sys and other native crates
+# Install build dependencies for openssl-sys
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config \
     libssl-dev \
@@ -18,9 +18,11 @@ RUN cargo build --release --bin nico_robin_bot
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
+
+# Install runtime dependencies: libssl3 for OpenSSL, ca-certificates for HTTPS
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    curl \
+    libssl3 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/nico_robin_bot /app/nico_robin_bot
@@ -30,7 +32,7 @@ USER appuser
 
 EXPOSE 8000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
+# No HEALTHCHECK - the bot uses long polling (no HTTP server)
+# Render will keep the container alive as long as the process runs
 
 CMD ["/app/nico_robin_bot"]
