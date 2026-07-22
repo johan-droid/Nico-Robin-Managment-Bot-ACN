@@ -1,10 +1,31 @@
+# Rust / Build
 /target/
 **/*.rs.bk
-*.log
-*.tmp
+Cargo.lock
+
+# Environment
+.env
+*.env.local
+
+# IDE
+.vscode/
+.idea/
 *.swp
 *.swo
-.env
-.env.*
-logs/
-data/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python (legacy)
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+venv/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/

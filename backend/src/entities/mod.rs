@@ -74,26 +74,9 @@ async fn try_connect(url: &str, settings: &crate::config::Settings) -> Result<Pg
 }
 
 /// Verifies the database connection by executing a simple query.
-/// Also validates that the database is not in read-only mode.
 pub async fn verify_database(pool: &PgPool) -> Result<(), Error> {
-    // Verify basic connectivity
     sqlx::query("SELECT 1").execute(pool).await?;
-    info!("database_ping_successful");
-
-    // Verify write capability (critical for a bot that needs to store data)
-    match sqlx::query("SELECT NOW()").execute(pool).await {
-        Ok(_) => {
-            info!("database_write_verification_successful");
-        }
-        Err(e) => {
-            warn!(
-                error = %e,
-                "database_write_verification_issue - database may be read-only or slow"
-            );
-            // Don't fail startup for this, but log it
-        }
-    }
-
+    info!("database_connection_verified");
     Ok(())
 }
 

@@ -1,95 +1,95 @@
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::Arc;
 use std::time::Instant;
+
+use tokio::sync::RwLock;
 
 use crate::config::Settings;
 
-/// Simple in-memory rate limiter (non-persistent, per-process).
-/// For production, use Redis-based rate limiting instead.
-#[derive(Debug)]
-pub struct RateLimiter {
-    buckets: Mutex<HashMap<i64, Bucket>>,
+/// Result of a rate-limit check.
+#[derive(Debug, PartialEq)]
+pub enum RateLimitResult {
+    /// Request is allowed.
+    Allowed,
+    /// Request is denied — user should wait.
+    Denied { retry_after_secs: u32 },
 }
 
-#[derive(Debug, Clone)]
-struct Bucket {
-    tokens: u32,
-    last_refill: Instant,
+/// Multi-level sliding-window rate limiter.
+///
+/// Tracks command timestamps at two levels:
+/// 1. **Per-user-per-group**: prevents a single user from spamming commands in a group.
+/// 2. **Global**: prevents distributed abuse across all groups.
+pub struct RateLimiter {
+    /// Per-(user_id, chat_id) command timestamps.
+    user_buckets: RwLock<HashMap<(i64, i64), Vec<Instant>>>,
+    /// Global command timestamps (all users, all chats).
+    global_bucket: RwLock<Vec<Instant>>,
 }
+
+pub type SharedRateLimiter = Arc<RateLimiter>;
 
 impl RateLimiter {
     pub fn new() -> Self {
         Self {
-            buckets: Mutex::new(HashMap::new()),
+            user_buckets: RwLock::new(HashMap::new()),
+            global_bucket: RwLock::new(Vec::new()),
         }
     }
 
-    /// Check if a request from a user should be allowed.
-    /// Returns `true` if allowed, `false` if rate-limited.
-    pub fn check_user(&self, user_id: i64, settings: &Settings) -> bool {
-        let mut buckets = self.buckets.lock().unwrap();
+    /// Checks and records a command invocation at both levels.
+    /// Returns `Allowed` if within all limits, `Denied` otherwise.
+    pub async fn check(&self, user_id: i64, chat_id: i64, settings: &Settings) -> RateLimitResult {
         let now = Instant::now();
-        let bucket = buckets.entry(user_id).or_insert(Bucket {
-            tokens: settings.rate_limit_user,
-            last_refill: now,
-        });
+        let window = std::time::Duration::from_secs(settings.rate_limit_cooldown as u64);
 
-        let elapsed = now.duration_since(bucket.last_refill).as_secs();
-        let refill_rate = settings.rate_limit_user as f64 / settings.rate_limit_cooldown as f64;
-        let refilled = (elapsed as f64 * refill_rate) as u32;
-
-        bucket.tokens = (bucket.tokens + refilled).min(settings.rate_limit_user);
-        bucket.last_refill = now;
-
-        if bucket.tokens > 0 {
-            bucket.tokens -= 1;
-            true
-        } else {
-            false
+        // --- Global level check ---
+        {
+            let mut global = self.global_bucket.write().await;
+            global.retain(|ts| now.duration_since(*ts) < window);
+            if global.len() >= settings.rate_limit_global as usize {
+                return RateLimitResult::Denied {
+                    retry_after_secs: settings.rate_limit_cooldown,
+                };
+            }
+            global.push(now);
         }
+
+        // --- Per-user-per-group level check ---
+        {
+            let mut buckets = self.user_buckets.write().await;
+            let timestamps = buckets.entry((user_id, chat_id)).or_default();
+            timestamps.retain(|ts| now.duration_since(*ts) < window);
+
+            if timestamps.len() >= settings.rate_limit_user as usize {
+                return RateLimitResult::Denied {
+                    retry_after_secs: settings.rate_limit_cooldown,
+                };
+            }
+            timestamps.push(now);
+        }
+
+        RateLimitResult::Allowed
     }
 
-    /// Check if a request from a group should be allowed.
-    #[allow(dead_code)]
-    pub fn check_group(&self, group_id: i64, settings: &Settings) -> bool {
-        let mut buckets = self.buckets.lock().unwrap();
+    /// Periodically clean up stale entries to prevent memory leaks.
+    /// Call from a background task every few minutes.
+    pub async fn cleanup(&self, max_age_secs: u64) {
         let now = Instant::now();
-        let bucket = buckets.entry(-group_id).or_insert(Bucket {
-            tokens: settings.rate_limit_group,
-            last_refill: now,
-        });
+        let max_age = std::time::Duration::from_secs(max_age_secs);
 
-        let elapsed = now.duration_since(bucket.last_refill).as_secs();
-        let refill_rate = settings.rate_limit_group as f64 / settings.rate_limit_cooldown as f64;
-        let refilled = (elapsed as f64 * refill_rate) as u32;
-
-        bucket.tokens = (bucket.tokens + refilled).min(settings.rate_limit_group);
-        bucket.last_refill = now;
-
-        if bucket.tokens > 0 {
-            bucket.tokens -= 1;
-            true
-        } else {
-            false
+        {
+            let mut buckets = self.user_buckets.write().await;
+            buckets.retain(|_, timestamps| {
+                timestamps.retain(|ts| now.duration_since(*ts) < max_age);
+                !timestamps.is_empty()
+            });
         }
-    }
 
-    /// Check if a global request should be allowed.
-    pub fn check_global(&self, settings: &Settings) -> bool {
-        self.check_user(0, settings) // Use key 0 for global
-    }
-
-    /// Reset all rate limit buckets.
-    #[allow(dead_code)]
-    pub fn reset(&self) {
-        let mut buckets = self.buckets.lock().unwrap();
-        buckets.clear();
-    }
-}
-
-impl Default for RateLimiter {
-    fn default() -> Self {
-        Self::new()
+        {
+            let mut global = self.global_bucket.write().await;
+            global.retain(|ts| now.duration_since(*ts) < max_age);
+        }
     }
 }
 
@@ -97,28 +97,55 @@ impl Default for RateLimiter {
 mod tests {
     use super::*;
 
-    fn test_settings() -> Settings {
-        let _ = dotenvy::dotenv().ok();
-        crate::config::Settings::load().unwrap_or_else(|_| {
-            // Fallback: construct minimal settings from env or defaults
-            // This is a simplified test helper
-            panic!("Cannot load settings for tests. Ensure DATABASE_URL and BOT_TOKEN are set.");
-        })
+    fn test_settings(user_limit: u32, global_limit: u32, cooldown: u32) -> Settings {
+        serde_json::from_value(serde_json::json!({
+            "bot_token": "test:token",
+            "database_url": "postgres://localhost/test",
+            "rate_limit_user": user_limit,
+            "rate_limit_global": global_limit,
+            "rate_limit_cooldown": cooldown,
+        }))
+        .unwrap()
     }
 
-    #[test]
-    fn test_rate_limiter_initial_state() {
+    #[tokio::test]
+    async fn test_allows_within_limit() {
         let rl = RateLimiter::new();
-        let settings = test_settings();
-        // First request should be allowed
-        assert!(rl.check_user(12345, &settings));
+        let settings = test_settings(3, 100, 60);
+        assert_eq!(rl.check(1, 1, &settings).await, RateLimitResult::Allowed);
+        assert_eq!(rl.check(1, 1, &settings).await, RateLimitResult::Allowed);
+        assert_eq!(rl.check(1, 1, &settings).await, RateLimitResult::Allowed);
     }
 
-    #[test]
-    fn test_rate_limiter_exhaustion() {
+    #[tokio::test]
+    async fn test_denies_over_user_limit() {
         let rl = RateLimiter::new();
-        let settings = test_settings();
-        // Override for test purposes - but we can't mutate easily, so just check basic functionality
-        assert!(rl.check_user(99999, &settings));
+        let settings = test_settings(2, 100, 60);
+        assert_eq!(rl.check(1, 1, &settings).await, RateLimitResult::Allowed);
+        assert_eq!(rl.check(1, 1, &settings).await, RateLimitResult::Allowed);
+        assert!(matches!(
+            rl.check(1, 1, &settings).await,
+            RateLimitResult::Denied { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_denies_over_global_limit() {
+        let rl = RateLimiter::new();
+        let settings = test_settings(100, 2, 60);
+        assert_eq!(rl.check(1, 1, &settings).await, RateLimitResult::Allowed);
+        assert_eq!(rl.check(2, 2, &settings).await, RateLimitResult::Allowed);
+        assert!(matches!(
+            rl.check(3, 3, &settings).await,
+            RateLimitResult::Denied { .. }
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_different_users_independent() {
+        let rl = RateLimiter::new();
+        let settings = test_settings(1, 100, 60);
+        assert_eq!(rl.check(1, 1, &settings).await, RateLimitResult::Allowed);
+        assert_eq!(rl.check(2, 1, &settings).await, RateLimitResult::Allowed);
     }
 }
