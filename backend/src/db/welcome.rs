@@ -7,12 +7,14 @@ pub struct WelcomeSettings {
     pub clean_welcome: bool,
 }
 
+type WelcomeRow = (Option<String>, Option<String>, Option<String>, bool);
+
 /// Gets welcome settings for a group.
 pub async fn get_welcome_settings(
     pool: &PgPool,
     group_id: i64,
 ) -> Result<Option<WelcomeSettings>, sqlx::Error> {
-    let row: Option<(Option<String>, Option<String>, Option<String>, bool)> =
+    let row: Option<WelcomeRow> =
         sqlx::query_as(
             r#"SELECT welcome_message, farewell_message, welcome_dm_message, clean_welcome FROM welcome_settings WHERE group_id = $1"#,
         )

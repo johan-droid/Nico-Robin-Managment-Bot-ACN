@@ -18,12 +18,10 @@ pub async fn handle_setwelcome(
         .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::welcome::set_welcome_message(pool, chat_id, content).await {
         Ok(_) => {
-            let _ = bot
-                .send_message(msg.chat.id, "Welcome message set.")
-                .await;
+            let _ = bot.send_message(msg.chat.id, "Welcome message set.").await;
         }
         Err(e) => {
             let _ = bot
@@ -42,7 +40,7 @@ pub async fn handle_resetwelcome(
     msg: Message,
     pool: &PgPool,
 ) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::welcome::reset_welcome_message(pool, chat_id).await {
         Ok(_) => {
             let _ = bot
@@ -66,15 +64,13 @@ pub async fn handle_welcome_preview(
     msg: Message,
     pool: &PgPool,
 ) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::welcome::get_welcome_settings(pool, chat_id).await {
         Ok(Some(settings)) => {
             let welcome = settings
                 .welcome_message
                 .unwrap_or_else(|| "No welcome message set.".to_string());
-            let _ = bot
-                .send_message(msg.chat.id, &welcome)
-                .await;
+            let _ = bot.send_message(msg.chat.id, &welcome).await;
         }
         Ok(None) => {
             let _ = bot
@@ -105,7 +101,7 @@ pub async fn handle_setwelcomedm(
             .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::welcome::set_welcome_dm_message(pool, chat_id, content).await {
         Ok(_) => {
             let _ = bot
@@ -136,12 +132,10 @@ pub async fn handle_setfarewell(
             .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::welcome::set_farewell_message(pool, chat_id, content).await {
         Ok(_) => {
-            let _ = bot
-                .send_message(msg.chat.id, "Farewell message set.")
-                .await;
+            let _ = bot.send_message(msg.chat.id, "Farewell message set.").await;
         }
         Err(e) => {
             let _ = bot
@@ -160,15 +154,13 @@ pub async fn handle_farewell_preview(
     msg: Message,
     pool: &PgPool,
 ) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::welcome::get_welcome_settings(pool, chat_id).await {
         Ok(Some(settings)) => {
             let farewell = settings
                 .farewell_message
                 .unwrap_or_else(|| "No farewell message set.".to_string());
-            let _ = bot
-                .send_message(msg.chat.id, &farewell)
-                .await;
+            let _ = bot.send_message(msg.chat.id, &farewell).await;
         }
         Ok(None) => {
             let _ = bot
@@ -192,7 +184,7 @@ pub async fn handle_cleanwelcome(
     msg: Message,
     pool: &PgPool,
 ) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::welcome::toggle_clean_welcome(pool, chat_id).await {
         Ok(enabled) => {
             let status = if enabled { "enabled" } else { "disabled" };
@@ -217,13 +209,10 @@ pub async fn handle_welcometest(
     msg: Message,
     pool: &PgPool,
 ) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::welcome::get_welcome_settings(pool, chat_id).await {
         Ok(Some(settings)) => {
-            let user_name = msg
-                .from()
-                .map(|u| u.first_name.as_str())
-                .unwrap_or("User");
+            let user_name = msg.from().map(|u| u.first_name.as_str()).unwrap_or("User");
             let welcome = settings
                 .welcome_message
                 .unwrap_or_else(|| "Hello {user}!".to_string());
@@ -236,13 +225,14 @@ pub async fn handle_welcometest(
                 .replace("{user}", user_name)
                 .replace("{group}", msg.chat.title().unwrap_or("this group"))
                 .replace("{count}", &member_count);
-            let _ = bot
-                .send_message(msg.chat.id, &welcome)
-                .await;
+            let _ = bot.send_message(msg.chat.id, &welcome).await;
         }
         Ok(None) => {
             let _ = bot
-                .send_message(msg.chat.id, "No welcome message set. Use /setwelcome first.")
+                .send_message(
+                    msg.chat.id,
+                    "No welcome message set. Use /setwelcome first.",
+                )
                 .await;
         }
         Err(e) => {

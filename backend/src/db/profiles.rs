@@ -1,5 +1,5 @@
-use sqlx::PgPool;
 use serde_json::Value as JsonValue;
+use sqlx::PgPool;
 
 pub struct UserProfile {
     pub user_id: i64,

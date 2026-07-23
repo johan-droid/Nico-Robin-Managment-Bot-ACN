@@ -9,15 +9,20 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    openssl \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/target/release/nico_robin_bot /app/nico_robin_bot
-RUN chmod +x /app/nico_robin_bot
+RUN groupadd -r appuser && useradd -r -g appuser -u 1000 -m appuser
 
-# RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-# USER appuser
+COPY --from=builder /app/target/release/nico_robin_bot /app/nico_robin_bot
+RUN chmod +x /app/nico_robin_bot && chown appuser:appuser /app/nico_robin_bot
+
+USER appuser
 
 EXPOSE 8000
 
-CMD ["/bin/sh", "-c", "/app/nico_robin_bot"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://127.0.0.1:8000/health || exit 1
+
+CMD ["/app/nico_robin_bot"]
+

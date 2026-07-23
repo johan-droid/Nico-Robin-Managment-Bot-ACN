@@ -23,7 +23,11 @@ pub async fn handle_profile(
             let text = format!(
                 "*User Profile*\n\nUser ID: {}\nBio: {}\nData: {}",
                 escape_md_v2(&profile.user_id.to_string()),
-                escape_md_v2(if profile.bio.is_empty() { "Not set" } else { &profile.bio }),
+                escape_md_v2(if profile.bio.is_empty() {
+                    "Not set"
+                } else {
+                    &profile.bio
+                }),
                 escape_md_v2(&profile.data.to_string())
             );
             let _ = bot
@@ -58,9 +62,7 @@ pub async fn handle_setbio(
     let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
     match crate::db::profiles::set_bio(pool, user_id, content).await {
         Ok(_) => {
-            let _ = bot
-                .send_message(msg.chat.id, "Bio updated.")
-                .await;
+            let _ = bot.send_message(msg.chat.id, "Bio updated.").await;
         }
         Err(e) => {
             let _ = bot

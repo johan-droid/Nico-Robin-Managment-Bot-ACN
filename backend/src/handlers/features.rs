@@ -18,7 +18,7 @@ pub async fn handle_features_list(
     msg: Message,
     pool: &PgPool,
 ) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::features::list_features(pool, chat_id).await {
         Ok(features) => {
             if features.is_empty() {
@@ -39,7 +39,10 @@ pub async fn handle_features_list(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -58,18 +61,24 @@ pub async fn handle_enable(
             .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
 
     match crate::db::features::enable_feature(pool, chat_id, name, user_id).await {
         Ok(_) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Feature '{}' enabled.", escape_md_v2(name)))
+                .send_message(
+                    msg.chat.id,
+                    format!("Feature '{}' enabled.", escape_md_v2(name)),
+                )
                 .await;
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -88,18 +97,24 @@ pub async fn handle_disable(
             .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
 
     match crate::db::features::disable_feature(pool, chat_id, name, user_id).await {
         Ok(_) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Feature '{}' disabled.", escape_md_v2(name)))
+                .send_message(
+                    msg.chat.id,
+                    format!("Feature '{}' disabled.", escape_md_v2(name)),
+                )
                 .await;
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -118,7 +133,7 @@ pub async fn handle_toggle(
             .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
 
     let current = crate::db::features::is_feature_enabled(pool, chat_id, name)
@@ -127,21 +142,24 @@ pub async fn handle_toggle(
     if current {
         let _ = crate::db::features::disable_feature(pool, chat_id, name, user_id).await;
         let _ = bot
-            .send_message(msg.chat.id, format!("Feature '{}' disabled.", escape_md_v2(name)))
+            .send_message(
+                msg.chat.id,
+                format!("Feature '{}' disabled.", escape_md_v2(name)),
+            )
             .await;
     } else {
         let _ = crate::db::features::enable_feature(pool, chat_id, name, user_id).await;
         let _ = bot
-            .send_message(msg.chat.id, format!("Feature '{}' enabled.", escape_md_v2(name)))
+            .send_message(
+                msg.chat.id,
+                format!("Feature '{}' enabled.", escape_md_v2(name)),
+            )
             .await;
     }
     Ok(())
 }
 
-pub async fn handle_feature_info(
-    bot: Bot,
-    msg: Message,
-) -> Result<(), teloxide::RequestError> {
+pub async fn handle_feature_info(bot: Bot, msg: Message) -> Result<(), teloxide::RequestError> {
     let mut text = String::from("*Feature Categories:*\n\n");
     for (category, features) in FEATURE_CATEGORIES {
         text.push_str(&format!(
@@ -163,20 +181,25 @@ pub async fn handle_my_features(
     msg: Message,
     pool: &PgPool,
 ) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::features::list_features(pool, chat_id).await {
         Ok(features) => {
             let enabled_count = features.iter().filter(|(_, e)| *e).count();
             let disabled_count = features.len() - enabled_count;
             let text = format!(
                 "Your group features:\nEnabled: {}\nDisabled: {}\nTotal overrides: {}",
-                enabled_count, disabled_count, features.len()
+                enabled_count,
+                disabled_count,
+                features.len()
             );
             let _ = bot.send_message(msg.chat.id, text).await;
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -188,19 +211,19 @@ pub async fn handle_reset_features(
     msg: Message,
     pool: &PgPool,
 ) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::features::reset_features(pool, chat_id).await {
         Ok(count) => {
             let _ = bot
-                .send_message(
-                    msg.chat.id,
-                    format!("Reset {} feature overrides.", count),
-                )
+                .send_message(msg.chat.id, format!("Reset {} feature overrides.", count))
                 .await;
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -219,7 +242,10 @@ pub async fn handle_enable_category(
         let _ = bot
             .send_message(
                 msg.chat.id,
-                format!("Usage: /enable_category <category>\nAvailable: {}", cats.join(", ")),
+                format!(
+                    "Usage: /enable_category <category>\nAvailable: {}",
+                    cats.join(", ")
+                ),
             )
             .await;
         return Ok(());
@@ -232,7 +258,7 @@ pub async fn handle_enable_category(
 
     match features {
         Some(feats) => {
-            let chat_id = msg.chat.id.0 as i64;
+            let chat_id = msg.chat.id.0;
             let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
             for feat in feats {
                 let _ = crate::db::features::enable_feature(pool, chat_id, feat, user_id).await;
@@ -240,14 +266,16 @@ pub async fn handle_enable_category(
             let _ = bot
                 .send_message(
                     msg.chat.id,
-                    format!("Category '{}' enabled ({} features).", escape_md_v2(category), feats.len()),
+                    format!(
+                        "Category '{}' enabled ({} features).",
+                        escape_md_v2(category),
+                        feats.len()
+                    ),
                 )
                 .await;
         }
         None => {
-            let _ = bot
-                .send_message(msg.chat.id, "Category not found.")
-                .await;
+            let _ = bot.send_message(msg.chat.id, "Category not found.").await;
         }
     }
     Ok(())
@@ -265,7 +293,10 @@ pub async fn handle_disable_category(
         let _ = bot
             .send_message(
                 msg.chat.id,
-                format!("Usage: /disable_category <category>\nAvailable: {}", cats.join(", ")),
+                format!(
+                    "Usage: /disable_category <category>\nAvailable: {}",
+                    cats.join(", ")
+                ),
             )
             .await;
         return Ok(());
@@ -278,7 +309,7 @@ pub async fn handle_disable_category(
 
     match features {
         Some(feats) => {
-            let chat_id = msg.chat.id.0 as i64;
+            let chat_id = msg.chat.id.0;
             let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
             for feat in feats {
                 let _ = crate::db::features::disable_feature(pool, chat_id, feat, user_id).await;
@@ -286,14 +317,16 @@ pub async fn handle_disable_category(
             let _ = bot
                 .send_message(
                     msg.chat.id,
-                    format!("Category '{}' disabled ({} features).", escape_md_v2(category), feats.len()),
+                    format!(
+                        "Category '{}' disabled ({} features).",
+                        escape_md_v2(category),
+                        feats.len()
+                    ),
                 )
                 .await;
         }
         None => {
-            let _ = bot
-                .send_message(msg.chat.id, "Category not found.")
-                .await;
+            let _ = bot.send_message(msg.chat.id, "Category not found.").await;
         }
     }
     Ok(())

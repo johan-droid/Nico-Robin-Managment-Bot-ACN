@@ -20,7 +20,7 @@ pub async fn handle_filter(
     let trigger = parts[1];
     let response = parts[2];
     let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
 
     match crate::db::filters::add_filter(pool, chat_id, trigger, response, user_id).await {
         Ok(_) => {
@@ -33,13 +33,20 @@ pub async fn handle_filter(
             let _ = bot
                 .send_message(
                     msg.chat.id,
-                    format!("Filter set: '{}' -> '{}'", escape_md_v2(trigger), escape_md_v2(response)),
+                    format!(
+                        "Filter set: '{}' -> '{}'",
+                        escape_md_v2(trigger),
+                        escape_md_v2(response)
+                    ),
                 )
                 .await;
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -60,7 +67,7 @@ pub async fn handle_stop(
         return Ok(());
     }
     let trigger = parts[1];
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
 
     match crate::db::filters::remove_filter(pool, chat_id, trigger).await {
         Ok(true) => {
@@ -68,17 +75,26 @@ pub async fn handle_stop(
                 group_filters.remove(trigger);
             }
             let _ = bot
-                .send_message(msg.chat.id, format!("Filter '{}' removed.", escape_md_v2(trigger)))
+                .send_message(
+                    msg.chat.id,
+                    format!("Filter '{}' removed.", escape_md_v2(trigger)),
+                )
                 .await;
         }
         Ok(false) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Filter '{}' not found.", escape_md_v2(trigger)))
+                .send_message(
+                    msg.chat.id,
+                    format!("Filter '{}' not found.", escape_md_v2(trigger)),
+                )
                 .await;
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -90,13 +106,11 @@ pub async fn handle_filters_list(
     msg: Message,
     pool: &PgPool,
 ) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::filters::list_filters(pool, chat_id).await {
         Ok(filters) => {
             if filters.is_empty() {
-                let _ = bot
-                    .send_message(msg.chat.id, "No filters set.")
-                    .await;
+                let _ = bot.send_message(msg.chat.id, "No filters set.").await;
             } else {
                 let mut text = String::from("*Filters:*\n");
                 for f in &filters {
@@ -114,7 +128,10 @@ pub async fn handle_filters_list(
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }

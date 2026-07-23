@@ -1,5 +1,4 @@
 # Root-level Dockerfile that builds from the backend directory
-# The bot runs in long-polling mode (no HTTP server)
 
 FROM rust:1.88-slim-bookworm AS builder
 WORKDIR /app
@@ -13,21 +12,23 @@ RUN cargo build --release --bin nico_robin_bot
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 
-# Install runtime dependencies: ca-certificates for HTTPS and openssl for SSL libraries
+# Install runtime dependencies: ca-certificates for HTTPS, openssl, and curl for health check
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     openssl \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/target/release/nico_robin_bot /app/nico_robin_bot
-RUN chmod +x /app/nico_robin_bot
+RUN groupadd -r appuser && useradd -r -g appuser -u 1000 -m appuser
 
-# RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-# USER appuser
+COPY --from=builder /app/target/release/nico_robin_bot /app/nico_robin_bot
+RUN chmod +x /app/nico_robin_bot && chown appuser:appuser /app/nico_robin_bot
+
+USER appuser
 
 EXPOSE 8000
 
-# No HEALTHCHECK - the bot uses long polling (no HTTP server)
-# Render will keep the container alive as long as the process runs
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://127.0.0.1:8000/health || exit 1
 
-CMD ["/bin/sh", "-c", "/app/nico_robin_bot"]
+CMD ["/app/nico_robin_bot"]

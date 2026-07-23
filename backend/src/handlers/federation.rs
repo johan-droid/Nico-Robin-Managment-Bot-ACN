@@ -25,14 +25,21 @@ pub async fn handle_newfed(
             let _ = bot
                 .send_message(
                     msg.chat.id,
-                    format!("Federation '{}' created\\!\nFederation ID: `{}`", escape_md_v2(name), escape_md_v2(&fed_id)),
+                    format!(
+                        "Federation '{}' created\\!\nFederation ID: `{}`",
+                        escape_md_v2(name),
+                        escape_md_v2(&fed_id)
+                    ),
                 )
                 .parse_mode(teloxide::types::ParseMode::MarkdownV2)
                 .await;
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }
@@ -51,37 +58,42 @@ pub async fn handle_joinfed(
             .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
 
     match crate::db::federations::federation_exists(pool, fed_id).await {
-        Ok(true) => {
-            match crate::db::federations::join_federation(pool, fed_id, chat_id).await {
-                Ok(true) => {
-                    let _ = bot
-                        .send_message(msg.chat.id, format!("Group joined federation `{}`\\.", escape_md_v2(fed_id)))
-                        .parse_mode(teloxide::types::ParseMode::MarkdownV2)
-                        .await;
-                }
-                Ok(false) => {
-                    let _ = bot
-                        .send_message(msg.chat.id, "Group is already in this federation.")
-                        .await;
-                }
-                Err(e) => {
-                    let _ = bot
-                        .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
-                        .await;
-                }
+        Ok(true) => match crate::db::federations::join_federation(pool, fed_id, chat_id).await {
+            Ok(true) => {
+                let _ = bot
+                    .send_message(
+                        msg.chat.id,
+                        format!("Group joined federation `{}`\\.", escape_md_v2(fed_id)),
+                    )
+                    .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                    .await;
             }
-        }
+            Ok(false) => {
+                let _ = bot
+                    .send_message(msg.chat.id, "Group is already in this federation.")
+                    .await;
+            }
+            Err(e) => {
+                let _ = bot
+                    .send_message(
+                        msg.chat.id,
+                        format!("Error: {}", escape_md_v2(&e.to_string())),
+                    )
+                    .await;
+            }
+        },
         Ok(false) => {
-            let _ = bot
-                .send_message(msg.chat.id, "Federation not found.")
-                .await;
+            let _ = bot.send_message(msg.chat.id, "Federation not found.").await;
         }
         Err(e) => {
             let _ = bot
-                .send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string())))
+                .send_message(
+                    msg.chat.id,
+                    format!("Error: {}", escape_md_v2(&e.to_string())),
+                )
                 .await;
         }
     }

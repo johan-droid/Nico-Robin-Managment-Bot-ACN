@@ -10,7 +10,7 @@ const DB_CONNECT_RETRIES: u32 = 3;
 const DB_RETRY_BASE_DELAY_SECS: u64 = 2;
 
 /// Establishes a PostgreSQL connection pool with the given settings.
-/// Includes retry logic with exponential backoff.
+/// Includes retry logic with exponential backoff and jitter.
 pub async fn establish_connection(settings: &crate::config::Settings) -> Result<PgPool, Error> {
     let clean_url = settings.database_url_clean();
 
@@ -21,7 +21,6 @@ pub async fn establish_connection(settings: &crate::config::Settings) -> Result<
         "initializing_database_connection_pool"
     );
 
-    // Attempt connection with retries
     let mut last_error = None;
     for attempt in 1..=DB_CONNECT_RETRIES {
         match try_connect(&clean_url, settings).await {
@@ -47,10 +46,7 @@ pub async fn establish_connection(settings: &crate::config::Settings) -> Result<
         }
     }
 
-    let final_error = last_error.unwrap_or_else(|| {
-        // Fallback: create a pool connect error manually
-        Error::PoolClosed
-    });
+    let final_error = last_error.unwrap_or(Error::PoolClosed);
 
     error!(
         max_retries = DB_CONNECT_RETRIES,

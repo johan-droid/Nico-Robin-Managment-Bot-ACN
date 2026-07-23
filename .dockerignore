@@ -1,51 +1,36 @@
-# Python cache and compiled files
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
+.git/
+.gitignore
+.github/
+.gitattributes
 
-# Virtual environments
-venv/
-env/
-ENV/
-.venv
+.env
+.env.*
+*.env
 
-# IDE
-.vscode/
-.idea/
+target/
+**/*.rs.bk
+
+*.log
+logs/
+
+*.tmp
 *.swp
 *.swo
-*~
+data/
 
-# Project-specific
-.env
-.env.local
-.env.*.local
+.vscode/
+.idea/
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Logs
-logs/
-*.log
-
-# OS
 .DS_Store
 Thumbs.db
 
-# Build artifacts
-build/
-dist/
-*.egg-info/
+Dockerfile.bak
+docker-compose.yml
 
-# Misc
-.ruff_cache/
-node_modules/
+cloudflared/
+.claude/
+memory.md
+"*.pdf"
+"*.pdf"
+wrangler.toml
+update_memory.sh

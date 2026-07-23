@@ -1,26 +1,26 @@
 pub mod core;
+pub mod features;
+pub mod federation;
+pub mod filters;
 pub mod moderation;
 pub mod notes;
-pub mod filters;
-pub mod welcome;
 pub mod profile;
 pub mod security;
-pub mod federation;
-pub mod features;
+pub mod welcome;
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::auth;
+use crate::config::Settings;
+use crate::db;
 use sqlx::PgPool;
 use teloxide::dispatching::UpdateHandler;
 use teloxide::dptree;
 use teloxide::macros::BotCommands;
 use teloxide::prelude::*;
 use teloxide::types::Update;
-use crate::auth;
-use crate::config::Settings;
-use crate::db;
 
 #[derive(BotCommands, Clone)]
 #[command(rename_rule = "lowercase", description = "Nico Robin Bot commands")]
@@ -119,11 +119,7 @@ pub fn build_handler(state: Arc<AppState>) -> UpdateHandler<teloxide::RequestErr
         )
         .branch(
             Update::filter_message()
-                .filter(|msg: Message| {
-                    msg.text()
-                        .map(|t| t.starts_with('/'))
-                        .unwrap_or(false)
-                })
+                .filter(|msg: Message| msg.text().map(|t| t.starts_with('/')).unwrap_or(false))
                 .endpoint(unknown_command),
         )
         .branch(
@@ -160,7 +156,7 @@ async fn handle_new_chat_members(
     msg: Message,
     state: &AppState,
 ) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     let members = match msg.new_chat_members() {
         Some(m) => m,
         None => return Ok(()),
@@ -199,7 +195,11 @@ async fn handle_new_chat_members(
 
         if let Ok(sent_msg) = bot.send_message(msg.chat.id, &welcome).await {
             if settings.clean_welcome {
-                state.last_welcome_cache.write().await.insert(chat_id, sent_msg.id);
+                state
+                    .last_welcome_cache
+                    .write()
+                    .await
+                    .insert(chat_id, sent_msg.id);
             }
         }
 
@@ -223,7 +223,7 @@ async fn handle_left_chat_member(
     msg: Message,
     state: &AppState,
 ) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     let member = match msg.left_chat_member() {
         Some(m) => m,
         None => return Ok(()),
@@ -262,12 +262,15 @@ async fn handle_command(
 
     // Rate limiting check (per-user-per-group and global)
     if let auth::rate_limiter::RateLimitResult::Denied { retry_after_secs } =
-        state.rate_limiter.check(user_id, chat_id.0 as i64, settings).await
+        state.rate_limiter.check(user_id, chat_id.0, settings).await
     {
         let _ = bot
             .send_message(
                 chat_id,
-                format!("⚠️ You are sending commands too quickly. Please wait {} seconds.", retry_after_secs),
+                format!(
+                    "⚠️ You are sending commands too quickly. Please wait {} seconds.",
+                    retry_after_secs
+                ),
             )
             .await;
         return Ok(());
@@ -275,7 +278,7 @@ async fn handle_command(
 
     // Enforce allowed_group_ids when the list is non-empty
     if !settings.allowed_group_ids.is_empty()
-        && !settings.allowed_group_ids.contains(&(chat_id.0 as i64))
+        && !settings.allowed_group_ids.contains(&chat_id.0)
         && (msg.chat.is_group() || msg.chat.is_supergroup())
     {
         return Ok(());
@@ -284,12 +287,14 @@ async fn handle_command(
     if let Some(title) = msg.chat.title() {
         let is_cached = {
             let cache = state.group_cache.read().await;
-            cache.contains(&(chat_id.0 as i64))
+            cache.contains(&chat_id.0)
         };
-        if !is_cached {
-            if db::groups::ensure_group(pool, chat_id.0 as i64, title).await.is_ok() {
-                state.group_cache.write().await.insert(chat_id.0 as i64);
-            }
+        if !is_cached
+            && db::groups::ensure_group(pool, chat_id.0, title)
+                .await
+                .is_ok()
+        {
+            state.group_cache.write().await.insert(chat_id.0);
         }
     }
 
@@ -298,131 +303,225 @@ async fn handle_command(
         Command::Help => core::handle_help(bot, msg).await,
 
         Command::Ban => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "moderation").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "moderation").await? {
+                return Ok(());
+            }
             moderation::handle_ban(bot, msg, settings).await
         }
         Command::Unban => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "moderation").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "moderation").await? {
+                return Ok(());
+            }
             moderation::handle_unban(bot, msg, settings).await
         }
         Command::Kick => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "moderation").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "moderation").await? {
+                return Ok(());
+            }
             moderation::handle_kick(bot, msg, settings).await
         }
         Command::Mute => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "moderation").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "moderation").await? {
+                return Ok(());
+            }
             moderation::handle_mute(bot, msg, settings).await
         }
         Command::Unmute => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "moderation").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "moderation").await? {
+                return Ok(());
+            }
             moderation::handle_unmute(bot, msg, settings).await
         }
         Command::Warn => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "moderation").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "moderation").await? {
+                return Ok(());
+            }
             moderation::handle_warn(bot, msg, pool, settings).await
         }
         Command::Warns => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "moderation").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "moderation").await? {
+                return Ok(());
+            }
             moderation::handle_warns(bot, msg, pool).await
         }
         Command::Resetwarn => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "moderation").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "moderation").await? {
+                return Ok(());
+            }
             moderation::handle_resetwarn(bot, msg, pool, settings).await
         }
         Command::Slowmode => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "moderation").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "moderation").await? {
+                return Ok(());
+            }
             moderation::handle_slowmode(bot, msg, settings).await
         }
         Command::Del => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "moderation").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "moderation").await? {
+                return Ok(());
+            }
             moderation::handle_del(bot, msg, settings).await
         }
         Command::Pin => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "moderation").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "moderation").await? {
+                return Ok(());
+            }
             moderation::handle_pin(bot, msg, settings).await
         }
 
         Command::Save => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "notes").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "notes").await? {
+                return Ok(());
+            }
             notes::handle_save(bot, msg, pool).await
         }
         Command::Get => {
-            if !require_feature(&bot, &msg, pool, "notes").await? { return Ok(()); }
+            if !require_feature(&bot, &msg, pool, "notes").await? {
+                return Ok(());
+            }
             notes::handle_get(bot, msg, pool).await
         }
         Command::Notes => {
-            if !require_feature(&bot, &msg, pool, "notes").await? { return Ok(()); }
+            if !require_feature(&bot, &msg, pool, "notes").await? {
+                return Ok(());
+            }
             notes::handle_notes(bot, msg, pool).await
         }
         Command::Clear => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "notes").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "notes").await? {
+                return Ok(());
+            }
             notes::handle_clear(bot, msg, pool).await
         }
 
         Command::Filter => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "filters").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "filters").await? {
+                return Ok(());
+            }
             filters::handle_filter(bot, msg, pool, &state.filter_cache).await
         }
         Command::Stop => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "filters").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "filters").await? {
+                return Ok(());
+            }
             filters::handle_stop(bot, msg, pool, &state.filter_cache).await
         }
         Command::Filters => {
-            if !require_feature(&bot, &msg, pool, "filters").await? { return Ok(()); }
+            if !require_feature(&bot, &msg, pool, "filters").await? {
+                return Ok(());
+            }
             filters::handle_filters_list(bot, msg, pool).await
         }
 
         Command::Setwelcome => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "welcome").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "welcome").await? {
+                return Ok(());
+            }
             welcome::handle_setwelcome(bot, msg, pool).await
         }
         Command::Resetwelcome => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "welcome").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "welcome").await? {
+                return Ok(());
+            }
             welcome::handle_resetwelcome(bot, msg, pool).await
         }
         Command::Welcome => {
-            if !require_feature(&bot, &msg, pool, "welcome").await? { return Ok(()); }
+            if !require_feature(&bot, &msg, pool, "welcome").await? {
+                return Ok(());
+            }
             welcome::handle_welcome_preview(bot, msg, pool).await
         }
         Command::Setwelcomedm => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "welcome").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "welcome").await? {
+                return Ok(());
+            }
             welcome::handle_setwelcomedm(bot, msg, pool).await
         }
         Command::Setfarewell => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "welcome").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "welcome").await? {
+                return Ok(());
+            }
             welcome::handle_setfarewell(bot, msg, pool).await
         }
         Command::Farewell => {
-            if !require_feature(&bot, &msg, pool, "welcome").await? { return Ok(()); }
+            if !require_feature(&bot, &msg, pool, "welcome").await? {
+                return Ok(());
+            }
             welcome::handle_farewell_preview(bot, msg, pool).await
         }
         Command::Cleanwelcome => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "welcome").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "welcome").await? {
+                return Ok(());
+            }
             welcome::handle_cleanwelcome(bot, msg, pool).await
         }
         Command::Welcometest => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "welcome").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "welcome").await? {
+                return Ok(());
+            }
             welcome::handle_welcometest(bot, msg, pool).await
         }
 
@@ -432,59 +531,89 @@ async fn handle_command(
         Command::DeleteMyData => profile::handle_delete_data(bot, msg, pool).await,
 
         Command::Setflood => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "security").await? { return Ok(()); }
-            security::handle_setflood(bot, msg, pool).await
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "security").await? {
+                return Ok(());
+            }
+            security::handle_setflood(bot, msg, pool, &state.flood_tracker).await
         }
         Command::Flood => {
-            if !require_feature(&bot, &msg, pool, "security").await? { return Ok(()); }
+            if !require_feature(&bot, &msg, pool, "security").await? {
+                return Ok(());
+            }
             security::handle_flood(bot, msg, pool).await
         }
         Command::Addswear => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "security").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "security").await? {
+                return Ok(());
+            }
             security::handle_addswear(bot, msg, pool, &state.swear_cache).await
         }
         Command::Delswear => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
-            if !require_feature(&bot, &msg, pool, "security").await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
+            if !require_feature(&bot, &msg, pool, "security").await? {
+                return Ok(());
+            }
             security::handle_delswear(bot, msg, pool, &state.swear_cache).await
         }
 
         Command::Newfed => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
             federation::handle_newfed(bot, msg, pool).await
         }
         Command::Joinfed => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
             federation::handle_joinfed(bot, msg, pool).await
         }
 
         Command::Features => features::handle_features_list(bot, msg, pool).await,
         Command::Enable => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
             features::handle_enable(bot, msg, pool).await
         }
         Command::Disable => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
             features::handle_disable(bot, msg, pool).await
         }
         Command::Toggle => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
             features::handle_toggle(bot, msg, pool).await
         }
         Command::FeatureInfo => features::handle_feature_info(bot, msg).await,
         Command::MyFeatures => features::handle_my_features(bot, msg, pool).await,
         Command::ResetFeatures => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
             features::handle_reset_features(bot, msg, pool).await
         }
         Command::EnableCategory => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
             features::handle_enable_category(bot, msg, pool).await
         }
         Command::DisableCategory => {
-            if !require_admin(&bot, &msg).await? { return Ok(()); }
+            if !require_admin(&bot, &msg).await? {
+                return Ok(());
+            }
             features::handle_disable_category(bot, msg, pool).await
         }
     }
@@ -515,7 +644,7 @@ async fn handle_filters_trigger(bot: Bot, msg: Message, state: &AppState) {
         Some(t) => t,
         None => return,
     };
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     let lower = text.to_lowercase();
 
     // Check filters cache (substring / contains matching)
@@ -550,15 +679,10 @@ pub async fn log_mod_action(bot: &Bot, settings: &Settings, _chat_id: ChatId, te
 }
 
 fn user_id_from_msg(msg: &Message) -> UserId {
-    msg.from()
-        .map(|u| u.id)
-        .unwrap_or(UserId(0))
+    msg.from().map(|u| u.id).unwrap_or(UserId(0))
 }
 
-async fn require_admin(
-    bot: &Bot,
-    msg: &Message,
-) -> Result<bool, teloxide::RequestError> {
+async fn require_admin(bot: &Bot, msg: &Message) -> Result<bool, teloxide::RequestError> {
     if auth::is_telegram_admin(bot, msg.chat.id, user_id_from_msg(msg)).await {
         Ok(true)
     } else {
@@ -573,7 +697,7 @@ async fn require_feature(
     pool: &PgPool,
     feature: &str,
 ) -> Result<bool, teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match db::features::is_feature_enabled(pool, chat_id, feature).await {
         Ok(true) => Ok(true),
         Ok(false) => {
@@ -589,14 +713,8 @@ async fn require_feature(
     }
 }
 
-async fn deny_telegram_admin(
-    bot: &Bot,
-    msg: &Message,
-) -> Result<(), teloxide::RequestError> {
-    bot.send_message(
-        msg.chat.id,
-        "You must be a chat admin to use this command.",
-    )
-    .await?;
+async fn deny_telegram_admin(bot: &Bot, msg: &Message) -> Result<(), teloxide::RequestError> {
+    bot.send_message(msg.chat.id, "You must be a chat admin to use this command.")
+        .await?;
     Ok(())
 }

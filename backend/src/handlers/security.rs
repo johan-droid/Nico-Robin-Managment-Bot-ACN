@@ -8,6 +8,7 @@ pub async fn handle_setflood(
     bot: Bot,
     msg: Message,
     pool: &PgPool,
+    flood_tracker: &crate::auth::flood_tracker::SharedFloodTracker,
 ) -> Result<(), teloxide::RequestError> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
@@ -26,12 +27,13 @@ pub async fn handle_setflood(
             return Ok(());
         }
     };
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     let mode = if count == 0 { "off" } else { "warn" };
     let window = 10;
 
     match crate::db::flood::set_flood_settings(pool, chat_id, count, mode, window).await {
         Ok(_) => {
+            flood_tracker.invalidate(chat_id).await;
             if count == 0 {
                 let _ = bot
                     .send_message(msg.chat.id, "Flood protection disabled.")
@@ -40,7 +42,10 @@ pub async fn handle_setflood(
                 let _ = bot
                     .send_message(
                         msg.chat.id,
-                        format!("Flood limit set to {} messages per {} seconds.", count, window),
+                        format!(
+                            "Flood limit set to {} messages per {} seconds.",
+                            count, window
+                        ),
                     )
                     .await;
             }
@@ -62,20 +67,26 @@ pub async fn handle_flood(
     msg: Message,
     pool: &PgPool,
 ) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
     match crate::db::flood::get_flood_settings(pool, chat_id).await {
         Ok(Some((limit, mode, window))) => {
             let _ = bot
                 .send_message(
                     msg.chat.id,
-                    format!("*Flood Settings:*\nLimit: {} messages\nWindow: {} seconds\nAction: {}", limit, window, mode),
+                    format!(
+                        "*Flood Settings:*\nLimit: {} messages\nWindow: {} seconds\nAction: {}",
+                        limit, window, mode
+                    ),
                 )
                 .parse_mode(teloxide::types::ParseMode::MarkdownV2)
                 .await;
         }
         Ok(None) => {
             let _ = bot
-                .send_message(msg.chat.id, "No flood settings set. Flood protection is off.")
+                .send_message(
+                    msg.chat.id,
+                    "No flood settings set. Flood protection is off.",
+                )
                 .await;
         }
         Err(e) => {
@@ -104,7 +115,7 @@ pub async fn handle_addswear(
         return Ok(());
     }
     let word = parts[1].to_lowercase();
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
 
     match crate::db::swears::add_swear(pool, chat_id, &word).await {
         Ok(_) => {
@@ -146,7 +157,7 @@ pub async fn handle_delswear(
         return Ok(());
     }
     let word = parts[1].to_lowercase();
-    let chat_id = msg.chat.id.0 as i64;
+    let chat_id = msg.chat.id.0;
 
     match crate::db::swears::remove_swear(pool, chat_id, &word).await {
         Ok(true) => {

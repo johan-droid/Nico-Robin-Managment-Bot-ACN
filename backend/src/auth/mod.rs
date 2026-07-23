@@ -1,12 +1,12 @@
-pub mod rate_limiter;
 pub mod flood_tracker;
+pub mod rate_limiter;
 
 use teloxide::prelude::*;
 
 /// Checks if a user is authorized to execute a command.
 /// Now uses Telegram group admin status instead of env-configured IDs.
 /// Group owners and administrators can use all admin commands directly.
-
+///
 /// Checks if a user is an admin/creator in a Telegram chat using the bot API.
 pub async fn is_telegram_admin(bot: &Bot, chat_id: ChatId, user_id: UserId) -> bool {
     match bot.get_chat_member(chat_id, user_id).await {
@@ -93,6 +93,5 @@ mod tests {
     fn test_extract_target_user_from_reply() {
         // This is a basic test for the admin detection function
         // Actual Telegram API calls are tested via integration tests
-        assert!(true);
     }
 }

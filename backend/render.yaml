@@ -1,30 +1,3 @@
-services:
-  - type: worker
-    name: nico-robin-bot
-    runtime: docker
-    plan: starter
-    branch: main
-    rootDir: backend
-    dockerfilePath: Dockerfile
-    autoDeployTrigger: checksPass
-    envVars:
-      - key: BOT_TOKEN
-        sync: false
-      - key: BOT_MODE
-        value: polling
-      - key: DATABASE_URL
-        fromDatabase:
-          name: nico-robin-db
-          property: internalConnectionString
-      - key: ENVIRONMENT
-        value: production
-      - key: LOG_LEVEL
-        value: INFO
-      - key: ALLOWED_GROUP_IDS
-        sync: false
-
-databases:
-  - name: nico-robin-db
-    plan: starter
-    databaseName: robin_db
-    user: robin
+# NOTE: The main render.yaml configuration is at the repository root (../render.yaml).
+# Render expects render.yaml at the repo root by default.
+# This file is kept for reference only.

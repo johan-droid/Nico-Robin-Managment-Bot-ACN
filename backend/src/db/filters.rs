@@ -42,13 +42,15 @@ pub async fn list_filters(pool: &PgPool, group_id: i64) -> Result<Vec<Filter>, s
         .collect())
 }
 
-pub async fn remove_filter(pool: &PgPool, group_id: i64, trigger_text: &str) -> Result<bool, sqlx::Error> {
-    let result = sqlx::query(
-        r#"DELETE FROM filters WHERE group_id = $1 AND trigger_text = $2"#,
-    )
-    .bind(group_id)
-    .bind(trigger_text)
-    .execute(pool)
-    .await?;
+pub async fn remove_filter(
+    pool: &PgPool,
+    group_id: i64,
+    trigger_text: &str,
+) -> Result<bool, sqlx::Error> {
+    let result = sqlx::query(r#"DELETE FROM filters WHERE group_id = $1 AND trigger_text = $2"#)
+        .bind(group_id)
+        .bind(trigger_text)
+        .execute(pool)
+        .await?;
     Ok(result.rows_affected() > 0)
 }

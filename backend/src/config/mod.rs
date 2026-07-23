@@ -188,10 +188,26 @@ impl Settings {
 
     fn validate(&self) -> Result<(), envy::Error> {
         if self.bot_token.is_empty() {
-            return Err(envy::Error::Custom("BOT_TOKEN is required".to_string()));
+            return Err(envy::Error::Custom(
+                "BOT_TOKEN is required. Set it in your environment or .env file. On Render, ensure it is set in the dashboard (sync: false requires manual entry).".to_string()
+            ));
         }
         if self.database_url.is_empty() {
-            return Err(envy::Error::Custom("DATABASE_URL is required".to_string()));
+            return Err(envy::Error::Custom(
+                "DATABASE_URL is required. Set it in your environment or .env file.".to_string(),
+            ));
+        }
+        if !self.database_url.starts_with("postgresql://")
+            && !self.database_url.starts_with("postgres://")
+        {
+            return Err(envy::Error::Custom(format!(
+                "DATABASE_URL must start with postgresql:// or postgres://. Got: {}",
+                if self.database_url.len() > 40 {
+                    format!("{}...", &self.database_url[..40])
+                } else {
+                    self.database_url.clone()
+                }
+            )));
         }
         Ok(())
     }

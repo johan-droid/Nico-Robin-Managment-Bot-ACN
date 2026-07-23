@@ -6,8 +6,8 @@ pub fn escape_md_v2(text: &str) -> String {
     let mut result = String::with_capacity(text.len() * 2);
     for c in text.chars() {
         match c {
-            '_' | '*' | '[' | ']' | '(' | ')' | '~' | '`' | '>' | '<' | '#' | '+' | '-' | '=' | '|'
-            | '{' | '}' | '.' | '!' | '\\' => {
+            '_' | '*' | '[' | ']' | '(' | ')' | '~' | '`' | '>' | '<' | '#' | '+' | '-' | '='
+            | '|' | '{' | '}' | '.' | '!' | '\\' => {
                 result.push('\\');
                 result.push(c);
             }
