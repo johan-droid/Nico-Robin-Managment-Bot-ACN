@@ -3,20 +3,53 @@ pub mod rate_limiter;
 
 use teloxide::prelude::*;
 
+use std::collections::HashMap;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+
+struct AdminCacheEntry {
+    is_admin: bool,
+    expires_at: Instant,
+}
+
+static ADMIN_CACHE: std::sync::LazyLock<Mutex<HashMap<(i64, u64), AdminCacheEntry>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
 /// Checks if a user is authorized to execute a command.
-/// Now uses Telegram group admin status instead of env-configured IDs.
+/// Uses Telegram group admin status with a 60-second in-memory TTL cache to prevent API rate limits.
 /// Group owners and administrators can use all admin commands directly.
-///
-/// Checks if a user is an admin/creator in a Telegram chat using the bot API.
 pub async fn is_telegram_admin(bot: &Bot, chat_id: ChatId, user_id: UserId) -> bool {
-    match bot.get_chat_member(chat_id, user_id).await {
+    let key = (chat_id.0, user_id.0);
+    let now = Instant::now();
+
+    if let Ok(cache) = ADMIN_CACHE.lock() {
+        if let Some(entry) = cache.get(&key) {
+            if entry.expires_at > now {
+                return entry.is_admin;
+            }
+        }
+    }
+
+    let is_admin = match bot.get_chat_member(chat_id, user_id).await {
         Ok(member) => matches!(
             member.status(),
             teloxide::types::ChatMemberStatus::Owner
                 | teloxide::types::ChatMemberStatus::Administrator
         ),
         Err(_) => false,
+    };
+
+    if let Ok(mut cache) = ADMIN_CACHE.lock() {
+        cache.insert(
+            key,
+            AdminCacheEntry {
+                is_admin,
+                expires_at: now + Duration::from_secs(60),
+            },
+        );
     }
+
+    is_admin
 }
 
 /// Extracts the target user ID from a reply, message entity (text_mention), or command arguments.
