@@ -219,7 +219,8 @@ pub enum ParseMode {
 }
 
 pub struct RawClient {
-    #[allow(dead_code)] pub token: String,
+    #[allow(dead_code)]
+    pub token: String,
 }
 
 impl RawClient {
