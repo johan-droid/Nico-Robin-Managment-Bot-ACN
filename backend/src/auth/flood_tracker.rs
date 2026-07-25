@@ -1,68 +1,52 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::RwLock;
 
-use teloxide::prelude::*;
-use teloxide::types::UserId;
+use crate::telegram::api::Bot;
+use crate::telegram::update::{Message, ChatPermissions};
 
 use crate::config::Settings;
 use crate::handlers::log_mod_action;
 use crate::utils::escape_md_v2;
 
 pub struct FloodTracker {
-    buckets: RwLock<HashMap<(i64, i64), Vec<Instant>>>,
-    settings_cache: RwLock<HashMap<i64, Option<(i32, String, i32)>>>,
+    buckets: HashMap<i64, Vec<Instant>>,
+    settings_cache: Option<(i32, String, i32)>,
 }
-
-pub type SharedFloodTracker = Arc<FloodTracker>;
 
 impl FloodTracker {
     pub fn new() -> Self {
         Self {
-            buckets: RwLock::new(HashMap::new()),
-            settings_cache: RwLock::new(HashMap::new()),
+            buckets: HashMap::new(),
+            settings_cache: None,
         }
     }
 
-    /// Invalidates cached flood settings for a given chat ID (e.g. when setflood is updated).
-    pub async fn invalidate(&self, chat_id: i64) {
-        let mut cache = self.settings_cache.write().await;
-        cache.remove(&chat_id);
+    pub fn invalidate(&mut self) {
+        self.settings_cache = None;
+    }
+
+    pub fn update_cache(&mut self, settings: Option<(i32, String, i32)>) {
+        self.settings_cache = settings;
+    }
+
+    pub fn get_cache(&self) -> Option<Option<(i32, String, i32)>> {
+        // Return Some(None) if cached as no-settings, None if missing cache
+        // But for simplicity, let's just make the caller pass it in via process_message instead.
+        None
     }
 
     /// Checks if a user message violates group flood settings.
     /// If violated, takes action (mute/ban/warn), deletes message, and returns true.
     pub async fn process_message(
-        &self,
+        &mut self,
         bot: &Bot,
         msg: &Message,
-        pool: &sqlx::PgPool,
+        flood_settings: Option<(i32, String, i32)>,
         settings: &Settings,
     ) -> bool {
         let user_id = match msg.from() {
-            Some(u) => u.id.0 as i64,
+            Some(u) => u.id as i64,
             None => return false,
-        };
-        let chat_id = msg.chat.id.0;
-
-        // Check in-memory flood settings cache first
-        let cached = {
-            let cache = self.settings_cache.read().await;
-            cache.get(&chat_id).cloned()
-        };
-
-        let flood_settings = match cached {
-            Some(opt) => opt,
-            None => {
-                let db_res = crate::db::flood::get_flood_settings(pool, chat_id)
-                    .await
-                    .ok()
-                    .flatten();
-                let mut cache = self.settings_cache.write().await;
-                cache.insert(chat_id, db_res.clone());
-                db_res
-            }
         };
 
         let (limit, mode, window_secs) = match flood_settings {
@@ -73,22 +57,19 @@ impl FloodTracker {
         let now = Instant::now();
         let window = Duration::from_secs(window_secs as u64);
 
-        let is_flooding = {
-            let mut buckets = self.buckets.write().await;
-            let timestamps = buckets.entry((chat_id, user_id)).or_default();
-            timestamps.retain(|ts| now.duration_since(*ts) < window);
-            timestamps.push(now);
-            timestamps.len() > limit as usize
-        };
+        let timestamps = self.buckets.entry(user_id).or_default();
+        timestamps.retain(|ts| now.duration_since(*ts) < window);
+        timestamps.push(now);
+        let is_flooding = timestamps.len() > limit as usize;
 
         if is_flooding {
             let user_name = msg.from().map(|u| u.first_name.as_str()).unwrap_or("User");
-            let _ = bot.delete_message(msg.chat.id, msg.id).await;
+            let _ = bot.delete_message(msg.chat.id, msg.id()).await;
 
             match mode.to_lowercase().as_str() {
                 "ban" => {
                     let _ = bot
-                        .ban_chat_member(msg.chat.id, UserId(user_id as u64))
+                        .ban_chat_member(msg.chat.id, user_id as u64)
                         .await;
                     let _ = bot
                         .send_message(
@@ -118,9 +99,9 @@ impl FloodTracker {
                 }
                 _ => {
                     // Default action: MUTE
-                    let permissions = teloxide::types::ChatPermissions::empty();
+                    let permissions = ChatPermissions::empty();
                     let _ = bot
-                        .restrict_chat_member(msg.chat.id, UserId(user_id as u64), permissions)
+                        .restrict_chat_member(msg.chat.id, user_id as u64, permissions)
                         .await;
                     let _ = bot
                         .send_message(
@@ -145,21 +126,5 @@ impl FloodTracker {
         }
 
         false
-    }
-
-    pub async fn cleanup(&self, max_age_secs: u64) {
-        let now = Instant::now();
-        let max_age = Duration::from_secs(max_age_secs);
-        {
-            let mut buckets = self.buckets.write().await;
-            buckets.retain(|_, timestamps| {
-                timestamps.retain(|ts| now.duration_since(*ts) < max_age);
-                !timestamps.is_empty()
-            });
-        }
-        {
-            let mut cache = self.settings_cache.write().await;
-            cache.clear();
-        }
     }
 }

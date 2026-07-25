@@ -1,7 +1,8 @@
 use crate::utils::escape_md_v2;
-use teloxide::prelude::*;
+use crate::telegram::api::{Bot, ParseMode};
+use crate::telegram::update::Message;
 
-pub async fn handle_start(bot: Bot, msg: Message) -> Result<(), teloxide::RequestError> {
+pub async fn handle_start(bot: Bot, msg: Message) -> Result<(), String> {
     let name = msg.from().map(|u| u.first_name.as_str()).unwrap_or("there");
     bot.send_message(
         msg.chat.id,
@@ -16,9 +17,7 @@ pub async fn handle_start(bot: Bot, msg: Message) -> Result<(), teloxide::Reques
 
 type HelpSection<'a> = (&'a str, &'a str, &'a [(&'a str, &'a str)]);
 
-pub async fn handle_help(bot: Bot, msg: Message) -> Result<(), teloxide::RequestError> {
-    use teloxide::types::ParseMode::MarkdownV2;
-
+pub async fn handle_help(bot: Bot, msg: Message) -> Result<(), String> {
     let sections: Vec<HelpSection> = vec![
         (
             "Core",
@@ -141,7 +140,7 @@ pub async fn handle_help(bot: Bot, msg: Message) -> Result<(), teloxide::Request
     }
 
     bot.send_message(msg.chat.id, text)
-        .parse_mode(MarkdownV2)
+        .parse_mode(ParseMode::MarkdownV2)
         .await?;
     Ok(())
 }

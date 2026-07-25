@@ -1,15 +1,15 @@
-use sqlx::PgPool;
-use teloxide::prelude::*;
+use tokio_postgres::Client;
+use crate::telegram::api::{Bot, ParseMode};
+use crate::telegram::update::Message;
 
-use crate::handlers::SwearCache;
 use crate::utils::escape_md_v2;
 
 pub async fn handle_setflood(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-    flood_tracker: &crate::auth::flood_tracker::SharedFloodTracker,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+    // Note: flood_tracker invalidation now handled in ChatState main handler
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
@@ -27,13 +27,12 @@ pub async fn handle_setflood(
             return Ok(());
         }
     };
-    let chat_id = msg.chat.id.0;
+    let chat_id = msg.chat.id;
     let mode = if count == 0 { "off" } else { "warn" };
     let window = 10;
 
-    match crate::db::flood::set_flood_settings(pool, chat_id, count, mode, window).await {
+    match crate::db::flood::set_flood_settings(client, chat_id, count, mode, window).await {
         Ok(_) => {
-            flood_tracker.invalidate(chat_id).await;
             if count == 0 {
                 let _ = bot
                     .send_message(msg.chat.id, "Flood protection disabled.")
@@ -65,10 +64,10 @@ pub async fn handle_setflood(
 pub async fn handle_flood(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0;
-    match crate::db::flood::get_flood_settings(pool, chat_id).await {
+    client: &Client,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    match crate::db::flood::get_flood_settings(client, chat_id).await {
         Ok(Some((limit, mode, window))) => {
             let _ = bot
                 .send_message(
@@ -78,7 +77,7 @@ pub async fn handle_flood(
                         limit, window, mode
                     ),
                 )
-                .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                .parse_mode(ParseMode::MarkdownV2)
                 .await;
         }
         Ok(None) => {
@@ -104,9 +103,9 @@ pub async fn handle_flood(
 pub async fn handle_addswear(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-    cache: &SwearCache,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+    // Note: swear cache update now handled in ChatState
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
@@ -115,15 +114,10 @@ pub async fn handle_addswear(
         return Ok(());
     }
     let word = parts[1].to_lowercase();
-    let chat_id = msg.chat.id.0;
+    let chat_id = msg.chat.id;
 
-    match crate::db::swears::add_swear(pool, chat_id, &word).await {
+    match crate::db::swears::add_swear(client, chat_id, &word).await {
         Ok(_) => {
-            let mut write = cache.write().await;
-            let group_swears = write.entry(chat_id).or_default();
-            if !group_swears.contains(&word) {
-                group_swears.push(word.clone());
-            }
             let _ = bot
                 .send_message(
                     msg.chat.id,
@@ -146,9 +140,9 @@ pub async fn handle_addswear(
 pub async fn handle_delswear(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-    cache: &SwearCache,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+    // Note: swear cache update now handled in ChatState
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
@@ -157,14 +151,10 @@ pub async fn handle_delswear(
         return Ok(());
     }
     let word = parts[1].to_lowercase();
-    let chat_id = msg.chat.id.0;
+    let chat_id = msg.chat.id;
 
-    match crate::db::swears::remove_swear(pool, chat_id, &word).await {
+    match crate::db::swears::remove_swear(client, chat_id, &word).await {
         Ok(true) => {
-            let mut write = cache.write().await;
-            if let Some(group_swears) = write.get_mut(&chat_id) {
-                group_swears.retain(|w| w != &word);
-            }
             let _ = bot
                 .send_message(
                     msg.chat.id,

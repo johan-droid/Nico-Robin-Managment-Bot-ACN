@@ -1,5 +1,6 @@
-use sqlx::PgPool;
-use teloxide::prelude::*;
+use tokio_postgres::Client;
+use crate::telegram::api::{Bot, ParseMode};
+use crate::telegram::update::Message;
 
 use uuid::Uuid;
 
@@ -8,8 +9,8 @@ use crate::utils::escape_md_v2;
 pub async fn handle_newfed(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/newfed ").unwrap_or("").trim();
     if name.is_empty() {
@@ -17,10 +18,10 @@ pub async fn handle_newfed(
             .await?;
         return Ok(());
     }
-    let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
+    let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
     let fed_id = Uuid::new_v4().to_string()[..8].to_string();
 
-    match crate::db::federations::create_federation(pool, &fed_id, name, user_id).await {
+    match crate::db::federations::create_federation(client, &fed_id, name, user_id).await {
         Ok(_) => {
             let _ = bot
                 .send_message(
@@ -31,7 +32,7 @@ pub async fn handle_newfed(
                         escape_md_v2(&fed_id)
                     ),
                 )
-                .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                .parse_mode(ParseMode::MarkdownV2)
                 .await;
         }
         Err(e) => {
@@ -49,8 +50,8 @@ pub async fn handle_newfed(
 pub async fn handle_joinfed(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let fed_id = text.strip_prefix("/joinfed ").unwrap_or("").trim();
     if fed_id.is_empty() {
@@ -58,17 +59,17 @@ pub async fn handle_joinfed(
             .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0;
+    let chat_id = msg.chat.id;
 
-    match crate::db::federations::federation_exists(pool, fed_id).await {
-        Ok(true) => match crate::db::federations::join_federation(pool, fed_id, chat_id).await {
+    match crate::db::federations::federation_exists(client, fed_id).await {
+        Ok(true) => match crate::db::federations::join_federation(client, fed_id, chat_id).await {
             Ok(true) => {
                 let _ = bot
                     .send_message(
                         msg.chat.id,
                         format!("Group joined federation `{}`\\.", escape_md_v2(fed_id)),
                     )
-                    .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                    .parse_mode(ParseMode::MarkdownV2)
                     .await;
             }
             Ok(false) => {

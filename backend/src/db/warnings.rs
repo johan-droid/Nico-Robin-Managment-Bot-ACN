@@ -1,68 +1,66 @@
-use sqlx::PgPool;
+use tokio_postgres::Client;
 
 /// Adds a warning for a user in a group.
 pub async fn add_warning(
-    pool: &PgPool,
+    client: &Client,
     group_id: i64,
     user_id: i64,
     reason: &str,
     warned_by: i64,
-) -> Result<i32, sqlx::Error> {
-    let row: (i32,) = sqlx::query_as(
+) -> Result<i32, String> {
+    let row = client.query_one(
         r#"INSERT INTO warnings (group_id, user_id, reason, warned_by)
            VALUES ($1, $2, $3, $4) RETURNING id"#,
+        &[&group_id, &user_id, &reason, &warned_by]
     )
-    .bind(group_id)
-    .bind(user_id)
-    .bind(reason)
-    .bind(warned_by)
-    .fetch_one(pool)
-    .await?;
-    Ok(row.0)
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(row.get(0))
 }
 
 /// Gets the warning count for a user in a group.
 pub async fn get_warning_count(
-    pool: &PgPool,
+    client: &Client,
     group_id: i64,
     user_id: i64,
-) -> Result<i64, sqlx::Error> {
-    let row: (i64,) =
-        sqlx::query_as(r#"SELECT COUNT(*) FROM warnings WHERE group_id = $1 AND user_id = $2"#)
-            .bind(group_id)
-            .bind(user_id)
-            .fetch_one(pool)
-            .await?;
-    Ok(row.0)
+) -> Result<i64, String> {
+    let row = client.query_one(
+        r#"SELECT COUNT(*) FROM warnings WHERE group_id = $1 AND user_id = $2"#,
+        &[&group_id, &user_id]
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(row.get(0))
 }
 
 /// Gets all warnings for a user in a group.
 pub async fn get_warnings(
-    pool: &PgPool,
+    client: &Client,
     group_id: i64,
     user_id: i64,
-) -> Result<Vec<(i32, String, i64)>, sqlx::Error> {
-    let rows: Vec<(i32, String, i64)> = sqlx::query_as(
+) -> Result<Vec<(i32, String, i64)>, String> {
+    let rows = client.query(
         r#"SELECT id, reason, warned_by FROM warnings
            WHERE group_id = $1 AND user_id = $2 ORDER BY created_at"#,
+        &[&group_id, &user_id]
     )
-    .bind(group_id)
-    .bind(user_id)
-    .fetch_all(pool)
-    .await?;
-    Ok(rows)
+    .await
+    .map_err(|e| e.to_string())?;
+
+    Ok(rows.into_iter().map(|row| (row.get(0), row.get(1), row.get(2))).collect())
 }
 
 /// Resets all warnings for a user in a group.
 pub async fn reset_warnings(
-    pool: &PgPool,
+    client: &Client,
     group_id: i64,
     user_id: i64,
-) -> Result<u64, sqlx::Error> {
-    let result = sqlx::query(r#"DELETE FROM warnings WHERE group_id = $1 AND user_id = $2"#)
-        .bind(group_id)
-        .bind(user_id)
-        .execute(pool)
-        .await?;
-    Ok(result.rows_affected())
+) -> Result<u64, String> {
+    let result = client.execute(
+        r#"DELETE FROM warnings WHERE group_id = $1 AND user_id = $2"#,
+        &[&group_id, &user_id]
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(result)
 }

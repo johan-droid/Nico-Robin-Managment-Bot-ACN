@@ -1,5 +1,5 @@
 use serde_json::Value as JsonValue;
-use sqlx::PgPool;
+use tokio_postgres::Client;
 
 pub struct UserProfile {
     pub user_id: i64,
@@ -8,44 +8,46 @@ pub struct UserProfile {
 }
 
 pub async fn get_or_create_profile(
-    pool: &PgPool,
+    client: &Client,
     user_id: i64,
-) -> Result<UserProfile, sqlx::Error> {
-    let row: (i64, String, JsonValue) = sqlx::query_as(
+) -> Result<UserProfile, String> {
+    let row = client.query_one(
         r#"WITH ins AS (
             INSERT INTO user_profiles (user_id) VALUES ($1)
             ON CONFLICT (user_id) DO NOTHING
         )
         SELECT user_id, bio, data FROM user_profiles WHERE user_id = $1"#,
+        &[&user_id]
     )
-    .bind(user_id)
-    .fetch_one(pool)
-    .await?;
+    .await
+    .map_err(|e| e.to_string())?;
+
     Ok(UserProfile {
-        user_id: row.0,
-        bio: row.1,
-        data: row.2,
+        user_id: row.get(0),
+        bio: row.get(1),
+        data: row.get(2),
     })
 }
 
 /// Sets the bio for a user.
-pub async fn set_bio(pool: &PgPool, user_id: i64, bio: &str) -> Result<(), sqlx::Error> {
-    sqlx::query(
+pub async fn set_bio(client: &Client, user_id: i64, bio: &str) -> Result<(), String> {
+    client.execute(
         r#"INSERT INTO user_profiles (user_id, bio) VALUES ($1, $2)
            ON CONFLICT (user_id) DO UPDATE SET bio = $2, updated_at = NOW()"#,
+        &[&user_id, &bio]
     )
-    .bind(user_id)
-    .bind(bio)
-    .execute(pool)
-    .await?;
+    .await
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 /// Deletes a user profile.
-pub async fn delete_profile(pool: &PgPool, user_id: i64) -> Result<bool, sqlx::Error> {
-    let result = sqlx::query(r#"DELETE FROM user_profiles WHERE user_id = $1"#)
-        .bind(user_id)
-        .execute(pool)
-        .await?;
-    Ok(result.rows_affected() > 0)
+pub async fn delete_profile(client: &Client, user_id: i64) -> Result<bool, String> {
+    let result = client.execute(
+        r#"DELETE FROM user_profiles WHERE user_id = $1"#,
+        &[&user_id]
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(result > 0)
 }

@@ -1,15 +1,14 @@
-use sqlx::PgPool;
-use teloxide::prelude::*;
+use tokio_postgres::Client;
+use crate::telegram::api::{Bot, ParseMode};
+use crate::telegram::update::Message;
 
-use crate::handlers::FilterCache;
 use crate::utils::escape_md_v2;
 
 pub async fn handle_filter(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-    cache: &FilterCache,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.splitn(3, ' ').collect();
     if parts.len() < 3 {
@@ -19,17 +18,11 @@ pub async fn handle_filter(
     }
     let trigger = parts[1];
     let response = parts[2];
-    let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
-    let chat_id = msg.chat.id.0;
+    let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
+    let chat_id = msg.chat.id;
 
-    match crate::db::filters::add_filter(pool, chat_id, trigger, response, user_id).await {
+    match crate::db::filters::add_filter(client, chat_id, trigger, response, user_id).await {
         Ok(_) => {
-            cache
-                .write()
-                .await
-                .entry(chat_id)
-                .or_default()
-                .insert(trigger.to_string(), response.to_string());
             let _ = bot
                 .send_message(
                     msg.chat.id,
@@ -56,9 +49,8 @@ pub async fn handle_filter(
 pub async fn handle_stop(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-    cache: &FilterCache,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
@@ -67,13 +59,10 @@ pub async fn handle_stop(
         return Ok(());
     }
     let trigger = parts[1];
-    let chat_id = msg.chat.id.0;
+    let chat_id = msg.chat.id;
 
-    match crate::db::filters::remove_filter(pool, chat_id, trigger).await {
+    match crate::db::filters::remove_filter(client, chat_id, trigger).await {
         Ok(true) => {
-            if let Some(group_filters) = cache.write().await.get_mut(&chat_id) {
-                group_filters.remove(trigger);
-            }
             let _ = bot
                 .send_message(
                     msg.chat.id,
@@ -104,10 +93,10 @@ pub async fn handle_stop(
 pub async fn handle_filters_list(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0;
-    match crate::db::filters::list_filters(pool, chat_id).await {
+    client: &Client,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    match crate::db::filters::list_filters(client, chat_id).await {
         Ok(filters) => {
             if filters.is_empty() {
                 let _ = bot.send_message(msg.chat.id, "No filters set.").await;
@@ -122,7 +111,7 @@ pub async fn handle_filters_list(
                 }
                 let _ = bot
                     .send_message(msg.chat.id, text)
-                    .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                    .parse_mode(ParseMode::MarkdownV2)
                     .await;
             }
         }

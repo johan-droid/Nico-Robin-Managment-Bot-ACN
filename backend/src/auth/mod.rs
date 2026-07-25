@@ -1,11 +1,11 @@
 pub mod flood_tracker;
 pub mod rate_limiter;
 
-use teloxide::prelude::*;
-
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
+use crate::telegram::api::Bot;
+use crate::telegram::update::Message;
 
 struct AdminCacheEntry {
     is_admin: bool,
@@ -18,8 +18,8 @@ static ADMIN_CACHE: std::sync::LazyLock<Mutex<HashMap<(i64, u64), AdminCacheEntr
 /// Checks if a user is authorized to execute a command.
 /// Uses Telegram group admin status with a 60-second in-memory TTL cache to prevent API rate limits.
 /// Group owners and administrators can use all admin commands directly.
-pub async fn is_telegram_admin(bot: &Bot, chat_id: ChatId, user_id: UserId) -> bool {
-    let key = (chat_id.0, user_id.0);
+pub async fn is_telegram_admin(bot: &Bot, chat_id: i64, user_id: u64) -> bool {
+    let key = (chat_id, user_id);
     let now = Instant::now();
 
     if let Ok(cache) = ADMIN_CACHE.lock() {
@@ -33,8 +33,7 @@ pub async fn is_telegram_admin(bot: &Bot, chat_id: ChatId, user_id: UserId) -> b
     let is_admin = match bot.get_chat_member(chat_id, user_id).await {
         Ok(member) => matches!(
             member.status(),
-            teloxide::types::ChatMemberStatus::Owner
-                | teloxide::types::ChatMemberStatus::Administrator
+            "creator" | "administrator"
         ),
         Err(_) => false,
     };
@@ -58,15 +57,17 @@ pub fn extract_target_user(msg: &Message) -> Option<(i64, String)> {
     // First check if this is a reply to another message
     if let Some(reply_to) = msg.reply_to_message() {
         if let Some(from) = reply_to.from() {
-            return Some((from.id.0 as i64, from.first_name.clone()));
+            return Some((from.id as i64, from.first_name.clone()));
         }
     }
 
     // Check for text_mention entities (resolved @usernames)
     if let Some(entities) = msg.entities() {
         for entity in entities {
-            if let teloxide::types::MessageEntityKind::TextMention { user } = &entity.kind {
-                return Some((user.id.0 as i64, user.first_name.clone()));
+            if entity.type_ == "text_mention" {
+                if let Some(user) = &entity.user {
+                    return Some((user.id as i64, user.first_name.clone()));
+                }
             }
         }
     }
@@ -75,8 +76,10 @@ pub fn extract_target_user(msg: &Message) -> Option<(i64, String)> {
     if let Some(reply_to) = msg.reply_to_message() {
         if let Some(entities) = reply_to.entities() {
             for entity in entities {
-                if let teloxide::types::MessageEntityKind::TextMention { user } = &entity.kind {
-                    return Some((user.id.0 as i64, user.first_name.clone()));
+                if entity.type_ == "text_mention" {
+                    if let Some(user) = &entity.user {
+                        return Some((user.id as i64, user.first_name.clone()));
+                    }
                 }
             }
         }
@@ -101,7 +104,7 @@ pub fn extract_target_user(msg: &Message) -> Option<(i64, String)> {
 }
 
 /// Attempts to resolve a @username to a user ID within the given chat (e.g. from chat administrators).
-pub async fn resolve_username(bot: &Bot, chat_id: ChatId, username: &str) -> Option<(i64, String)> {
+pub async fn resolve_username(bot: &Bot, chat_id: i64, username: &str) -> Option<(i64, String)> {
     let clean_uname = username.trim_start_matches('@').to_lowercase();
     if clean_uname.is_empty() {
         return None;
@@ -111,20 +114,10 @@ pub async fn resolve_username(bot: &Bot, chat_id: ChatId, username: &str) -> Opt
             let u = admin.user;
             if let Some(ref un) = u.username {
                 if un.to_lowercase() == clean_uname {
-                    return Some((u.id.0 as i64, u.first_name));
+                    return Some((u.id as i64, u.first_name));
                 }
             }
         }
     }
     None
-}
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn test_extract_target_user_from_reply() {
-        // This is a basic test for the admin detection function
-        // Actual Telegram API calls are tested via integration tests
-    }
 }
