@@ -3,8 +3,8 @@ use tokio_postgres::Client;
 pub struct WelcomeSettings {
     pub welcome_message: Option<String>,
     pub farewell_message: Option<String>,
-    pub welcome_dm_message: Option<String>,
-    pub clean_welcome: bool,
+    #[allow(dead_code)] pub welcome_dm_message: Option<String>,
+    #[allow(dead_code)] pub clean_welcome: bool,
 }
 
 /// Gets welcome settings for a group.

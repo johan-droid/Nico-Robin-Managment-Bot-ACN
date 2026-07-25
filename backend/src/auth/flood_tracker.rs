@@ -8,12 +8,15 @@ use crate::config::Settings;
 use crate::handlers::log_mod_action;
 use crate::utils::escape_md_v2;
 
+#[allow(dead_code)]
 pub struct FloodTracker {
     buckets: HashMap<i64, Vec<Instant>>,
     settings_cache: Option<(i32, String, i32)>,
 }
 
+#[allow(dead_code)]
 impl FloodTracker {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             buckets: HashMap::new(),

@@ -1,4 +1,4 @@
-use tokio_postgres::{Client, NoTls};
+use tokio_postgres::Client;
 use tracing::info;
 use worker::Env;
 
@@ -8,7 +8,7 @@ pub async fn establish_connection(env: &Env) -> Result<Client, String> {
         .map_err(|e| format!("Hyperdrive binding missing: {}", e))?;
 
     let connection_string = hyperdrive.connection_string();
-    let mut config = connection_string
+    let _config = connection_string
         .parse::<tokio_postgres::Config>()
         .map_err(|e| format!("Parse error: {}", e))?;
 

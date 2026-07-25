@@ -5,6 +5,7 @@ use crate::config::Settings;
 
 /// Result of a rate-limit check.
 #[derive(Debug, PartialEq)]
+#[allow(dead_code)]
 pub enum RateLimitResult {
     /// Request is allowed.
     Allowed,
@@ -17,6 +18,7 @@ pub enum RateLimitResult {
 /// Tracks command timestamps at two levels:
 /// 1. **Per-user-per-group**: prevents a single user from spamming commands in a group.
 /// 2. **Global**: prevents distributed abuse across all groups.
+#[allow(dead_code)]
 pub struct RateLimiter {
     /// Per-user_id command timestamps for a specific chat.
     user_buckets: HashMap<i64, Vec<Instant>>,
@@ -24,6 +26,7 @@ pub struct RateLimiter {
     global_bucket: Vec<Instant>,
 }
 
+#[allow(dead_code)]
 impl RateLimiter {
     pub fn new() -> Self {
         Self {
