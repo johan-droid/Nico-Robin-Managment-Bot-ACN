@@ -1,5 +1,6 @@
-use sqlx::PgPool;
-use teloxide::prelude::*;
+use tokio_postgres::Client;
+use crate::telegram::api::{Bot, ParseMode};
+use crate::telegram::update::Message;
 
 use crate::auth::extract_target_user;
 use crate::utils::escape_md_v2;
@@ -7,18 +8,18 @@ use crate::utils::escape_md_v2;
 pub async fn handle_profile(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let target_id = match extract_target_user(&msg) {
         Some((id, _)) if id != 0 => id,
-        _ => msg.from().map(|u| u.id.0 as i64).unwrap_or(0),
+        _ => msg.from().map(|u| u.id as i64).unwrap_or(0),
     };
     if target_id == 0 {
         bot.send_message(msg.chat.id, "Could not resolve user.")
             .await?;
         return Ok(());
     }
-    match crate::db::profiles::get_or_create_profile(pool, target_id).await {
+    match crate::db::profiles::get_or_create_profile(client, target_id).await {
         Ok(profile) => {
             let text = format!(
                 "*User Profile*\n\nUser ID: {}\nBio: {}\nData: {}",
@@ -32,7 +33,7 @@ pub async fn handle_profile(
             );
             let _ = bot
                 .send_message(msg.chat.id, text)
-                .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                .parse_mode(ParseMode::MarkdownV2)
                 .await;
         }
         Err(e) => {
@@ -50,8 +51,8 @@ pub async fn handle_profile(
 pub async fn handle_setbio(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let content = text.strip_prefix("/setbio ").unwrap_or("");
     if content.is_empty() {
@@ -59,8 +60,8 @@ pub async fn handle_setbio(
             .await?;
         return Ok(());
     }
-    let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
-    match crate::db::profiles::set_bio(pool, user_id, content).await {
+    let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
+    match crate::db::profiles::set_bio(client, user_id, content).await {
         Ok(_) => {
             let _ = bot.send_message(msg.chat.id, "Bio updated.").await;
         }
@@ -79,10 +80,10 @@ pub async fn handle_setbio(
 pub async fn handle_export(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
-    let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
-    match crate::db::profiles::get_or_create_profile(pool, user_id).await {
+    client: &Client,
+) -> Result<(), String> {
+    let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
+    match crate::db::profiles::get_or_create_profile(client, user_id).await {
         Ok(profile) => {
             let data = serde_json::json!({
                 "user_id": profile.user_id,
@@ -93,7 +94,7 @@ pub async fn handle_export(
             let text = format!("*Your Data:*\n```\n{}\n```", escape_md_v2(&json_str));
             let _ = bot
                 .send_message(msg.chat.id, text)
-                .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                .parse_mode(ParseMode::MarkdownV2)
                 .await;
         }
         Err(e) => {
@@ -111,10 +112,10 @@ pub async fn handle_export(
 pub async fn handle_delete_data(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
-    let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
-    match crate::db::profiles::delete_profile(pool, user_id).await {
+    client: &Client,
+) -> Result<(), String> {
+    let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
+    match crate::db::profiles::delete_profile(client, user_id).await {
         Ok(true) => {
             let _ = bot
                 .send_message(msg.chat.id, "Your data has been deleted.")

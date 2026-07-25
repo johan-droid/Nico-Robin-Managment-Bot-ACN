@@ -1,10 +1,14 @@
-use sqlx::PgPool;
-use teloxide::prelude::*;
+use tokio_postgres::Client;
+use crate::telegram::api::{Bot, ParseMode};
+use crate::telegram::update::Message;
 
 use crate::utils::escape_md_v2;
 
 const FEATURE_CATEGORIES: &[(&str, &[&str])] = &[
-    ("moderation", &["ban", "kick", "mute", "warn", "slowmode"]),
+    (
+        "moderation",
+        &["ban", "unban", "kick", "mute", "unmute", "warn", "slowmode"],
+    ),
     ("notes", &["save", "get", "notes", "clear"]),
     ("filters", &["filter", "stop", "filters"]),
     ("welcome", &["welcome", "farewell"]),
@@ -16,10 +20,10 @@ const FEATURE_CATEGORIES: &[(&str, &[&str])] = &[
 pub async fn handle_features_list(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0;
-    match crate::db::features::list_features(pool, chat_id).await {
+    client: &Client,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    match crate::db::features::list_features(client, chat_id).await {
         Ok(features) => {
             if features.is_empty() {
                 let _ = bot
@@ -33,7 +37,7 @@ pub async fn handle_features_list(
                 }
                 let _ = bot
                     .send_message(msg.chat.id, text)
-                    .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+                    .parse_mode(ParseMode::MarkdownV2)
                     .await;
             }
         }
@@ -52,8 +56,8 @@ pub async fn handle_features_list(
 pub async fn handle_enable(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/enable ").unwrap_or("").trim();
     if name.is_empty() {
@@ -61,10 +65,10 @@ pub async fn handle_enable(
             .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0;
-    let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
+    let chat_id = msg.chat.id;
+    let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
 
-    match crate::db::features::enable_feature(pool, chat_id, name, user_id).await {
+    match crate::db::features::enable_feature(client, chat_id, name, user_id).await {
         Ok(_) => {
             let _ = bot
                 .send_message(
@@ -88,8 +92,8 @@ pub async fn handle_enable(
 pub async fn handle_disable(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/disable ").unwrap_or("").trim();
     if name.is_empty() {
@@ -97,10 +101,10 @@ pub async fn handle_disable(
             .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0;
-    let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
+    let chat_id = msg.chat.id;
+    let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
 
-    match crate::db::features::disable_feature(pool, chat_id, name, user_id).await {
+    match crate::db::features::disable_feature(client, chat_id, name, user_id).await {
         Ok(_) => {
             let _ = bot
                 .send_message(
@@ -124,8 +128,8 @@ pub async fn handle_disable(
 pub async fn handle_toggle(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/toggle ").unwrap_or("").trim();
     if name.is_empty() {
@@ -133,14 +137,14 @@ pub async fn handle_toggle(
             .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0;
-    let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
+    let chat_id = msg.chat.id;
+    let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
 
-    let current = crate::db::features::is_feature_enabled(pool, chat_id, name)
+    let current = crate::db::features::is_feature_enabled(client, chat_id, name)
         .await
         .unwrap_or(true);
     if current {
-        let _ = crate::db::features::disable_feature(pool, chat_id, name, user_id).await;
+        let _ = crate::db::features::disable_feature(client, chat_id, name, user_id).await;
         let _ = bot
             .send_message(
                 msg.chat.id,
@@ -148,7 +152,7 @@ pub async fn handle_toggle(
             )
             .await;
     } else {
-        let _ = crate::db::features::enable_feature(pool, chat_id, name, user_id).await;
+        let _ = crate::db::features::enable_feature(client, chat_id, name, user_id).await;
         let _ = bot
             .send_message(
                 msg.chat.id,
@@ -159,7 +163,7 @@ pub async fn handle_toggle(
     Ok(())
 }
 
-pub async fn handle_feature_info(bot: Bot, msg: Message) -> Result<(), teloxide::RequestError> {
+pub async fn handle_feature_info(bot: Bot, msg: Message) -> Result<(), String> {
     let mut text = String::from("*Feature Categories:*\n\n");
     for (category, features) in FEATURE_CATEGORIES {
         text.push_str(&format!(
@@ -171,7 +175,7 @@ pub async fn handle_feature_info(bot: Bot, msg: Message) -> Result<(), teloxide:
     text.push_str("\nUse /enablecategory or /disablecategory to toggle entire categories\\.");
     let _ = bot
         .send_message(msg.chat.id, text)
-        .parse_mode(teloxide::types::ParseMode::MarkdownV2)
+        .parse_mode(ParseMode::MarkdownV2)
         .await;
     Ok(())
 }
@@ -179,10 +183,10 @@ pub async fn handle_feature_info(bot: Bot, msg: Message) -> Result<(), teloxide:
 pub async fn handle_my_features(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0;
-    match crate::db::features::list_features(pool, chat_id).await {
+    client: &Client,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    match crate::db::features::list_features(client, chat_id).await {
         Ok(features) => {
             let enabled_count = features.iter().filter(|(_, e)| *e).count();
             let disabled_count = features.len() - enabled_count;
@@ -209,10 +213,10 @@ pub async fn handle_my_features(
 pub async fn handle_reset_features(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0;
-    match crate::db::features::reset_features(pool, chat_id).await {
+    client: &Client,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    match crate::db::features::reset_features(client, chat_id).await {
         Ok(count) => {
             let _ = bot
                 .send_message(msg.chat.id, format!("Reset {} feature overrides.", count))
@@ -233,8 +237,8 @@ pub async fn handle_reset_features(
 pub async fn handle_enable_category(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let category = text.strip_prefix("/enable_category ").unwrap_or("").trim();
     if category.is_empty() {
@@ -258,10 +262,10 @@ pub async fn handle_enable_category(
 
     match features {
         Some(feats) => {
-            let chat_id = msg.chat.id.0;
-            let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
+            let chat_id = msg.chat.id;
+            let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
             for feat in feats {
-                let _ = crate::db::features::enable_feature(pool, chat_id, feat, user_id).await;
+                let _ = crate::db::features::enable_feature(client, chat_id, feat, user_id).await;
             }
             let _ = bot
                 .send_message(
@@ -284,8 +288,8 @@ pub async fn handle_enable_category(
 pub async fn handle_disable_category(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let category = text.strip_prefix("/disable_category ").unwrap_or("").trim();
     if category.is_empty() {
@@ -309,10 +313,10 @@ pub async fn handle_disable_category(
 
     match features {
         Some(feats) => {
-            let chat_id = msg.chat.id.0;
-            let user_id = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
+            let chat_id = msg.chat.id;
+            let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
             for feat in feats {
-                let _ = crate::db::features::disable_feature(pool, chat_id, feat, user_id).await;
+                let _ = crate::db::features::disable_feature(client, chat_id, feat, user_id).await;
             }
             let _ = bot
                 .send_message(

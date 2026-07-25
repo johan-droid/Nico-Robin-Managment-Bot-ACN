@@ -1,18 +1,24 @@
-# Cloudflare Workers/Pages deployment configuration
-# For Cloudflare Workers - use this to deploy the backend as a worker
-# Note: The bot currently runs on polling mode by default. For Cloudflare Workers,
-# webhook mode is recommended. Set BOT_MODE=webhook and WEBHOOK_URL accordingly.
-
 name = "nico-robin-bot"
 main = "backend/src/main.rs"
 compatibility_date = "2024-01-01"
 
-# Workers AI binding (if needed for AI moderation)
-# [ai]
-# binding = "AI"
+[build]
+command = "cargo install worker-build && worker-build --release"
 
-[env.production]
-vars = { ENVIRONMENT = "production", BOT_MODE = "webhook" }
+[[hyperdrive]]
+binding = "HYPERDRIVE"
+id = "dummy_id_replace_with_actual"
 
-# For Cloudflare Pages - static site deployment info
-# pages_build_output_dir = "./public"
+[[durable_objects.bindings]]
+name = "CHAT_STATE"
+class_name = "ChatState"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["ChatState"]
+
+[vars]
+ENVIRONMENT = "production"
+BOT_MODE = "webhook"
+ALLOWED_GROUP_IDS = ""
+WEBHOOK_SECRET_PATH = "secret-webhook-path"

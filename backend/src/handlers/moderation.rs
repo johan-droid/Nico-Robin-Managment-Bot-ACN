@@ -1,12 +1,13 @@
-use sqlx::PgPool;
-use teloxide::prelude::*;
+use tokio_postgres::Client;
+use crate::telegram::api::{Bot, ParseMode};
+use crate::telegram::update::{Message, ChatPermissions};
 
 use crate::auth::extract_target_user;
 use crate::config::Settings;
 use crate::handlers::log_mod_action;
 use crate::utils::escape_md_v2;
 
-async fn send_text(bot: &Bot, chat_id: ChatId, text: &str) {
+async fn send_text(bot: &Bot, chat_id: i64, text: &str) {
     let _ = bot.send_message(chat_id, text).await;
 }
 
@@ -40,7 +41,7 @@ pub async fn handle_ban(
     bot: Bot,
     msg: Message,
     settings: &Settings,
-) -> Result<(), teloxide::RequestError> {
+) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /ban @username").await {
             Some(v) => v,
@@ -48,7 +49,7 @@ pub async fn handle_ban(
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
     match bot
-        .ban_chat_member(msg.chat.id, UserId(target_id as u64))
+        .ban_chat_member(msg.chat.id, target_id as u64)
         .await
     {
         Ok(_) => {
@@ -75,7 +76,7 @@ pub async fn handle_ban(
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Failed to ban: {}", escape_md_v2(&e.to_string())),
+                &format!("Failed to ban: {}", escape_md_v2(&e)),
             )
             .await
         }
@@ -87,7 +88,7 @@ pub async fn handle_unban(
     bot: Bot,
     msg: Message,
     settings: &Settings,
-) -> Result<(), teloxide::RequestError> {
+) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /unban @username").await {
             Some(v) => v,
@@ -95,7 +96,7 @@ pub async fn handle_unban(
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
     match bot
-        .unban_chat_member(msg.chat.id, UserId(target_id as u64))
+        .unban_chat_member(msg.chat.id, target_id as u64)
         .await
     {
         Ok(_) => {
@@ -122,7 +123,7 @@ pub async fn handle_unban(
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Failed to unban: {}", escape_md_v2(&e.to_string())),
+                &format!("Failed to unban: {}", escape_md_v2(&e)),
             )
             .await
         }
@@ -134,47 +135,46 @@ pub async fn handle_kick(
     bot: Bot,
     msg: Message,
     settings: &Settings,
-) -> Result<(), teloxide::RequestError> {
+) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /kick @username").await {
             Some(v) => v,
             None => return Ok(()),
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
-    if let Err(e) = bot
-        .ban_chat_member(msg.chat.id, UserId(target_id as u64))
+    match bot
+        .unban_chat_member(msg.chat.id, target_id as u64)
         .await
     {
-        send_text(
-            &bot,
-            msg.chat.id,
-            &format!("Failed to kick: {}", escape_md_v2(&e.to_string())),
-        )
-        .await;
-        return Ok(());
+        Ok(_) => {
+            send_text(
+                &bot,
+                msg.chat.id,
+                &format!("Kicked {}", escape_md_v2(&target_name)),
+            )
+            .await;
+            log_mod_action(
+                &bot,
+                settings,
+                msg.chat.id,
+                &format!(
+                    "Kicked {} in {} (by {})",
+                    escape_md_v2(&target_name),
+                    escape_md_v2(msg.chat.title().unwrap_or("group")),
+                    escape_md_v2(executor)
+                ),
+            )
+            .await;
+        }
+        Err(e) => {
+            send_text(
+                &bot,
+                msg.chat.id,
+                &format!("Failed to kick: {}", escape_md_v2(&e)),
+            )
+            .await
+        }
     }
-    let _ = tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    let _ = bot
-        .unban_chat_member(msg.chat.id, UserId(target_id as u64))
-        .await;
-    send_text(
-        &bot,
-        msg.chat.id,
-        &format!("Kicked {}", escape_md_v2(&target_name)),
-    )
-    .await;
-    log_mod_action(
-        &bot,
-        settings,
-        msg.chat.id,
-        &format!(
-            "Kicked {} in {} (by {})",
-            escape_md_v2(&target_name),
-            escape_md_v2(msg.chat.title().unwrap_or("group")),
-            escape_md_v2(executor)
-        ),
-    )
-    .await;
     Ok(())
 }
 
@@ -182,16 +182,16 @@ pub async fn handle_mute(
     bot: Bot,
     msg: Message,
     settings: &Settings,
-) -> Result<(), teloxide::RequestError> {
+) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /mute @username").await {
             Some(v) => v,
             None => return Ok(()),
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
-    let permissions = teloxide::types::ChatPermissions::empty();
+    let permissions = ChatPermissions::empty();
     match bot
-        .restrict_chat_member(msg.chat.id, UserId(target_id as u64), permissions)
+        .restrict_chat_member(msg.chat.id, target_id as u64, permissions)
         .await
     {
         Ok(_) => {
@@ -218,7 +218,7 @@ pub async fn handle_mute(
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Failed to mute: {}", escape_md_v2(&e.to_string())),
+                &format!("Failed to mute: {}", escape_md_v2(&e)),
             )
             .await
         }
@@ -230,16 +230,16 @@ pub async fn handle_unmute(
     bot: Bot,
     msg: Message,
     settings: &Settings,
-) -> Result<(), teloxide::RequestError> {
+) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /unmute @username").await {
             Some(v) => v,
             None => return Ok(()),
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
-    let permissions = teloxide::types::ChatPermissions::all();
+    let permissions = ChatPermissions::all();
     match bot
-        .restrict_chat_member(msg.chat.id, UserId(target_id as u64), permissions)
+        .restrict_chat_member(msg.chat.id, target_id as u64, permissions)
         .await
     {
         Ok(_) => {
@@ -266,7 +266,7 @@ pub async fn handle_unmute(
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Failed to unmute: {}", escape_md_v2(&e.to_string())),
+                &format!("Failed to unmute: {}", escape_md_v2(&e)),
             )
             .await
         }
@@ -277,16 +277,16 @@ pub async fn handle_unmute(
 pub async fn handle_warn(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
+    client: &Client,
     settings: &Settings,
-) -> Result<(), teloxide::RequestError> {
+) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /warn @user [reason]").await {
             Some(v) => v,
             None => return Ok(()),
         };
-    let chat_id = msg.chat.id.0;
-    let warned_by = msg.from().map(|u| u.id.0 as i64).unwrap_or(0);
+    let chat_id = msg.chat.id;
+    let warned_by = msg.from().map(|u| u.id as i64).unwrap_or(0);
 
     let reason = msg
         .text()
@@ -300,8 +300,8 @@ pub async fn handle_warn(
         })
         .unwrap_or("No reason provided");
 
-    let _ = crate::db::warnings::add_warning(pool, chat_id, target_id, reason, warned_by).await;
-    let count = crate::db::warnings::get_warning_count(pool, chat_id, target_id)
+    let _ = crate::db::warnings::add_warning(client, chat_id, target_id, reason, warned_by).await;
+    let count = crate::db::warnings::get_warning_count(client, chat_id, target_id)
         .await
         .unwrap_or(0);
 
@@ -337,7 +337,7 @@ pub async fn handle_warn(
 
     if count >= settings.warn_threshold as i64 {
         let _ = bot
-            .ban_chat_member(msg.chat.id, UserId(target_id as u64))
+            .ban_chat_member(msg.chat.id, target_id as u64)
             .await;
         send_text(
             &bot,
@@ -359,7 +359,7 @@ pub async fn handle_warn(
             ),
         )
         .await;
-        let _ = crate::db::warnings::reset_warnings(pool, chat_id, target_id).await;
+        let _ = crate::db::warnings::reset_warnings(client, chat_id, target_id).await;
     }
     Ok(())
 }
@@ -367,18 +367,18 @@ pub async fn handle_warn(
 pub async fn handle_warns(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /warns @user").await {
             Some(v) => v,
             None => return Ok(()),
         };
-    let chat_id = msg.chat.id.0;
-    let count = crate::db::warnings::get_warning_count(pool, chat_id, target_id)
+    let chat_id = msg.chat.id;
+    let count = crate::db::warnings::get_warning_count(client, chat_id, target_id)
         .await
         .unwrap_or(0);
-    let warnings = crate::db::warnings::get_warnings(pool, chat_id, target_id)
+    let warnings = crate::db::warnings::get_warnings(client, chat_id, target_id)
         .await
         .unwrap_or_default();
 
@@ -402,16 +402,16 @@ pub async fn handle_warns(
 pub async fn handle_resetwarn(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
+    client: &Client,
     settings: &Settings,
-) -> Result<(), teloxide::RequestError> {
+) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /resetwarn @user").await {
             Some(v) => v,
             None => return Ok(()),
         };
-    let chat_id = msg.chat.id.0;
-    let removed = crate::db::warnings::reset_warnings(pool, chat_id, target_id)
+    let chat_id = msg.chat.id;
+    let removed = crate::db::warnings::reset_warnings(client, chat_id, target_id)
         .await
         .unwrap_or(0);
     send_text(
@@ -445,7 +445,7 @@ pub async fn handle_slowmode(
     bot: Bot,
     msg: Message,
     settings: &Settings,
-) -> Result<(), teloxide::RequestError> {
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
@@ -514,11 +514,11 @@ pub async fn handle_del(
     bot: Bot,
     msg: Message,
     settings: &Settings,
-) -> Result<(), teloxide::RequestError> {
+) -> Result<(), String> {
     if let Some(reply) = msg.reply_to_message() {
-        match bot.delete_message(msg.chat.id, reply.id).await {
+        match bot.delete_message(msg.chat.id, reply.id()).await {
             Ok(_) => {
-                let _ = bot.delete_message(msg.chat.id, msg.id).await;
+                let _ = bot.delete_message(msg.chat.id, msg.id()).await;
                 let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
                 log_mod_action(
                     &bot,
@@ -536,7 +536,7 @@ pub async fn handle_del(
                 send_text(
                     &bot,
                     msg.chat.id,
-                    &format!("Failed to delete: {}", escape_md_v2(&e.to_string())),
+                    &format!("Failed to delete: {}", escape_md_v2(&e)),
                 )
                 .await
             }
@@ -556,11 +556,11 @@ pub async fn handle_pin(
     bot: Bot,
     msg: Message,
     settings: &Settings,
-) -> Result<(), teloxide::RequestError> {
+) -> Result<(), String> {
     if let Some(reply) = msg.reply_to_message() {
-        match bot.pin_chat_message(msg.chat.id, reply.id).await {
+        match bot.pin_chat_message(msg.chat.id, reply.id()).await {
             Ok(_) => {
-                let _ = bot.delete_message(msg.chat.id, msg.id).await;
+                let _ = bot.delete_message(msg.chat.id, msg.id()).await;
                 let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
                 log_mod_action(
                     &bot,
@@ -578,7 +578,7 @@ pub async fn handle_pin(
                 send_text(
                     &bot,
                     msg.chat.id,
-                    &format!("Failed to pin: {}", escape_md_v2(&e.to_string())),
+                    &format!("Failed to pin: {}", escape_md_v2(&e)),
                 )
                 .await
             }

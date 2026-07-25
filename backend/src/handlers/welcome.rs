@@ -1,13 +1,14 @@
-use sqlx::PgPool;
-use teloxide::prelude::*;
+use tokio_postgres::Client;
+use crate::telegram::api::Bot;
+use crate::telegram::update::Message;
 
 use crate::utils::escape_md_v2;
 
 pub async fn handle_setwelcome(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let content = text.strip_prefix("/setwelcome ").unwrap_or("");
     if content.is_empty() {
@@ -18,8 +19,8 @@ pub async fn handle_setwelcome(
         .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0;
-    match crate::db::welcome::set_welcome_message(pool, chat_id, content).await {
+    let chat_id = msg.chat.id;
+    match crate::db::welcome::set_welcome_message(client, chat_id, content).await {
         Ok(_) => {
             let _ = bot.send_message(msg.chat.id, "Welcome message set.").await;
         }
@@ -38,10 +39,10 @@ pub async fn handle_setwelcome(
 pub async fn handle_resetwelcome(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0;
-    match crate::db::welcome::reset_welcome_message(pool, chat_id).await {
+    client: &Client,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    match crate::db::welcome::reset_welcome_message(client, chat_id).await {
         Ok(_) => {
             let _ = bot
                 .send_message(msg.chat.id, "Welcome message reset.")
@@ -62,10 +63,10 @@ pub async fn handle_resetwelcome(
 pub async fn handle_welcome_preview(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0;
-    match crate::db::welcome::get_welcome_settings(pool, chat_id).await {
+    client: &Client,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    match crate::db::welcome::get_welcome_settings(client, chat_id).await {
         Ok(Some(settings)) => {
             let welcome = settings
                 .welcome_message
@@ -92,8 +93,8 @@ pub async fn handle_welcome_preview(
 pub async fn handle_setwelcomedm(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let content = text.strip_prefix("/setwelcomedm ").unwrap_or("");
     if content.is_empty() {
@@ -101,8 +102,8 @@ pub async fn handle_setwelcomedm(
             .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0;
-    match crate::db::welcome::set_welcome_dm_message(pool, chat_id, content).await {
+    let chat_id = msg.chat.id;
+    match crate::db::welcome::set_welcome_dm_message(client, chat_id, content).await {
         Ok(_) => {
             let _ = bot
                 .send_message(msg.chat.id, "Welcome DM message set.")
@@ -123,8 +124,8 @@ pub async fn handle_setwelcomedm(
 pub async fn handle_setfarewell(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
+    client: &Client,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let content = text.strip_prefix("/setfarewell ").unwrap_or("");
     if content.is_empty() {
@@ -132,8 +133,8 @@ pub async fn handle_setfarewell(
             .await?;
         return Ok(());
     }
-    let chat_id = msg.chat.id.0;
-    match crate::db::welcome::set_farewell_message(pool, chat_id, content).await {
+    let chat_id = msg.chat.id;
+    match crate::db::welcome::set_farewell_message(client, chat_id, content).await {
         Ok(_) => {
             let _ = bot.send_message(msg.chat.id, "Farewell message set.").await;
         }
@@ -152,10 +153,10 @@ pub async fn handle_setfarewell(
 pub async fn handle_farewell_preview(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0;
-    match crate::db::welcome::get_welcome_settings(pool, chat_id).await {
+    client: &Client,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    match crate::db::welcome::get_welcome_settings(client, chat_id).await {
         Ok(Some(settings)) => {
             let farewell = settings
                 .farewell_message
@@ -182,10 +183,10 @@ pub async fn handle_farewell_preview(
 pub async fn handle_cleanwelcome(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0;
-    match crate::db::welcome::toggle_clean_welcome(pool, chat_id).await {
+    client: &Client,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    match crate::db::welcome::toggle_clean_welcome(client, chat_id).await {
         Ok(enabled) => {
             let status = if enabled { "enabled" } else { "disabled" };
             let _ = bot
@@ -207,10 +208,10 @@ pub async fn handle_cleanwelcome(
 pub async fn handle_welcometest(
     bot: Bot,
     msg: Message,
-    pool: &PgPool,
-) -> Result<(), teloxide::RequestError> {
-    let chat_id = msg.chat.id.0;
-    match crate::db::welcome::get_welcome_settings(pool, chat_id).await {
+    client: &Client,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    match crate::db::welcome::get_welcome_settings(client, chat_id).await {
         Ok(Some(settings)) => {
             let user_name = msg.from().map(|u| u.first_name.as_str()).unwrap_or("User");
             let welcome = settings
