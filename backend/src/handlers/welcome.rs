@@ -1,14 +1,10 @@
-use tokio_postgres::Client;
 use crate::telegram::api::Bot;
 use crate::telegram::update::Message;
+use tokio_postgres::Client;
 
 use crate::utils::escape_md_v2;
 
-pub async fn handle_setwelcome(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_setwelcome(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let content = text.strip_prefix("/setwelcome ").unwrap_or("");
     if content.is_empty() {
@@ -36,11 +32,7 @@ pub async fn handle_setwelcome(
     Ok(())
 }
 
-pub async fn handle_resetwelcome(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_resetwelcome(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
     match crate::db::welcome::reset_welcome_message(client, chat_id).await {
         Ok(_) => {
@@ -60,11 +52,7 @@ pub async fn handle_resetwelcome(
     Ok(())
 }
 
-pub async fn handle_welcome_preview(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_welcome_preview(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
     match crate::db::welcome::get_welcome_settings(client, chat_id).await {
         Ok(Some(settings)) => {
@@ -90,11 +78,7 @@ pub async fn handle_welcome_preview(
     Ok(())
 }
 
-pub async fn handle_setwelcomedm(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_setwelcomedm(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let content = text.strip_prefix("/setwelcomedm ").unwrap_or("");
     if content.is_empty() {
@@ -121,11 +105,7 @@ pub async fn handle_setwelcomedm(
     Ok(())
 }
 
-pub async fn handle_setfarewell(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_setfarewell(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let content = text.strip_prefix("/setfarewell ").unwrap_or("");
     if content.is_empty() {
@@ -180,11 +160,7 @@ pub async fn handle_farewell_preview(
     Ok(())
 }
 
-pub async fn handle_cleanwelcome(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_cleanwelcome(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
     match crate::db::welcome::toggle_clean_welcome(client, chat_id).await {
         Ok(enabled) => {
@@ -205,11 +181,7 @@ pub async fn handle_cleanwelcome(
     Ok(())
 }
 
-pub async fn handle_welcometest(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_welcometest(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
     match crate::db::welcome::get_welcome_settings(client, chat_id).await {
         Ok(Some(settings)) => {

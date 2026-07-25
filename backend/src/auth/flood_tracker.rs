@@ -2,18 +2,21 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use crate::telegram::api::Bot;
-use crate::telegram::update::{Message, ChatPermissions};
+use crate::telegram::update::{ChatPermissions, Message};
 
 use crate::config::Settings;
 use crate::handlers::log_mod_action;
 use crate::utils::escape_md_v2;
 
+#[allow(dead_code)]
 pub struct FloodTracker {
     buckets: HashMap<i64, Vec<Instant>>,
     settings_cache: Option<(i32, String, i32)>,
 }
 
+#[allow(dead_code)]
 impl FloodTracker {
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             buckets: HashMap::new(),
@@ -68,9 +71,7 @@ impl FloodTracker {
 
             match mode.to_lowercase().as_str() {
                 "ban" => {
-                    let _ = bot
-                        .ban_chat_member(msg.chat.id, user_id as u64)
-                        .await;
+                    let _ = bot.ban_chat_member(msg.chat.id, user_id as u64).await;
                     let _ = bot
                         .send_message(
                             msg.chat.id,

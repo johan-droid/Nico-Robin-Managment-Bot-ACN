@@ -3,7 +3,9 @@ use tokio_postgres::Client;
 pub struct WelcomeSettings {
     pub welcome_message: Option<String>,
     pub farewell_message: Option<String>,
+    #[allow(dead_code)]
     pub welcome_dm_message: Option<String>,
+    #[allow(dead_code)]
     pub clean_welcome: bool,
 }
 
@@ -33,13 +35,14 @@ pub async fn set_welcome_message(
     group_id: i64,
     message: &str,
 ) -> Result<(), String> {
-    client.execute(
-        r#"INSERT INTO welcome_settings (group_id, welcome_message) VALUES ($1, $2)
+    client
+        .execute(
+            r#"INSERT INTO welcome_settings (group_id, welcome_message) VALUES ($1, $2)
            ON CONFLICT (group_id) DO UPDATE SET welcome_message = $2, updated_at = NOW()"#,
-        &[&group_id, &message]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+            &[&group_id, &message],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -60,13 +63,14 @@ pub async fn set_farewell_message(
     group_id: i64,
     message: &str,
 ) -> Result<(), String> {
-    client.execute(
-        r#"INSERT INTO welcome_settings (group_id, farewell_message) VALUES ($1, $2)
+    client
+        .execute(
+            r#"INSERT INTO welcome_settings (group_id, farewell_message) VALUES ($1, $2)
            ON CONFLICT (group_id) DO UPDATE SET farewell_message = $2, updated_at = NOW()"#,
-        &[&group_id, &message]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+            &[&group_id, &message],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -76,24 +80,26 @@ pub async fn set_welcome_dm_message(
     group_id: i64,
     message: &str,
 ) -> Result<(), String> {
-    client.execute(
-        r#"INSERT INTO welcome_settings (group_id, welcome_dm_message) VALUES ($1, $2)
+    client
+        .execute(
+            r#"INSERT INTO welcome_settings (group_id, welcome_dm_message) VALUES ($1, $2)
            ON CONFLICT (group_id) DO UPDATE SET welcome_dm_message = $2, updated_at = NOW()"#,
-        &[&group_id, &message]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+            &[&group_id, &message],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 /// Toggles clean welcome for a group.
 pub async fn toggle_clean_welcome(client: &Client, group_id: i64) -> Result<bool, String> {
-    let row = client.query_one(
-        r#"UPDATE welcome_settings SET clean_welcome = NOT clean_welcome, updated_at = NOW()
+    let row = client
+        .query_one(
+            r#"UPDATE welcome_settings SET clean_welcome = NOT clean_welcome, updated_at = NOW()
            WHERE group_id = $1 RETURNING clean_welcome"#,
-        &[&group_id]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+            &[&group_id],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(row.get(0))
 }

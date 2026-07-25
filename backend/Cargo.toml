@@ -3,6 +3,7 @@ name = "nico_robin_bot"
 version = "0.2.0"
 edition = "2021"
 authors = ["johan-droid <sahooashutosh2022@gmail.com>"]
+autobins = false
 
 [lib]
 crate-type = ["cdylib"]

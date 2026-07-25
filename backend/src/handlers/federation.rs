@@ -1,16 +1,12 @@
-use tokio_postgres::Client;
 use crate::telegram::api::{Bot, ParseMode};
 use crate::telegram::update::Message;
+use tokio_postgres::Client;
 
 use uuid::Uuid;
 
 use crate::utils::escape_md_v2;
 
-pub async fn handle_newfed(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_newfed(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/newfed ").unwrap_or("").trim();
     if name.is_empty() {
@@ -47,11 +43,7 @@ pub async fn handle_newfed(
     Ok(())
 }
 
-pub async fn handle_joinfed(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_joinfed(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let fed_id = text.strip_prefix("/joinfed ").unwrap_or("").trim();
     if fed_id.is_empty() {

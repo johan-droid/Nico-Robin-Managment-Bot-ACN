@@ -12,14 +12,15 @@ pub async fn add_filter(
     response: &str,
     created_by: i64,
 ) -> Result<(), String> {
-    client.execute(
-        r#"INSERT INTO filters (group_id, trigger_text, response, created_by)
+    client
+        .execute(
+            r#"INSERT INTO filters (group_id, trigger_text, response, created_by)
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (group_id, trigger_text) DO UPDATE SET response = $3"#,
-        &[&group_id, &trigger_text, &response, &created_by]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+            &[&group_id, &trigger_text, &response, &created_by],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -45,12 +46,13 @@ pub async fn remove_filter(
     group_id: i64,
     trigger_text: &str,
 ) -> Result<bool, String> {
-    let result = client.execute(
-        r#"DELETE FROM filters WHERE group_id = $1 AND trigger_text = $2"#,
-        &[&group_id, &trigger_text]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+    let result = client
+        .execute(
+            r#"DELETE FROM filters WHERE group_id = $1 AND trigger_text = $2"#,
+            &[&group_id, &trigger_text],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(result > 0)
 }

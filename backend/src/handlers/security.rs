@@ -1,6 +1,6 @@
-use tokio_postgres::Client;
 use crate::telegram::api::{Bot, ParseMode};
 use crate::telegram::update::Message;
+use tokio_postgres::Client;
 
 use crate::utils::escape_md_v2;
 
@@ -61,11 +61,7 @@ pub async fn handle_setflood(
     Ok(())
 }
 
-pub async fn handle_flood(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_flood(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
     match crate::db::flood::get_flood_settings(client, chat_id).await {
         Ok(Some((limit, mode, window))) => {

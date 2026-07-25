@@ -1,11 +1,11 @@
 pub mod flood_tracker;
 pub mod rate_limiter;
 
+use crate::telegram::api::Bot;
+use crate::telegram::update::Message;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
-use crate::telegram::api::Bot;
-use crate::telegram::update::Message;
 
 struct AdminCacheEntry {
     is_admin: bool,
@@ -31,10 +31,7 @@ pub async fn is_telegram_admin(bot: &Bot, chat_id: i64, user_id: u64) -> bool {
     }
 
     let is_admin = match bot.get_chat_member(chat_id, user_id).await {
-        Ok(member) => matches!(
-            member.status(),
-            "creator" | "administrator"
-        ),
+        Ok(member) => matches!(member.status(), "creator" | "administrator"),
         Err(_) => false,
     };
 
