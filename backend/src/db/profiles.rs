@@ -7,20 +7,18 @@ pub struct UserProfile {
     pub data: JsonValue,
 }
 
-pub async fn get_or_create_profile(
-    client: &Client,
-    user_id: i64,
-) -> Result<UserProfile, String> {
-    let row = client.query_one(
-        r#"WITH ins AS (
+pub async fn get_or_create_profile(client: &Client, user_id: i64) -> Result<UserProfile, String> {
+    let row = client
+        .query_one(
+            r#"WITH ins AS (
             INSERT INTO user_profiles (user_id) VALUES ($1)
             ON CONFLICT (user_id) DO NOTHING
         )
         SELECT user_id, bio, data FROM user_profiles WHERE user_id = $1"#,
-        &[&user_id]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+            &[&user_id],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(UserProfile {
         user_id: row.get(0),
@@ -31,23 +29,25 @@ pub async fn get_or_create_profile(
 
 /// Sets the bio for a user.
 pub async fn set_bio(client: &Client, user_id: i64, bio: &str) -> Result<(), String> {
-    client.execute(
-        r#"INSERT INTO user_profiles (user_id, bio) VALUES ($1, $2)
+    client
+        .execute(
+            r#"INSERT INTO user_profiles (user_id, bio) VALUES ($1, $2)
            ON CONFLICT (user_id) DO UPDATE SET bio = $2, updated_at = NOW()"#,
-        &[&user_id, &bio]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+            &[&user_id, &bio],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
 /// Deletes a user profile.
 pub async fn delete_profile(client: &Client, user_id: i64) -> Result<bool, String> {
-    let result = client.execute(
-        r#"DELETE FROM user_profiles WHERE user_id = $1"#,
-        &[&user_id]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+    let result = client
+        .execute(
+            r#"DELETE FROM user_profiles WHERE user_id = $1"#,
+            &[&user_id],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(result > 0)
 }

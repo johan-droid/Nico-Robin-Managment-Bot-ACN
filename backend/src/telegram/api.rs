@@ -1,5 +1,5 @@
-use worker::{Fetch, Request, Method, Headers};
 use serde_json::Value;
+use worker::{Fetch, Headers, Method, Request};
 
 use super::update::ChatPermissions;
 
@@ -14,7 +14,9 @@ impl Bot {
     }
 
     pub fn client(&self) -> RawClient {
-        RawClient { token: self.token.clone() }
+        RawClient {
+            token: self.token.clone(),
+        }
     }
 
     async fn api_post(&self, method: &str, payload: Value) -> Result<Value, String> {
@@ -23,14 +25,23 @@ impl Bot {
         let mut headers = Headers::new();
         headers.set("Content-Type", "application/json").unwrap();
 
-        let req = Request::new_with_init(&url, &worker::RequestInit {
-            method: Method::Post,
-            headers,
-            body: Some(worker::wasm_bindgen::JsValue::from_str(&payload.to_string())),
-            ..Default::default()
-        }).map_err(|e| e.to_string())?;
+        let req = Request::new_with_init(
+            &url,
+            &worker::RequestInit {
+                method: Method::Post,
+                headers,
+                body: Some(worker::wasm_bindgen::JsValue::from_str(
+                    &payload.to_string(),
+                )),
+                ..Default::default()
+            },
+        )
+        .map_err(|e| e.to_string())?;
 
-        let mut resp = Fetch::Request(req).send().await.map_err(|e| e.to_string())?;
+        let mut resp = Fetch::Request(req)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
 
         let text = resp.text().await.map_err(|e| e.to_string())?;
 
@@ -52,66 +63,113 @@ impl Bot {
     }
 
     pub async fn delete_message(&self, chat_id: i64, message_id: u64) -> Result<(), String> {
-        self.api_post("deleteMessage", serde_json::json!({
-            "chat_id": chat_id,
-            "message_id": message_id
-        })).await?;
+        self.api_post(
+            "deleteMessage",
+            serde_json::json!({
+                "chat_id": chat_id,
+                "message_id": message_id
+            }),
+        )
+        .await?;
         Ok(())
     }
 
     pub async fn ban_chat_member(&self, chat_id: i64, user_id: u64) -> Result<(), String> {
-        self.api_post("banChatMember", serde_json::json!({
-            "chat_id": chat_id,
-            "user_id": user_id
-        })).await?;
+        self.api_post(
+            "banChatMember",
+            serde_json::json!({
+                "chat_id": chat_id,
+                "user_id": user_id
+            }),
+        )
+        .await?;
         Ok(())
     }
 
     pub async fn unban_chat_member(&self, chat_id: i64, user_id: u64) -> Result<(), String> {
-        self.api_post("unbanChatMember", serde_json::json!({
-            "chat_id": chat_id,
-            "user_id": user_id,
-            "only_if_banned": true
-        })).await?;
+        self.api_post(
+            "unbanChatMember",
+            serde_json::json!({
+                "chat_id": chat_id,
+                "user_id": user_id,
+                "only_if_banned": true
+            }),
+        )
+        .await?;
         Ok(())
     }
 
-    pub async fn restrict_chat_member(&self, chat_id: i64, user_id: u64, permissions: ChatPermissions) -> Result<(), String> {
-        self.api_post("restrictChatMember", serde_json::json!({
-            "chat_id": chat_id,
-            "user_id": user_id,
-            "permissions": permissions
-        })).await?;
+    pub async fn restrict_chat_member(
+        &self,
+        chat_id: i64,
+        user_id: u64,
+        permissions: ChatPermissions,
+    ) -> Result<(), String> {
+        self.api_post(
+            "restrictChatMember",
+            serde_json::json!({
+                "chat_id": chat_id,
+                "user_id": user_id,
+                "permissions": permissions
+            }),
+        )
+        .await?;
         Ok(())
     }
 
     pub async fn pin_chat_message(&self, chat_id: i64, message_id: u64) -> Result<(), String> {
-        self.api_post("pinChatMessage", serde_json::json!({
-            "chat_id": chat_id,
-            "message_id": message_id
-        })).await?;
+        self.api_post(
+            "pinChatMessage",
+            serde_json::json!({
+                "chat_id": chat_id,
+                "message_id": message_id
+            }),
+        )
+        .await?;
         Ok(())
     }
 
-    pub async fn get_chat_member(&self, chat_id: i64, user_id: u64) -> Result<super::update::ChatMember, String> {
-        let res = self.api_post("getChatMember", serde_json::json!({
-            "chat_id": chat_id,
-            "user_id": user_id
-        })).await?;
+    pub async fn get_chat_member(
+        &self,
+        chat_id: i64,
+        user_id: u64,
+    ) -> Result<super::update::ChatMember, String> {
+        let res = self
+            .api_post(
+                "getChatMember",
+                serde_json::json!({
+                    "chat_id": chat_id,
+                    "user_id": user_id
+                }),
+            )
+            .await?;
         serde_json::from_value(res).map_err(|e| e.to_string())
     }
 
-    pub async fn get_chat_administrators(&self, chat_id: i64) -> Result<Vec<super::update::ChatMember>, String> {
-        let res = self.api_post("getChatAdministrators", serde_json::json!({
-            "chat_id": chat_id
-        })).await?;
+    pub async fn get_chat_administrators(
+        &self,
+        chat_id: i64,
+    ) -> Result<Vec<super::update::ChatMember>, String> {
+        let res = self
+            .api_post(
+                "getChatAdministrators",
+                serde_json::json!({
+                    "chat_id": chat_id
+                }),
+            )
+            .await?;
         serde_json::from_value(res).map_err(|e| e.to_string())
     }
 
     pub async fn get_chat_member_count(&self, chat_id: i64) -> Result<u64, String> {
-        let res = self.api_post("getChatMemberCount", serde_json::json!({
-            "chat_id": chat_id
-        })).await?;
+        let res = self
+            .api_post(
+                "getChatMemberCount",
+                serde_json::json!({
+                    "chat_id": chat_id
+                }),
+            )
+            .await?;
         if let Some(count) = res.as_u64() {
             Ok(count)
         } else {
@@ -188,16 +246,25 @@ impl RawRequestBuilder {
         let mut headers = Headers::new();
         headers.set("Content-Type", "application/json").unwrap();
 
-        let body = self.json.map(|v| worker::wasm_bindgen::JsValue::from_str(&v.to_string()));
+        let body = self
+            .json
+            .map(|v| worker::wasm_bindgen::JsValue::from_str(&v.to_string()));
 
-        let req = Request::new_with_init(&self.url, &worker::RequestInit {
-            method: Method::Post,
-            headers,
-            body,
-            ..Default::default()
-        }).map_err(|e| e.to_string())?;
+        let req = Request::new_with_init(
+            &self.url,
+            &worker::RequestInit {
+                method: Method::Post,
+                headers,
+                body,
+                ..Default::default()
+            },
+        )
+        .map_err(|e| e.to_string())?;
 
-        let resp = Fetch::Request(req).send().await.map_err(|e| e.to_string())?;
+        let resp = Fetch::Request(req)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
 
         Ok(RawResponse {
             status: resp.status_code(),

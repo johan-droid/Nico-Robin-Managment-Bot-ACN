@@ -1,14 +1,10 @@
-use tokio_postgres::Client;
 use crate::telegram::api::{Bot, ParseMode};
 use crate::telegram::update::Message;
+use tokio_postgres::Client;
 
 use crate::utils::escape_md_v2;
 
-pub async fn handle_filter(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_filter(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.splitn(3, ' ').collect();
     if parts.len() < 3 {
@@ -46,11 +42,7 @@ pub async fn handle_filter(
     Ok(())
 }
 
-pub async fn handle_stop(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_stop(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
@@ -90,11 +82,7 @@ pub async fn handle_stop(
     Ok(())
 }
 
-pub async fn handle_filters_list(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_filters_list(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
     match crate::db::filters::list_filters(client, chat_id).await {
         Ok(filters) => {

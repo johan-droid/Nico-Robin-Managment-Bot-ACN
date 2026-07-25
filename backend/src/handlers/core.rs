@@ -1,6 +1,6 @@
-use crate::utils::escape_md_v2;
 use crate::telegram::api::{Bot, ParseMode};
 use crate::telegram::update::Message;
+use crate::utils::escape_md_v2;
 
 pub async fn handle_start(bot: Bot, msg: Message) -> Result<(), String> {
     let name = msg.from().map(|u| u.first_name.as_str()).unwrap_or("there");

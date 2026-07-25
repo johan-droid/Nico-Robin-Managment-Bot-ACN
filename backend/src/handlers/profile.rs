@@ -1,15 +1,11 @@
-use tokio_postgres::Client;
 use crate::telegram::api::{Bot, ParseMode};
 use crate::telegram::update::Message;
+use tokio_postgres::Client;
 
 use crate::auth::extract_target_user;
 use crate::utils::escape_md_v2;
 
-pub async fn handle_profile(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_profile(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let target_id = match extract_target_user(&msg) {
         Some((id, _)) if id != 0 => id,
         _ => msg.from().map(|u| u.id as i64).unwrap_or(0),
@@ -48,11 +44,7 @@ pub async fn handle_profile(
     Ok(())
 }
 
-pub async fn handle_setbio(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_setbio(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let content = text.strip_prefix("/setbio ").unwrap_or("");
     if content.is_empty() {
@@ -77,11 +69,7 @@ pub async fn handle_setbio(
     Ok(())
 }
 
-pub async fn handle_export(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_export(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
     match crate::db::profiles::get_or_create_profile(client, user_id).await {
         Ok(profile) => {
@@ -109,11 +97,7 @@ pub async fn handle_export(
     Ok(())
 }
 
-pub async fn handle_delete_data(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_delete_data(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
     match crate::db::profiles::delete_profile(client, user_id).await {
         Ok(true) => {

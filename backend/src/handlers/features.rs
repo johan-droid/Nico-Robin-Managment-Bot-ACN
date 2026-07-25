@@ -1,6 +1,6 @@
-use tokio_postgres::Client;
 use crate::telegram::api::{Bot, ParseMode};
 use crate::telegram::update::Message;
+use tokio_postgres::Client;
 
 use crate::utils::escape_md_v2;
 
@@ -17,11 +17,7 @@ const FEATURE_CATEGORIES: &[(&str, &[&str])] = &[
     ("federation", &["newfed", "joinfed"]),
 ];
 
-pub async fn handle_features_list(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_features_list(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
     match crate::db::features::list_features(client, chat_id).await {
         Ok(features) => {
@@ -53,11 +49,7 @@ pub async fn handle_features_list(
     Ok(())
 }
 
-pub async fn handle_enable(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_enable(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/enable ").unwrap_or("").trim();
     if name.is_empty() {
@@ -89,11 +81,7 @@ pub async fn handle_enable(
     Ok(())
 }
 
-pub async fn handle_disable(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_disable(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/disable ").unwrap_or("").trim();
     if name.is_empty() {
@@ -125,11 +113,7 @@ pub async fn handle_disable(
     Ok(())
 }
 
-pub async fn handle_toggle(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_toggle(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/toggle ").unwrap_or("").trim();
     if name.is_empty() {
@@ -180,11 +164,7 @@ pub async fn handle_feature_info(bot: Bot, msg: Message) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn handle_my_features(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_my_features(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
     match crate::db::features::list_features(client, chat_id).await {
         Ok(features) => {
@@ -210,11 +190,7 @@ pub async fn handle_my_features(
     Ok(())
 }
 
-pub async fn handle_reset_features(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_reset_features(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
     match crate::db::features::reset_features(client, chat_id).await {
         Ok(count) => {
@@ -234,11 +210,7 @@ pub async fn handle_reset_features(
     Ok(())
 }
 
-pub async fn handle_enable_category(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_enable_category(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let category = text.strip_prefix("/enable_category ").unwrap_or("").trim();
     if category.is_empty() {

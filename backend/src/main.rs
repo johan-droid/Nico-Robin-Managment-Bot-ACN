@@ -1,7 +1,7 @@
-use worker::*;
+use crate::telegram::update::Update;
 use std::sync::Arc;
 use tokio_postgres::Client;
-use crate::telegram::update::Update;
+use worker::*;
 
 mod auth;
 mod config;

@@ -39,7 +39,8 @@ impl RateLimiter {
         let window = std::time::Duration::from_secs(settings.rate_limit_cooldown as u64);
 
         // --- Global level check ---
-        self.global_bucket.retain(|ts| now.duration_since(*ts) < window);
+        self.global_bucket
+            .retain(|ts| now.duration_since(*ts) < window);
         if self.global_bucket.len() >= settings.rate_limit_global as usize {
             return RateLimitResult::Denied {
                 retry_after_secs: settings.rate_limit_cooldown,

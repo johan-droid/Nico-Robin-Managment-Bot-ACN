@@ -1,14 +1,10 @@
-use tokio_postgres::Client;
 use crate::telegram::api::Bot;
 use crate::telegram::update::Message;
+use tokio_postgres::Client;
 
 use crate::utils::escape_md_v2;
 
-pub async fn handle_save(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_save(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.splitn(3, ' ').collect();
     if parts.len() < 3 {
@@ -39,11 +35,7 @@ pub async fn handle_save(
     Ok(())
 }
 
-pub async fn handle_get(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_get(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
@@ -77,11 +69,7 @@ pub async fn handle_get(
     Ok(())
 }
 
-pub async fn handle_notes(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_notes(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
     match crate::db::notes::list_notes(client, chat_id).await {
         Ok(notes) => {
@@ -106,11 +94,7 @@ pub async fn handle_notes(
     Ok(())
 }
 
-pub async fn handle_clear(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_clear(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {

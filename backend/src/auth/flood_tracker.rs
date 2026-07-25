@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use crate::telegram::api::Bot;
-use crate::telegram::update::{Message, ChatPermissions};
+use crate::telegram::update::{ChatPermissions, Message};
 
 use crate::config::Settings;
 use crate::handlers::log_mod_action;
@@ -68,9 +68,7 @@ impl FloodTracker {
 
             match mode.to_lowercase().as_str() {
                 "ban" => {
-                    let _ = bot
-                        .ban_chat_member(msg.chat.id, user_id as u64)
-                        .await;
+                    let _ = bot.ban_chat_member(msg.chat.id, user_id as u64).await;
                     let _ = bot
                         .send_message(
                             msg.chat.id,

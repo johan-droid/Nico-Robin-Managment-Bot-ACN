@@ -16,7 +16,12 @@ use crate::telegram::update::Message;
 use crate::AppState;
 use tokio_postgres::Client;
 
-pub async fn handle_message(bot: Bot, msg: Message, state: Arc<AppState>, client: &Client) -> Result<(), String> {
+pub async fn handle_message(
+    bot: Bot,
+    msg: Message,
+    state: Arc<AppState>,
+    client: &Client,
+) -> Result<(), String> {
     if let Some(text) = msg.text() {
         if text.starts_with('/') {
             let mut parts = text.split_whitespace();
@@ -31,131 +36,226 @@ pub async fn handle_message(bot: Bot, msg: Message, state: Arc<AppState>, client
                     "help" => return core::handle_help(bot, msg).await,
 
                     "ban" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "moderation").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "moderation").await? {
+                            return Ok(());
+                        }
                         return moderation::handle_ban(bot, msg, &state.settings).await;
                     }
                     "unban" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "moderation").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "moderation").await? {
+                            return Ok(());
+                        }
                         return moderation::handle_unban(bot, msg, &state.settings).await;
                     }
                     "kick" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "moderation").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "moderation").await? {
+                            return Ok(());
+                        }
                         return moderation::handle_kick(bot, msg, &state.settings).await;
                     }
                     "mute" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "moderation").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "moderation").await? {
+                            return Ok(());
+                        }
                         return moderation::handle_mute(bot, msg, &state.settings).await;
                     }
                     "unmute" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "moderation").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "moderation").await? {
+                            return Ok(());
+                        }
                         return moderation::handle_unmute(bot, msg, &state.settings).await;
                     }
                     "warn" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "moderation").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "moderation").await? {
+                            return Ok(());
+                        }
                         return moderation::handle_warn(bot, msg, client, &state.settings).await;
                     }
                     "warns" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "moderation").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "moderation").await? {
+                            return Ok(());
+                        }
                         return moderation::handle_warns(bot, msg, client).await;
                     }
                     "resetwarn" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "moderation").await? { return Ok(()); }
-                        return moderation::handle_resetwarn(bot, msg, client, &state.settings).await;
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "moderation").await? {
+                            return Ok(());
+                        }
+                        return moderation::handle_resetwarn(bot, msg, client, &state.settings)
+                            .await;
                     }
                     "slowmode" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "moderation").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "moderation").await? {
+                            return Ok(());
+                        }
                         return moderation::handle_slowmode(bot, msg, &state.settings).await;
                     }
                     "del" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "moderation").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "moderation").await? {
+                            return Ok(());
+                        }
                         return moderation::handle_del(bot, msg, &state.settings).await;
                     }
                     "pin" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "moderation").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "moderation").await? {
+                            return Ok(());
+                        }
                         return moderation::handle_pin(bot, msg, &state.settings).await;
                     }
 
                     "save" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "notes").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "notes").await? {
+                            return Ok(());
+                        }
                         return notes::handle_save(bot, msg, client).await;
                     }
                     "get" => {
-                        if !require_feature(&bot, &msg, client, "notes").await? { return Ok(()); }
+                        if !require_feature(&bot, &msg, client, "notes").await? {
+                            return Ok(());
+                        }
                         return notes::handle_get(bot, msg, client).await;
                     }
                     "notes" => {
-                        if !require_feature(&bot, &msg, client, "notes").await? { return Ok(()); }
+                        if !require_feature(&bot, &msg, client, "notes").await? {
+                            return Ok(());
+                        }
                         return notes::handle_notes(bot, msg, client).await;
                     }
                     "clear" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "notes").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "notes").await? {
+                            return Ok(());
+                        }
                         return notes::handle_clear(bot, msg, client).await;
                     }
 
                     "filter" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "filters").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "filters").await? {
+                            return Ok(());
+                        }
                         return filters::handle_filter(bot, msg, client).await;
                     }
                     "stop" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "filters").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "filters").await? {
+                            return Ok(());
+                        }
                         return filters::handle_stop(bot, msg, client).await;
                     }
                     "filters" => {
-                        if !require_feature(&bot, &msg, client, "filters").await? { return Ok(()); }
+                        if !require_feature(&bot, &msg, client, "filters").await? {
+                            return Ok(());
+                        }
                         return filters::handle_filters_list(bot, msg, client).await;
                     }
 
                     "setwelcome" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "welcome").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "welcome").await? {
+                            return Ok(());
+                        }
                         return welcome::handle_setwelcome(bot, msg, client).await;
                     }
                     "resetwelcome" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "welcome").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "welcome").await? {
+                            return Ok(());
+                        }
                         return welcome::handle_resetwelcome(bot, msg, client).await;
                     }
                     "welcome" => {
-                        if !require_feature(&bot, &msg, client, "welcome").await? { return Ok(()); }
+                        if !require_feature(&bot, &msg, client, "welcome").await? {
+                            return Ok(());
+                        }
                         return welcome::handle_welcome_preview(bot, msg, client).await;
                     }
                     "setwelcomedm" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "welcome").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "welcome").await? {
+                            return Ok(());
+                        }
                         return welcome::handle_setwelcomedm(bot, msg, client).await;
                     }
                     "setfarewell" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "welcome").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "welcome").await? {
+                            return Ok(());
+                        }
                         return welcome::handle_setfarewell(bot, msg, client).await;
                     }
                     "farewell" => {
-                        if !require_feature(&bot, &msg, client, "welcome").await? { return Ok(()); }
+                        if !require_feature(&bot, &msg, client, "welcome").await? {
+                            return Ok(());
+                        }
                         return welcome::handle_farewell_preview(bot, msg, client).await;
                     }
                     "cleanwelcome" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "welcome").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "welcome").await? {
+                            return Ok(());
+                        }
                         return welcome::handle_cleanwelcome(bot, msg, client).await;
                     }
                     "welcometest" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "welcome").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "welcome").await? {
+                            return Ok(());
+                        }
                         return welcome::handle_welcometest(bot, msg, client).await;
                     }
 
@@ -165,62 +265,92 @@ pub async fn handle_message(bot: Bot, msg: Message, state: Arc<AppState>, client
                     "deletemydata" => return profile::handle_delete_data(bot, msg, client).await,
 
                     "setflood" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "security").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "security").await? {
+                            return Ok(());
+                        }
                         return security::handle_setflood(bot, msg, client).await;
                     }
                     "flood" => {
-                        if !require_feature(&bot, &msg, client, "security").await? { return Ok(()); }
+                        if !require_feature(&bot, &msg, client, "security").await? {
+                            return Ok(());
+                        }
                         return security::handle_flood(bot, msg, client).await;
                     }
                     "addswear" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "security").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "security").await? {
+                            return Ok(());
+                        }
                         return security::handle_addswear(bot, msg, client).await;
                     }
                     "delswear" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature(&bot, &msg, client, "security").await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature(&bot, &msg, client, "security").await? {
+                            return Ok(());
+                        }
                         return security::handle_delswear(bot, msg, client).await;
                     }
 
                     "newfed" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
                         return federation::handle_newfed(bot, msg, client).await;
                     }
                     "joinfed" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
                         return federation::handle_joinfed(bot, msg, client).await;
                     }
 
                     "features" => return features::handle_features_list(bot, msg, client).await,
                     "enable" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
                         return features::handle_enable(bot, msg, client).await;
                     }
                     "disable" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
                         return features::handle_disable(bot, msg, client).await;
                     }
                     "toggle" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
                         return features::handle_toggle(bot, msg, client).await;
                     }
                     "featureinfo" => return features::handle_feature_info(bot, msg).await,
                     "myfeatures" => return features::handle_my_features(bot, msg, client).await,
                     "resetfeatures" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
                         return features::handle_reset_features(bot, msg, client).await;
                     }
                     "enablecategory" | "enable_category" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
                         return features::handle_enable_category(bot, msg, client).await;
                     }
                     "disablecategory" | "disable_category" => {
-                        if !require_admin(&bot, &msg).await? { return Ok(()); }
+                        if !require_admin(&bot, &msg).await? {
+                            return Ok(());
+                        }
                         return features::handle_disable_category(bot, msg, client).await;
                     }
-                    _ => return unknown_command(bot, msg).await
+                    _ => return unknown_command(bot, msg).await,
                 }
             }
         }

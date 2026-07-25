@@ -1,6 +1,6 @@
-use tokio_postgres::Client;
 use crate::telegram::api::{Bot, ParseMode};
-use crate::telegram::update::{Message, ChatPermissions};
+use crate::telegram::update::{ChatPermissions, Message};
+use tokio_postgres::Client;
 
 use crate::auth::extract_target_user;
 use crate::config::Settings;
@@ -37,21 +37,14 @@ async fn extract_target(bot: &Bot, msg: &Message, usage: &str) -> Option<(i64, S
     }
 }
 
-pub async fn handle_ban(
-    bot: Bot,
-    msg: Message,
-    settings: &Settings,
-) -> Result<(), String> {
+pub async fn handle_ban(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /ban @username").await {
             Some(v) => v,
             None => return Ok(()),
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
-    match bot
-        .ban_chat_member(msg.chat.id, target_id as u64)
-        .await
-    {
+    match bot.ban_chat_member(msg.chat.id, target_id as u64).await {
         Ok(_) => {
             send_text(
                 &bot,
@@ -84,21 +77,14 @@ pub async fn handle_ban(
     Ok(())
 }
 
-pub async fn handle_unban(
-    bot: Bot,
-    msg: Message,
-    settings: &Settings,
-) -> Result<(), String> {
+pub async fn handle_unban(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /unban @username").await {
             Some(v) => v,
             None => return Ok(()),
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
-    match bot
-        .unban_chat_member(msg.chat.id, target_id as u64)
-        .await
-    {
+    match bot.unban_chat_member(msg.chat.id, target_id as u64).await {
         Ok(_) => {
             send_text(
                 &bot,
@@ -131,21 +117,14 @@ pub async fn handle_unban(
     Ok(())
 }
 
-pub async fn handle_kick(
-    bot: Bot,
-    msg: Message,
-    settings: &Settings,
-) -> Result<(), String> {
+pub async fn handle_kick(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /kick @username").await {
             Some(v) => v,
             None => return Ok(()),
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
-    match bot
-        .unban_chat_member(msg.chat.id, target_id as u64)
-        .await
-    {
+    match bot.unban_chat_member(msg.chat.id, target_id as u64).await {
         Ok(_) => {
             send_text(
                 &bot,
@@ -178,11 +157,7 @@ pub async fn handle_kick(
     Ok(())
 }
 
-pub async fn handle_mute(
-    bot: Bot,
-    msg: Message,
-    settings: &Settings,
-) -> Result<(), String> {
+pub async fn handle_mute(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /mute @username").await {
             Some(v) => v,
@@ -226,11 +201,7 @@ pub async fn handle_mute(
     Ok(())
 }
 
-pub async fn handle_unmute(
-    bot: Bot,
-    msg: Message,
-    settings: &Settings,
-) -> Result<(), String> {
+pub async fn handle_unmute(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /unmute @username").await {
             Some(v) => v,
@@ -336,9 +307,7 @@ pub async fn handle_warn(
     .await;
 
     if count >= settings.warn_threshold as i64 {
-        let _ = bot
-            .ban_chat_member(msg.chat.id, target_id as u64)
-            .await;
+        let _ = bot.ban_chat_member(msg.chat.id, target_id as u64).await;
         send_text(
             &bot,
             msg.chat.id,
@@ -364,11 +333,7 @@ pub async fn handle_warn(
     Ok(())
 }
 
-pub async fn handle_warns(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_warns(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let (target_id, target_name) =
         match extract_target(&bot, &msg, "Usage: Reply to a user or /warns @user").await {
             Some(v) => v,
@@ -441,11 +406,7 @@ pub async fn handle_resetwarn(
     Ok(())
 }
 
-pub async fn handle_slowmode(
-    bot: Bot,
-    msg: Message,
-    settings: &Settings,
-) -> Result<(), String> {
+pub async fn handle_slowmode(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
@@ -510,11 +471,7 @@ pub async fn handle_slowmode(
     Ok(())
 }
 
-pub async fn handle_del(
-    bot: Bot,
-    msg: Message,
-    settings: &Settings,
-) -> Result<(), String> {
+pub async fn handle_del(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
     if let Some(reply) = msg.reply_to_message() {
         match bot.delete_message(msg.chat.id, reply.id()).await {
             Ok(_) => {
@@ -552,11 +509,7 @@ pub async fn handle_del(
     Ok(())
 }
 
-pub async fn handle_pin(
-    bot: Bot,
-    msg: Message,
-    settings: &Settings,
-) -> Result<(), String> {
+pub async fn handle_pin(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
     if let Some(reply) = msg.reply_to_message() {
         match bot.pin_chat_message(msg.chat.id, reply.id()).await {
             Ok(_) => {

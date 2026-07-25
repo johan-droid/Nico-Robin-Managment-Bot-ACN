@@ -6,12 +6,13 @@ pub async fn is_feature_enabled(
     group_id: i64,
     feature_name: &str,
 ) -> Result<bool, String> {
-    let row = client.query_opt(
-        r#"SELECT enabled FROM feature_flags WHERE group_id = $1 AND feature_name = $2"#,
-        &[&group_id, &feature_name]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+    let row = client
+        .query_opt(
+            r#"SELECT enabled FROM feature_flags WHERE group_id = $1 AND feature_name = $2"#,
+            &[&group_id, &feature_name],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(row.map(|r| r.get::<usize, bool>(0)).unwrap_or(true))
 }
 
@@ -52,26 +53,27 @@ pub async fn disable_feature(
 }
 
 /// Lists all features and their status for a group.
-pub async fn list_features(
-    client: &Client,
-    group_id: i64,
-) -> Result<Vec<(String, bool)>, String> {
+pub async fn list_features(client: &Client, group_id: i64) -> Result<Vec<(String, bool)>, String> {
     let rows = client.query(
         r#"SELECT feature_name, enabled FROM feature_flags WHERE group_id = $1 ORDER BY feature_name"#,
         &[&group_id]
     )
     .await
     .map_err(|e| e.to_string())?;
-    Ok(rows.into_iter().map(|row| (row.get(0), row.get(1))).collect())
+    Ok(rows
+        .into_iter()
+        .map(|row| (row.get(0), row.get(1)))
+        .collect())
 }
 
 /// Resets all feature flags for a group (back to defaults).
 pub async fn reset_features(client: &Client, group_id: i64) -> Result<u64, String> {
-    let result = client.execute(
-        r#"DELETE FROM feature_flags WHERE group_id = $1"#,
-        &[&group_id]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+    let result = client
+        .execute(
+            r#"DELETE FROM feature_flags WHERE group_id = $1"#,
+            &[&group_id],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
     Ok(result)
 }
