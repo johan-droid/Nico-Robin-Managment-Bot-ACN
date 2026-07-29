@@ -1,9 +1,9 @@
 name = "nico-robin-bot"
-main = "src/lib.rs"
+main = "backend/build/worker/index.js"
 compatibility_date = "2024-01-01"
 
 [build]
-command = "cargo install worker-build && worker-build --release"
+command = "cd backend && (command -v worker-build || cargo install worker-build) && worker-build --release"
 
 [[hyperdrive]]
 binding = "HYPERDRIVE"
