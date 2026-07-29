@@ -11,23 +11,40 @@ async fn send_text(bot: &Bot, chat_id: i64, text: &str) {
     let _ = bot.send_message(chat_id, text).await;
 }
 
-async fn extract_target(bot: &Bot, msg: &Message, usage: &str) -> Option<(i64, String)> {
+async fn extract_target(bot: &Bot, msg: &Message, client: &Client, usage: &str) -> Option<(i64, String)> {
     match extract_target_user(msg) {
         Some((id, name)) if id != 0 => Some((id, name)),
         Some((0, name)) => {
             if let Some(resolved) = crate::auth::resolve_username(bot, msg.chat.id, &name).await {
                 Some(resolved)
             } else {
-                send_text(
-                    bot,
-                    msg.chat.id,
-                    &format!(
-                        "Could not resolve user {}. Reply to their message instead.",
-                        name
-                    ),
-                )
-                .await;
-                None
+                // Try resolving from database cache
+                let clean_uname = name.trim_start_matches('@').to_lowercase();
+                match client.query_one("SELECT user_id, first_name FROM username_cache WHERE username = $1", &[&clean_uname]).await {
+                    Ok(row) => {
+                        let user_id: i64 = row.get(0);
+                        let first_name: String = row.get(1);
+                        Some((user_id, first_name))
+                    }
+                    Err(_) => {
+                        let command_name = msg.text()
+                            .and_then(|t| t.split_whitespace().next())
+                            .and_then(|cmd| cmd.strip_prefix('/'))
+                            .map(|cmd| cmd.split('@').next().unwrap_or(cmd))
+                            .unwrap_or("unban");
+                        send_text(
+                            bot,
+                            msg.chat.id,
+                            &format!(
+                                "[Pending] User {} not found in cache. Reply to this message with their Numeric ID to complete the {} command.",
+                                name,
+                                command_name
+                            ),
+                        )
+                        .await;
+                        None
+                    }
+                }
             }
         }
         _ => {
@@ -37,15 +54,20 @@ async fn extract_target(bot: &Bot, msg: &Message, usage: &str) -> Option<(i64, S
     }
 }
 
-pub async fn handle_ban(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
+pub async fn handle_ban(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
     let (target_id, target_name) =
-        match extract_target(&bot, &msg, "Usage: Reply to a user or /ban @username").await {
+        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /ban @username").await {
             Some(v) => v,
-            None => return Ok(()),
+            None => {
+                tracing::warn!("Failed to extract target user for ban command");
+                return Ok(());
+            }
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
+    tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /ban command");
     match bot.ban_chat_member(msg.chat.id, target_id as u64).await {
         Ok(_) => {
+            tracing::info!(target_id = %target_id, "Telegram banChatMember API call succeeded");
             send_text(
                 &bot,
                 msg.chat.id,
@@ -66,6 +88,7 @@ pub async fn handle_ban(bot: Bot, msg: Message, settings: &Settings) -> Result<(
             .await;
         }
         Err(e) => {
+            tracing::error!(target_id = %target_id, error = %e, "Telegram banChatMember API call failed");
             send_text(
                 &bot,
                 msg.chat.id,
@@ -77,21 +100,65 @@ pub async fn handle_ban(bot: Bot, msg: Message, settings: &Settings) -> Result<(
     Ok(())
 }
 
-pub async fn handle_unban(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
+pub async fn handle_unban(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
     let (target_id, target_name) =
-        match extract_target(&bot, &msg, "Usage: Reply to a user or /unban @username").await {
+        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /unban @username").await {
             Some(v) => v,
-            None => return Ok(()),
+            None => {
+                tracing::warn!("Failed to extract target user for unban command");
+                return Ok(());
+            }
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
+    tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /unban command");
     match bot.unban_chat_member(msg.chat.id, target_id as u64).await {
         Ok(_) => {
+            tracing::info!(target_id = %target_id, "Telegram unbanChatMember API call succeeded");
+
+            // Get the invite link
+            let group_title = msg.chat.title().unwrap_or("the group");
+            let mut invite_link_str = String::new();
+            let mut invite_sent_message = String::new();
+
+            match bot.export_chat_invite_link(msg.chat.id).await {
+                Ok(link) => {
+                    invite_link_str = link;
+                }
+                Err(err) => {
+                    tracing::warn!(chat_id = %msg.chat.id, error = %err, "Failed to export chat invite link, trying username");
+                    if let Some(ref username) = msg.chat.username {
+                        invite_link_str = format!("https://t.me/{}", username);
+                    }
+                }
+            }
+
+            if !invite_link_str.is_empty() {
+                let dm_text = format!(
+                    "You have been unbanned in {}.\n\nHere is the link to join back:\n{}",
+                    group_title,
+                    invite_link_str
+                );
+                match bot.send_message(target_id, dm_text).await {
+                    Ok(_) => {
+                        tracing::info!(target_id = %target_id, "Direct message with group invite link sent successfully");
+                        invite_sent_message = " 📬 Invite link sent to their DMs.".to_string();
+                    }
+                    Err(dm_err) => {
+                        tracing::warn!(target_id = %target_id, error = %dm_err, "Failed to DM invite link to unbanned user");
+                        invite_sent_message = format!(" ⚠️ Could not send DM (Error: {}).", dm_err);
+                    }
+                }
+            } else {
+                invite_sent_message = " ⚠️ Could not generate invite link for group.".to_string();
+            }
+
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Unbanned {}", escape_md_v2(&target_name)),
+                &format!("Unbanned {}.{}", escape_md_v2(&target_name), invite_sent_message),
             )
             .await;
+
             log_mod_action(
                 &bot,
                 settings,
@@ -106,6 +173,7 @@ pub async fn handle_unban(bot: Bot, msg: Message, settings: &Settings) -> Result
             .await;
         }
         Err(e) => {
+            tracing::error!(target_id = %target_id, error = %e, "Telegram unbanChatMember API call failed");
             send_text(
                 &bot,
                 msg.chat.id,
@@ -117,15 +185,23 @@ pub async fn handle_unban(bot: Bot, msg: Message, settings: &Settings) -> Result
     Ok(())
 }
 
-pub async fn handle_kick(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
+pub async fn handle_kick(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
     let (target_id, target_name) =
-        match extract_target(&bot, &msg, "Usage: Reply to a user or /kick @username").await {
+        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /kick @username").await {
             Some(v) => v,
-            None => return Ok(()),
+            None => {
+                tracing::warn!("Failed to extract target user for kick command");
+                return Ok(());
+            }
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
-    match bot.unban_chat_member(msg.chat.id, target_id as u64).await {
+    tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /kick command (ban-then-unban)");
+    match bot.ban_chat_member(msg.chat.id, target_id as u64).await {
         Ok(_) => {
+            tracing::info!(target_id = %target_id, "Telegram banChatMember (part of kick) succeeded");
+            // Unban immediately to complete the kick (allows re-joining)
+            let unban_res = bot.unban_chat_member(msg.chat.id, target_id as u64).await;
+            tracing::info!(target_id = %target_id, result = ?unban_res, "Telegram unbanChatMember (part of kick) completed");
             send_text(
                 &bot,
                 msg.chat.id,
@@ -146,6 +222,7 @@ pub async fn handle_kick(bot: Bot, msg: Message, settings: &Settings) -> Result<
             .await;
         }
         Err(e) => {
+            tracing::error!(target_id = %target_id, error = %e, "Telegram banChatMember (part of kick) failed");
             send_text(
                 &bot,
                 msg.chat.id,
@@ -157,19 +234,24 @@ pub async fn handle_kick(bot: Bot, msg: Message, settings: &Settings) -> Result<
     Ok(())
 }
 
-pub async fn handle_mute(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
+pub async fn handle_mute(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
     let (target_id, target_name) =
-        match extract_target(&bot, &msg, "Usage: Reply to a user or /mute @username").await {
+        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /mute @username").await {
             Some(v) => v,
-            None => return Ok(()),
+            None => {
+                tracing::warn!("Failed to extract target user for mute command");
+                return Ok(());
+            }
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
     let permissions = ChatPermissions::empty();
+    tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /mute command");
     match bot
         .restrict_chat_member(msg.chat.id, target_id as u64, permissions)
         .await
     {
         Ok(_) => {
+            tracing::info!(target_id = %target_id, "Telegram restrictChatMember (mute) succeeded");
             send_text(
                 &bot,
                 msg.chat.id,
@@ -190,6 +272,7 @@ pub async fn handle_mute(bot: Bot, msg: Message, settings: &Settings) -> Result<
             .await;
         }
         Err(e) => {
+            tracing::error!(target_id = %target_id, error = %e, "Telegram restrictChatMember (mute) failed");
             send_text(
                 &bot,
                 msg.chat.id,
@@ -201,19 +284,24 @@ pub async fn handle_mute(bot: Bot, msg: Message, settings: &Settings) -> Result<
     Ok(())
 }
 
-pub async fn handle_unmute(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
+pub async fn handle_unmute(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
     let (target_id, target_name) =
-        match extract_target(&bot, &msg, "Usage: Reply to a user or /unmute @username").await {
+        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /unmute @username").await {
             Some(v) => v,
-            None => return Ok(()),
+            None => {
+                tracing::warn!("Failed to extract target user for unmute command");
+                return Ok(());
+            }
         };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
     let permissions = ChatPermissions::all();
+    tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /unmute command");
     match bot
         .restrict_chat_member(msg.chat.id, target_id as u64, permissions)
         .await
     {
         Ok(_) => {
+            tracing::info!(target_id = %target_id, "Telegram restrictChatMember (unmute) succeeded");
             send_text(
                 &bot,
                 msg.chat.id,
@@ -234,6 +322,7 @@ pub async fn handle_unmute(bot: Bot, msg: Message, settings: &Settings) -> Resul
             .await;
         }
         Err(e) => {
+            tracing::error!(target_id = %target_id, error = %e, "Telegram restrictChatMember (unmute) failed");
             send_text(
                 &bot,
                 msg.chat.id,
@@ -252,7 +341,7 @@ pub async fn handle_warn(
     settings: &Settings,
 ) -> Result<(), String> {
     let (target_id, target_name) =
-        match extract_target(&bot, &msg, "Usage: Reply to a user or /warn @user [reason]").await {
+        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /warn @user [reason]").await {
             Some(v) => v,
             None => return Ok(()),
         };
@@ -335,7 +424,7 @@ pub async fn handle_warn(
 
 pub async fn handle_warns(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let (target_id, target_name) =
-        match extract_target(&bot, &msg, "Usage: Reply to a user or /warns @user").await {
+        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /warns @user").await {
             Some(v) => v,
             None => return Ok(()),
         };
@@ -377,7 +466,7 @@ pub async fn handle_resetwarn(
     settings: &Settings,
 ) -> Result<(), String> {
     let (target_id, target_name) =
-        match extract_target(&bot, &msg, "Usage: Reply to a user or /resetwarn @user").await {
+        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /resetwarn @user").await {
             Some(v) => v,
             None => return Ok(()),
         };

@@ -12,7 +12,13 @@ pub async fn is_feature_enabled(
             &[&group_id, &feature_name],
         )
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            if let Some(db_err) = e.as_db_error() {
+                format!("db error: {} (SQLSTATE {})", db_err.message(), db_err.code().code())
+            } else {
+                e.to_string()
+            }
+        })?;
     Ok(row.map(|r| r.get::<usize, bool>(0)).unwrap_or(true))
 }
 

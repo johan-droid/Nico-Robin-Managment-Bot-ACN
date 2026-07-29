@@ -15,24 +15,70 @@ struct AdminCacheEntry {
 static ADMIN_CACHE: std::sync::LazyLock<Mutex<HashMap<(i64, u64), AdminCacheEntry>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
+pub fn is_sudo_or_privileged(user_id: u64) -> bool {
+    if let Ok(sudo_val) = std::env::var("SUDO_USERS") {
+        for id_str in sudo_val.split(',') {
+            if let Ok(id) = id_str.trim().parse::<u64>() {
+                if id == user_id {
+                    tracing::info!(user_id = %user_id, "User authorized as SUDO user");
+                    return true;
+                }
+            }
+        }
+    }
+    if let Ok(captain_val) = std::env::var("CAPTAIN_ID") {
+        if let Ok(id) = captain_val.trim().parse::<u64>() {
+            if id == user_id {
+                tracing::info!(user_id = %user_id, "User authorized as CAPTAIN user");
+                return true;
+            }
+        }
+    }
+    if let Ok(commander_val) = std::env::var("COMMANDER_IDS") {
+        for id_str in commander_val.split(',') {
+            if let Ok(id) = id_str.trim().parse::<u64>() {
+                if id == user_id {
+                    tracing::info!(user_id = %user_id, "User authorized as COMMANDER user");
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
 /// Checks if a user is authorized to execute a command.
 /// Uses Telegram group admin status with a 60-second in-memory TTL cache to prevent API rate limits.
 /// Group owners and administrators can use all admin commands directly.
 pub async fn is_telegram_admin(bot: &Bot, chat_id: i64, user_id: u64) -> bool {
+    if is_sudo_or_privileged(user_id) {
+        return true;
+    }
+
     let key = (chat_id, user_id);
     let now = Instant::now();
 
     if let Ok(cache) = ADMIN_CACHE.lock() {
         if let Some(entry) = cache.get(&key) {
             if entry.expires_at > now {
+                tracing::info!(user_id = %user_id, chat_id = %chat_id, is_admin = %entry.is_admin, "Telegram admin status resolved from cache");
                 return entry.is_admin;
             }
         }
     }
 
+    tracing::info!(user_id = %user_id, chat_id = %chat_id, "Querying Telegram API for chat member admin status");
     let is_admin = match bot.get_chat_member(chat_id, user_id).await {
-        Ok(member) => matches!(member.status(), "creator" | "administrator"),
-        Err(_) => false,
+        Ok(member) => {
+            let status = member.status();
+            let admin = matches!(status, "creator" | "administrator");
+            tracing::info!(user_id = %user_id, status = %status, is_admin = %admin, "Telegram API returned member status");
+            admin
+        }
+        Err(e) => {
+            tracing::error!(user_id = %user_id, error = %e, "Failed to get chat member status from Telegram API");
+            false
+        }
     };
 
     if let Ok(mut cache) = ADMIN_CACHE.lock() {

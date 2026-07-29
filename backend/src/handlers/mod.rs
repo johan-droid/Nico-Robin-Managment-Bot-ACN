@@ -38,6 +38,73 @@ pub async fn handle_message(
     let user_id = user_id_from_msg(&msg) as i64;
     let is_admin = crate::auth::is_telegram_admin(&bot, msg.chat.id, user_id as u64).await;
 
+    // Cache the username-to-id mapping if the sender has a username
+    if let Some(from) = msg.from() {
+        if let Some(ref username) = from.username {
+            let lower_username = username.to_lowercase();
+            let _ = client.execute(
+                "INSERT INTO username_cache (username, user_id, first_name, updated_at) \
+                 VALUES ($1, $2, $3, NOW()) \
+                 ON CONFLICT (username) DO UPDATE SET user_id = $2, first_name = $3, updated_at = NOW()",
+                &[&lower_username, &user_id, &from.first_name],
+            ).await;
+        }
+    }
+    // Check if this is an admin replying to a pending username resolution prompt
+    if let Some(reply_to) = msg.reply_to_message() {
+        if let Some(reply_text) = reply_to.text() {
+            if reply_text.starts_with("[Pending] User ") {
+                if !is_admin {
+                    let _ = bot.send_message(msg.chat.id, "You must be a chat admin to resolve this.").await;
+                    return Ok(());
+                }
+                if let Some(reply_val) = msg.text() {
+                    if let Ok(target_id) = reply_val.trim().parse::<i64>() {
+                        let parts: Vec<&str> = reply_text.split_whitespace().collect();
+                        if parts.len() >= 3 {
+                            let username = parts[2].trim_start_matches('@');
+                            if let Some(start_idx) = reply_text.find("complete the ") {
+                                if let Some(end_idx) = reply_text.find(" command.") {
+                                    let command = &reply_text[start_idx + "complete the ".len() .. end_idx];
+                                    
+                                    // 1. Cache the username -> ID mapping in DB
+                                    let lower_username = username.to_lowercase();
+                                    let _ = client.execute(
+                                        "INSERT INTO username_cache (username, user_id, first_name, updated_at) \
+                                         VALUES ($1, $2, $3, NOW()) \
+                                         ON CONFLICT (username) DO UPDATE SET user_id = $2, first_name = $3, updated_at = NOW()",
+                                        &[&lower_username, &target_id, &username],
+                                    ).await;
+                                    
+                                    tracing::info!(username = %username, target_id = %target_id, command = %command, "Resolved pending username mapping");
+                                    
+                                    // 2. Build mock message to route the command automatically using the resolved ID
+                                    let mut mock_msg = msg.clone();
+                                    mock_msg.text = Some(format!("/{} {}", command, target_id));
+                                    mock_msg.reply_to_message = None;
+                                    
+                                    // Call handle_message recursively
+                                    return Box::pin(handle_message(
+                                        bot,
+                                        mock_msg,
+                                        state,
+                                        client,
+                                        tracker,
+                                        limiter,
+                                        flood_settings,
+                                        swear_words_cache,
+                                    )).await;
+                                }
+                            }
+                        }
+                    } else {
+                        let _ = bot.send_message(msg.chat.id, "Invalid User ID. Please reply with a valid numeric ID.").await;
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    }
     // Check if security feature is enabled before checking flood
     let security_enabled = crate::db::features::is_feature_enabled(client, msg.chat.id, "security")
         .await
@@ -95,15 +162,19 @@ pub async fn handle_message(
                 }
                 command = command.strip_prefix('/').unwrap_or(command);
 
-                #[cfg(not(target_arch = "wasm32"))]
-                sentry::add_breadcrumb(sentry::Breadcrumb {
-                    category: Some("command".into()),
-                    message: Some(format!("Parsed command: /{}", command)),
-                    level: sentry::Level::Info,
-                    ..Default::default()
-                });
+                let cmd_name = command.to_lowercase();
+                tracing::info!(
+                    command = %cmd_name,
+                    user_id = %user_id,
+                    is_admin = %is_admin,
+                    chat_id = %msg.chat.id,
+                    "[Command] Received /{} from user {} in chat {}",
+                    cmd_name,
+                    user_id,
+                    msg.chat.id
+                );
 
-                match command.to_lowercase().as_str() {
+                match cmd_name.as_str() {
                     "start" => return core::handle_start(bot, msg).await,
                     "help" => return core::handle_help(bot, msg).await,
 
@@ -114,7 +185,7 @@ pub async fn handle_message(
                         if !require_feature(&bot, &msg, client, "moderation").await? {
                             return Ok(());
                         }
-                        return moderation::handle_ban(bot, msg, &state.settings).await;
+                        return moderation::handle_ban(bot, msg, client, &state.settings).await;
                     }
                     "unban" => {
                         if !require_admin(&bot, &msg).await? {
@@ -123,7 +194,7 @@ pub async fn handle_message(
                         if !require_feature(&bot, &msg, client, "moderation").await? {
                             return Ok(());
                         }
-                        return moderation::handle_unban(bot, msg, &state.settings).await;
+                        return moderation::handle_unban(bot, msg, client, &state.settings).await;
                     }
                     "kick" => {
                         if !require_admin(&bot, &msg).await? {
@@ -132,7 +203,7 @@ pub async fn handle_message(
                         if !require_feature(&bot, &msg, client, "moderation").await? {
                             return Ok(());
                         }
-                        return moderation::handle_kick(bot, msg, &state.settings).await;
+                        return moderation::handle_kick(bot, msg, client, &state.settings).await;
                     }
                     "mute" => {
                         if !require_admin(&bot, &msg).await? {
@@ -141,7 +212,7 @@ pub async fn handle_message(
                         if !require_feature(&bot, &msg, client, "moderation").await? {
                             return Ok(());
                         }
-                        return moderation::handle_mute(bot, msg, &state.settings).await;
+                        return moderation::handle_mute(bot, msg, client, &state.settings).await;
                     }
                     "unmute" => {
                         if !require_admin(&bot, &msg).await? {
@@ -150,7 +221,7 @@ pub async fn handle_message(
                         if !require_feature(&bot, &msg, client, "moderation").await? {
                             return Ok(());
                         }
-                        return moderation::handle_unmute(bot, msg, &state.settings).await;
+                        return moderation::handle_unmute(bot, msg, client, &state.settings).await;
                     }
                     "warn" => {
                         if !require_admin(&bot, &msg).await? {
@@ -502,17 +573,22 @@ fn user_id_from_msg(msg: &Message) -> u64 {
 }
 
 async fn require_admin(bot: &Bot, msg: &Message) -> Result<bool, String> {
+    let uid = user_id_from_msg(msg);
+    tracing::info!(user_id = %uid, chat_id = %msg.chat.id, "Authorizing admin/sudo command executor");
+
     #[cfg(not(target_arch = "wasm32"))]
     sentry::add_breadcrumb(sentry::Breadcrumb {
         category: Some("auth".into()),
-        message: Some(format!("Checking admin permissions for user {}", user_id_from_msg(msg))),
+        message: Some(format!("Checking admin permissions for user {}", uid)),
         level: sentry::Level::Info,
         ..Default::default()
     });
 
-    if crate::auth::is_telegram_admin(bot, msg.chat.id, user_id_from_msg(msg)).await {
+    if crate::auth::is_telegram_admin(bot, msg.chat.id, uid).await {
+        tracing::info!(user_id = %uid, "Authorization check PASSED");
         Ok(true)
     } else {
+        tracing::warn!(user_id = %uid, "Authorization check FAILED (not admin or sudo/privileged user)");
         deny_telegram_admin(bot, msg).await?;
         Ok(false)
     }
@@ -524,6 +600,9 @@ async fn require_feature(
     client: &Client,
     feature: &str,
 ) -> Result<bool, String> {
+    let chat_id = msg.chat.id;
+    tracing::info!(chat_id = %chat_id, feature = %feature, "Checking feature toggle status");
+
     #[cfg(not(target_arch = "wasm32"))]
     sentry::add_breadcrumb(sentry::Breadcrumb {
         category: Some("feature".into()),
@@ -532,10 +611,13 @@ async fn require_feature(
         ..Default::default()
     });
 
-    let chat_id = msg.chat.id;
     match crate::db::features::is_feature_enabled(client, chat_id, feature).await {
-        Ok(true) => Ok(true),
+        Ok(true) => {
+            tracing::info!(chat_id = %chat_id, feature = %feature, "Feature toggle: ENABLED");
+            Ok(true)
+        }
         Ok(false) => {
+            tracing::warn!(chat_id = %chat_id, feature = %feature, "Feature toggle: DISABLED");
             let _ = bot
                 .send_message(
                     msg.chat.id,
@@ -544,7 +626,10 @@ async fn require_feature(
                 .await;
             Ok(false)
         }
-        Err(_) => Ok(false),
+        Err(e) => {
+            tracing::error!(chat_id = %chat_id, feature = %feature, error = %e, "Feature check error");
+            Ok(false)
+        }
     }
 }
 

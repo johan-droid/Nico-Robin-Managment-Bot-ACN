@@ -93,7 +93,7 @@ impl Bot {
             serde_json::json!({
                 "chat_id": chat_id,
                 "user_id": user_id,
-                "only_if_banned": true
+                "only_if_banned": false
             }),
         )
         .await?;
@@ -176,6 +176,18 @@ impl Bot {
         } else {
             Err("Invalid response format".into())
         }
+    }
+
+    pub async fn export_chat_invite_link(&self, chat_id: i64) -> Result<String, String> {
+        let res = self
+            .api_post(
+                "exportChatInviteLink",
+                serde_json::json!({ "chat_id": chat_id }),
+            )
+            .await?;
+        res.as_str()
+            .map(|s| s.to_string())
+            .ok_or_else(|| "Failed to parse invite link as string".to_string())
     }
 }
 

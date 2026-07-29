@@ -76,6 +76,19 @@ async fn main() {
 
     info!("Connected to database");
 
+    let create_table_res = db_client.batch_execute(
+        "CREATE TABLE IF NOT EXISTS username_cache (
+            username TEXT PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            first_name TEXT NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+         );
+         CREATE INDEX IF NOT EXISTS idx_username_cache_user_id ON username_cache(user_id);"
+    ).await;
+    if let Err(e) = create_table_res {
+        error!(error = %e, "Failed to create username_cache table");
+    }
+
     let state = NativeState {
         db: Arc::new(db_client),
         bot_token: bot_token.clone(),
