@@ -1,9 +1,9 @@
 name = "nico-robin-bot"
-main = "backend/build/worker/shim.mjs"
+main = "build/worker/shim.mjs"
 compatibility_date = "2024-01-01"
 
 [build]
-command = "cd backend && cargo install worker-build --version \"<0.2.0\" && worker-build --release"
+command = "cargo install worker-build --version \"<0.2.0\" && worker-build --release"
 
 [[hyperdrive]]
 binding = "HYPERDRIVE"
