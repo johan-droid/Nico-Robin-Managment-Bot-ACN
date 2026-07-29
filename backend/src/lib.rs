@@ -54,8 +54,8 @@ impl DurableObject for ChatState {
                 Err(e) => return Response::error(format!("DB Connection error: {}", e), 500),
             };
 
-            let token = match self.env.var("BOT_TOKEN") {
-                Ok(v) => v.to_string(),
+            let token = match crate::utils::get_env_val(&self.env, "BOT_TOKEN") {
+                Ok(v) => v,
                 Err(_) => return Response::error("Configuration error: BOT_TOKEN missing", 500),
             };
             let bot = crate::telegram::api::Bot::new(token);
@@ -111,8 +111,8 @@ pub async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
     router
         .get("/health", |_, _| Response::ok("OK"))
         .post_async("/webhook/:secret", |mut req, ctx| async move {
-            let env_secret = match ctx.env.var("WEBHOOK_SECRET_PATH") {
-                Ok(v) => v.to_string(),
+            let env_secret = match crate::utils::get_env_val(&ctx.env, "WEBHOOK_SECRET_PATH") {
+                Ok(v) => v,
                 Err(_) => return Response::error("Configuration error: WEBHOOK_SECRET_PATH missing", 500),
             };
 

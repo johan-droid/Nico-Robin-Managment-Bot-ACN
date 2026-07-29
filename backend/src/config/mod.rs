@@ -32,12 +32,12 @@ impl Settings {
     #[cfg(target_arch = "wasm32")]
     pub fn from_worker_env(env: &worker::Env) -> Self {
         Self {
-            bot_token: env.var("BOT_TOKEN").map(|v| v.to_string()).unwrap_or_default(),
-            log_channel_id: env.var("LOG_CHANNEL_ID").ok().and_then(|v| v.to_string().parse().ok()),
-            rate_limit_user: env.var("RATE_LIMIT_USER").ok().and_then(|v| v.to_string().parse().ok()).unwrap_or(20),
-            rate_limit_global: env.var("RATE_LIMIT_GLOBAL").ok().and_then(|v| v.to_string().parse().ok()).unwrap_or(300),
-            rate_limit_cooldown: env.var("RATE_LIMIT_COOLDOWN").ok().and_then(|v| v.to_string().parse().ok()).unwrap_or(30),
-            warn_threshold: env.var("WARN_THRESHOLD").ok().and_then(|v| v.to_string().parse().ok()).unwrap_or(3),
+            bot_token: crate::utils::get_env_val(env, "BOT_TOKEN").unwrap_or_default(),
+            log_channel_id: crate::utils::get_env_val(env, "LOG_CHANNEL_ID").ok().and_then(|v| v.parse().ok()),
+            rate_limit_user: crate::utils::get_env_val(env, "RATE_LIMIT_USER").ok().and_then(|v| v.parse().ok()).unwrap_or(20),
+            rate_limit_global: crate::utils::get_env_val(env, "RATE_LIMIT_GLOBAL").ok().and_then(|v| v.parse().ok()).unwrap_or(300),
+            rate_limit_cooldown: crate::utils::get_env_val(env, "RATE_LIMIT_COOLDOWN").ok().and_then(|v| v.parse().ok()).unwrap_or(30),
+            warn_threshold: crate::utils::get_env_val(env, "WARN_THRESHOLD").ok().and_then(|v| v.parse().ok()).unwrap_or(3),
         }
     }
 }

@@ -56,10 +56,8 @@ pub async fn establish_connection(env: &worker::Env) -> Result<Client, String> {
         }
     }
 
-    let db_url = env
-        .var("DATABASE_URL")
-        .map_err(|_| "DATABASE_URL environment variable is missing".to_string())?
-        .to_string();
+    let db_url = crate::utils::get_env_val(env, "DATABASE_URL")
+        .map_err(|e| format!("DATABASE_URL missing: {}", e))?;
 
     let parsed = url::Url::parse(&db_url).map_err(|e| format!("Invalid DATABASE_URL: {}", e))?;
     let host = parsed.host_str().ok_or("Missing host in DATABASE_URL")?;
