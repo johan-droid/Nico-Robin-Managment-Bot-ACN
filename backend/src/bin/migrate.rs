@@ -1,8 +1,13 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::env;
+#[cfg(not(target_arch = "wasm32"))]
 use std::fs;
+#[cfg(not(target_arch = "wasm32"))]
 use native_tls::TlsConnector;
+#[cfg(not(target_arch = "wasm32"))]
 use postgres_native_tls::MakeTlsConnector;
 
+#[cfg(not(target_arch = "wasm32"))]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::from_filename(".env.local").ok();
@@ -52,3 +57,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("All migrations applied successfully!");
     Ok(())
 }
+
+#[cfg(target_arch = "wasm32")]
+fn main() {}
