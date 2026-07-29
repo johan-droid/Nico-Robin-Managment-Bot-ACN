@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use std::env;
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Settings {
@@ -13,13 +12,32 @@ pub struct Settings {
 
 impl Settings {
     pub fn from_env() -> Self {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            Self {
+                bot_token: std::env::var("BOT_TOKEN").unwrap_or_default(),
+                log_channel_id: std::env::var("LOG_CHANNEL_ID").ok().and_then(|v| v.parse().ok()),
+                rate_limit_user: std::env::var("RATE_LIMIT_USER").ok().and_then(|v| v.parse().ok()).unwrap_or(20),
+                rate_limit_global: std::env::var("RATE_LIMIT_GLOBAL").ok().and_then(|v| v.parse().ok()).unwrap_or(300),
+                rate_limit_cooldown: std::env::var("RATE_LIMIT_COOLDOWN").ok().and_then(|v| v.parse().ok()).unwrap_or(30),
+                warn_threshold: std::env::var("WARN_THRESHOLD").ok().and_then(|v| v.parse().ok()).unwrap_or(3),
+            }
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            Self::default()
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn from_worker_env(env: &worker::Env) -> Self {
         Self {
-            bot_token: env::var("BOT_TOKEN").unwrap_or_default(),
-            log_channel_id: env::var("LOG_CHANNEL_ID").ok().and_then(|v| v.parse().ok()),
-            rate_limit_user: env::var("RATE_LIMIT_USER").ok().and_then(|v| v.parse().ok()).unwrap_or(20),
-            rate_limit_global: env::var("RATE_LIMIT_GLOBAL").ok().and_then(|v| v.parse().ok()).unwrap_or(300),
-            rate_limit_cooldown: env::var("RATE_LIMIT_COOLDOWN").ok().and_then(|v| v.parse().ok()).unwrap_or(30),
-            warn_threshold: env::var("WARN_THRESHOLD").ok().and_then(|v| v.parse().ok()).unwrap_or(3),
+            bot_token: env.var("BOT_TOKEN").map(|v| v.to_string()).unwrap_or_default(),
+            log_channel_id: env.var("LOG_CHANNEL_ID").ok().and_then(|v| v.to_string().parse().ok()),
+            rate_limit_user: env.var("RATE_LIMIT_USER").ok().and_then(|v| v.to_string().parse().ok()).unwrap_or(20),
+            rate_limit_global: env.var("RATE_LIMIT_GLOBAL").ok().and_then(|v| v.to_string().parse().ok()).unwrap_or(300),
+            rate_limit_cooldown: env.var("RATE_LIMIT_COOLDOWN").ok().and_then(|v| v.to_string().parse().ok()).unwrap_or(30),
+            warn_threshold: env.var("WARN_THRESHOLD").ok().and_then(|v| v.to_string().parse().ok()).unwrap_or(3),
         }
     }
 }
