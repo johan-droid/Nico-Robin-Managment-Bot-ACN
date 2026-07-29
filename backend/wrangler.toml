@@ -3,7 +3,7 @@ main = "build/worker/shim.mjs"
 compatibility_date = "2024-01-01"
 
 [build]
-command = "cargo install worker-build --version \"<0.2.0\" && worker-build --release"
+command = "if command -v cargo >/dev/null 2>&1; then cargo install worker-build --version \"<0.2.0\" && worker-build --release; else echo \"Using precompiled Wasm build from git\"; fi"
 
 [observability]
 enabled = false
