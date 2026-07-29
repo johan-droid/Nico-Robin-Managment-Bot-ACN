@@ -35,6 +35,7 @@ async-trait = "0.1"
 getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
 getrandom = { version = "0.4", features = ["wasm_js"] }
 futures-util = "0.3"
+url = "2.5"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 tokio = { version = "1.38", default-features = false, features = ["time", "rt", "macros", "sync"] }

@@ -17,7 +17,7 @@ pub async fn establish_connection_via_socket(
         .connect(host, port)
         .map_err(|e| format!("Socket connect error: {}", e))?;
 
-    // Upgrade to TLS (Hyperdrive requires TLS at the transport layer)
+    // Upgrade to TLS
     let tls_socket = socket.start_tls();
 
     let mut config = Config::new();
@@ -41,19 +41,30 @@ pub async fn establish_connection_via_socket(
 
 #[cfg(target_arch = "wasm32")]
 pub async fn establish_connection(env: &worker::Env) -> Result<Client, String> {
-    let hyperdrive = env
-        .hyperdrive("HYPERDRIVE")
-        .map_err(|e| format!("Hyperdrive binding missing: {}", e))?;
+    if let Ok(hyperdrive) = env.hyperdrive("HYPERDRIVE") {
+        let host = hyperdrive.host();
+        let port = hyperdrive.port();
+        let user = hyperdrive.user();
+        let password = hyperdrive.password();
+        let database = hyperdrive.database();
 
-    let host = hyperdrive.host();
-    let port = hyperdrive.port();
-    let user = hyperdrive.user();
-    let password = hyperdrive.password();
-    let database = hyperdrive.database();
+        tracing::info!(host = %host, port = %port, db = %database, "connecting via hyperdrive socket");
+        return establish_connection_via_socket(&host, port, &user, &password, &database).await;
+    }
 
-    tracing::info!(host = %host, port = %port, db = %database, "connecting via hyperdrive socket");
+    let db_url = env
+        .var("DATABASE_URL")
+        .map_err(|_| "DATABASE_URL environment variable is missing".to_string())?
+        .to_string();
 
-    establish_connection_via_socket(&host, port, &user, &password, &database).await
+    let parsed = url::Url::parse(&db_url).map_err(|e| format!("Invalid DATABASE_URL: {}", e))?;
+    let host = parsed.host_str().ok_or("Missing host in DATABASE_URL")?;
+    let port = parsed.port().unwrap_or(5432);
+    let user = parsed.username();
+    let password = parsed.password().unwrap_or("");
+    let database = parsed.path().trim_start_matches('/');
+
+    tracing::info!(host = %host, port = %port, db = %database, "connecting via direct socket using DATABASE_URL");
+
+    establish_connection_via_socket(host, port, user, password, database).await
 }
-
-// Note: Non-wasm32 uses its own connection logic in main.rs (native_main).
