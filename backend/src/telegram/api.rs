@@ -20,7 +20,7 @@ impl Bot {
         }
     }
 
-    async fn api_post(&self, method: &str, payload: Value) -> Result<Value, String> {
+    pub async fn api_post(&self, method: &str, payload: Value) -> Result<Value, String> {
         let url = format!("https://api.telegram.org/bot{}/{}", self.token, method);
 
         let mut headers = Headers::new();

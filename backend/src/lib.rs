@@ -65,7 +65,7 @@ impl DurableObject for ChatState {
                 let fs = crate::db::flood::get_flood_settings(&client, msg.chat.id).await.ok().flatten();
                 self.flood_settings = Some(fs);
             }
-            let flood_settings = self.flood_settings.flatten();
+            let flood_settings = self.flood_settings.clone().flatten();
 
             let settings = crate::config::Settings::from_env();
             let state = Arc::new(crate::AppState {
