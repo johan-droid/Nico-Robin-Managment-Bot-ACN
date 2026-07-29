@@ -1,0 +1,18 @@
+{
+  "collaborators": [
+    "johan-droid <sahooashutosh2022@gmail.com>"
+  ],
+  "files": [
+    "index_bg.wasm",
+    "index.js",
+    "index.d.ts"
+  ],
+  "main": "index.js",
+  "name": "nico_robin_bot",
+  "sideEffects": [
+    "./index.js"
+  ],
+  "type": "module",
+  "types": "index.d.ts",
+  "version": "0.2.0"
+}
