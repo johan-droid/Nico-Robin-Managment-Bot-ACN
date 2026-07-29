@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 use std::time::Instant;
 
-use crate::config::Settings;
-
 /// Result of a rate-limit check.
 #[derive(Debug, PartialEq)]
 #[allow(dead_code)]
@@ -37,16 +35,20 @@ impl RateLimiter {
 
     /// Checks and records a command invocation at both levels.
     /// Returns `Allowed` if within all limits, `Denied` otherwise.
-    pub fn check(&mut self, user_id: i64, settings: &Settings) -> RateLimitResult {
+    pub fn check(&mut self, user_id: i64) -> RateLimitResult {
+        const COOLDOWN_SECS: u32 = 30;
+        const GLOBAL_LIMIT: usize = 300;
+        const USER_LIMIT: usize = 20;
+
         let now = Instant::now();
-        let window = std::time::Duration::from_secs(settings.rate_limit_cooldown as u64);
+        let window = std::time::Duration::from_secs(COOLDOWN_SECS as u64);
 
         // --- Global level check ---
         self.global_bucket
             .retain(|ts| now.duration_since(*ts) < window);
-        if self.global_bucket.len() >= settings.rate_limit_global as usize {
+        if self.global_bucket.len() >= GLOBAL_LIMIT {
             return RateLimitResult::Denied {
-                retry_after_secs: settings.rate_limit_cooldown,
+                retry_after_secs: COOLDOWN_SECS,
             };
         }
         self.global_bucket.push(now);
@@ -55,9 +57,9 @@ impl RateLimiter {
         let timestamps = self.user_buckets.entry(user_id).or_default();
         timestamps.retain(|ts| now.duration_since(*ts) < window);
 
-        if timestamps.len() >= settings.rate_limit_user as usize {
+        if timestamps.len() >= USER_LIMIT {
             return RateLimitResult::Denied {
-                retry_after_secs: settings.rate_limit_cooldown,
+                retry_after_secs: COOLDOWN_SECS,
             };
         }
         timestamps.push(now);
@@ -65,3 +67,4 @@ impl RateLimiter {
         RateLimitResult::Allowed
     }
 }
+

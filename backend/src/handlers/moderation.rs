@@ -347,7 +347,13 @@ pub async fn handle_warns(bot: Bot, msg: Message, client: &Client) -> Result<(),
         .await
         .unwrap_or_default();
 
-    let mut text = format!("Warnings for {}: {}/3\n", escape_md_v2(&target_name), count);
+    // Try to get the warn threshold from environment settings (default 3)
+    let threshold: i64 = std::env::var("WARN_THRESHOLD")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(3);
+
+    let mut text = format!("Warnings for {}: {} /{}\n", escape_md_v2(&target_name), count, threshold);
     for (i, (_id, reason, by)) in warnings.iter().enumerate() {
         text.push_str(&format!(
             "{}. {} (by {})\n",
@@ -406,7 +412,7 @@ pub async fn handle_resetwarn(
     Ok(())
 }
 
-pub async fn handle_slowmode(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
+pub async fn handle_slowmode(bot: Bot, msg: Message, _settings: &Settings) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
@@ -425,21 +431,17 @@ pub async fn handle_slowmode(bot: Bot, msg: Message, settings: &Settings) -> Res
             return Ok(());
         }
     };
-    let api_url = format!(
-        "https://api.telegram.org/bot{}/setChatSlowMode",
-        settings.bot_token
-    );
     match bot
-        .client()
-        .post(&api_url)
-        .json(&serde_json::json!({
-            "chat_id": msg.chat.id,
-            "slow_mode_delay": seconds
-        }))
-        .send()
+        .api_post(
+            "setChatSlowMode",
+            serde_json::json!({
+                "chat_id": msg.chat.id,
+                "slow_mode_delay": seconds
+            }),
+        )
         .await
     {
-        Ok(r) if r.status().is_success() => {
+        Ok(_) => {
             if seconds == 0 {
                 send_text(&bot, msg.chat.id, "Slowmode disabled.").await;
             } else {
@@ -451,19 +453,11 @@ pub async fn handle_slowmode(bot: Bot, msg: Message, settings: &Settings) -> Res
                 .await;
             }
         }
-        Ok(_) => {
-            send_text(
-                &bot,
-                msg.chat.id,
-                "Failed to set slowmode. Check bot permissions.",
-            )
-            .await;
-        }
         Err(e) => {
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Network error: {}", escape_md_v2(&e.to_string())),
+                &format!("Failed to set slowmode: {}", escape_md_v2(&e)),
             )
             .await;
         }

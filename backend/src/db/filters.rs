@@ -41,6 +41,30 @@ pub async fn list_filters(client: &Client, group_id: i64) -> Result<Vec<Filter>,
         .collect())
 }
 
+/// Checks if a message text matches any filter trigger and returns the response.
+pub async fn check_filter(
+    client: &Client,
+    group_id: i64,
+    text: &str,
+) -> Result<Option<String>, String> {
+    let text_lower = text.to_lowercase();
+    let rows = client.query(
+        r#"SELECT trigger_text, response FROM filters WHERE group_id = $1"#,
+        &[&group_id]
+    )
+    .await
+    .map_err(|e| e.to_string())?;
+
+    for row in rows {
+        let trigger: String = row.get(0);
+        let response: String = row.get(1);
+        if text_lower.contains(&trigger.to_lowercase()) {
+            return Ok(Some(response));
+        }
+    }
+    Ok(None)
+}
+
 pub async fn remove_filter(
     client: &Client,
     group_id: i64,

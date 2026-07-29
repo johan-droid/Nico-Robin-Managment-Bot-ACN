@@ -1,5 +1,5 @@
 name = "nico-robin-bot"
-main = "backend/src/main.rs"
+main = "src/lib.rs"
 compatibility_date = "2024-01-01"
 
 [build]

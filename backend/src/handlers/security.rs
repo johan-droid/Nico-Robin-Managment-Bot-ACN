@@ -1,4 +1,5 @@
-use crate::telegram::api::{Bot, ParseMode};
+use crate::telegram::api::Bot;
+use crate::telegram::ParseMode;
 use crate::telegram::update::Message;
 use tokio_postgres::Client;
 

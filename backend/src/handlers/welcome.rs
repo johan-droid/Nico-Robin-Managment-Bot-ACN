@@ -1,5 +1,5 @@
 use crate::telegram::api::Bot;
-use crate::telegram::update::Message;
+use crate::telegram::update::{Message, User};
 use tokio_postgres::Client;
 
 use crate::utils::escape_md_v2;
@@ -176,6 +176,84 @@ pub async fn handle_cleanwelcome(bot: Bot, msg: Message, client: &Client) -> Res
                     format!("Error: {}", escape_md_v2(&e.to_string())),
                 )
                 .await;
+        }
+    }
+    Ok(())
+}
+
+/// Handles a new member joining the group — sends welcome message and DM.
+pub async fn handle_new_member(
+    bot: &Bot,
+    msg: &Message,
+    client: &Client,
+    member: &User,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    match crate::db::welcome::get_welcome_settings(client, chat_id).await {
+        Ok(Some(settings)) => {
+            // Send welcome message to group
+            if let Some(ref welcome) = settings.welcome_message {
+                let member_count = bot
+                    .get_chat_member_count(chat_id)
+                    .await
+                    .map(|c| c.to_string())
+                    .unwrap_or_else(|_| "N/A".to_string());
+                let text = welcome
+                    .replace("{user}", &member.first_name)
+                    .replace("{group}", msg.chat.title().unwrap_or("this group"))
+                    .replace("{count}", &member_count);
+                let sent = bot.send_message(chat_id, &text).await.ok();
+
+                // If clean_welcome is enabled, delete the welcome message after 60 seconds
+                if settings.clean_welcome {
+                    if let Some(sent_msg) = sent {
+                        let bot_clone = bot.clone();
+                        let msg_id = sent_msg.id();
+                        crate::utils::spawn_task(async move {
+                            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+                            let _ = bot_clone.delete_message(chat_id, msg_id).await;
+                        });
+                    }
+                }
+            }
+
+            // Send DM to new member
+            if let Some(ref dm) = settings.welcome_dm_message {
+                let text = dm
+                    .replace("{user}", &member.first_name)
+                    .replace("{group}", msg.chat.title().unwrap_or("this group"));
+                let _ = bot.send_message(member.id as i64, &text).await;
+            }
+        }
+        Ok(None) => {}
+        Err(e) => {
+            tracing::error!("Error getting welcome settings: {}", e);
+        }
+    }
+    Ok(())
+}
+
+/// Handles a member leaving the group — sends farewell message.
+pub async fn handle_left_member(
+    bot: &Bot,
+    msg: &Message,
+    client: &Client,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    if let Some(ref left_user) = msg.left_chat_member {
+        match crate::db::welcome::get_welcome_settings(client, chat_id).await {
+            Ok(Some(settings)) => {
+                if let Some(ref farewell) = settings.farewell_message {
+                    let text = farewell
+                        .replace("{user}", &left_user.first_name)
+                        .replace("{group}", msg.chat.title().unwrap_or("this group"));
+                    let _ = bot.send_message(chat_id, &text).await;
+                }
+            }
+            Ok(None) => {}
+            Err(e) => {
+                tracing::error!("Error getting farewell settings: {}", e);
+            }
         }
     }
     Ok(())

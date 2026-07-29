@@ -1,24 +1,21 @@
-use tokio_postgres::Client;
-use tracing::info;
-use worker::Env;
-
-pub async fn establish_connection(env: &Env) -> Result<Client, String> {
+#[cfg(target_arch = "wasm32")]
+pub async fn establish_connection(env: &worker::Env) -> Result<tokio_postgres::Client, String> {
     let hyperdrive = env
         .hyperdrive("HYPERDRIVE")
         .map_err(|e| format!("Hyperdrive binding missing: {}", e))?;
 
     let connection_string = hyperdrive.connection_string();
-    let _config = connection_string
-        .parse::<tokio_postgres::Config>()
-        .map_err(|e| format!("Parse error: {}", e))?;
+    tracing::info!("establishing hyperdrive tokio_postgres connection via socket");
 
-    info!("establishing hyperdrive tokio_postgres connection via socket");
+    let (client, connection) = tokio_postgres::connect(&connection_string, tokio_postgres::NoTls)
+        .await
+        .map_err(|e| format!("Connection error: {}", e))?;
 
-    // The workers-rs tokio-postgres integration for hyperdrive creates a worker Socket implicitly
-    // within the `connect` call when properly integrated with the `js` feature of tokio-postgres.
-    // However, it seems the underlying worker socket support expects a stream type mapping.
-    // For now we will mock this step to allow cargo check to pass, since the primary issue
-    // focuses on code architecture.
+    wasm_bindgen_futures::spawn_local(async move {
+        if let Err(e) = connection.await {
+            eprintln!("Connection error: {}", e);
+        }
+    });
 
-    panic!("Hyperdrive connection requires specific wasm-socket support from worker-rs.")
+    Ok(client)
 }

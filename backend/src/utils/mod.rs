@@ -1,4 +1,7 @@
 pub mod logging;
+pub mod error;
+pub mod crash_reporter;
+pub mod sentry_scrubber;
 
 /// Escapes characters that are special in Telegram MarkdownV2 format.
 /// Must be applied to all user-generated content before sending with MarkdownV2 parse mode.
@@ -15,4 +18,20 @@ pub fn escape_md_v2(text: &str) -> String {
         }
     }
     result
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn spawn_task<F>(future: F)
+where
+    F: std::future::Future<Output = ()> + 'static,
+{
+    wasm_bindgen_futures::spawn_local(future);
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+pub fn spawn_task<F>(future: F)
+where
+    F: std::future::Future<Output = ()> + Send + 'static,
+{
+    tokio::spawn(future);
 }
