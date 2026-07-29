@@ -51,7 +51,7 @@ pub fn is_sudo_or_privileged(user_id: u64) -> bool {
 /// Uses Telegram group admin status with a 60-second in-memory TTL cache to prevent API rate limits.
 /// Group owners and administrators can use all admin commands directly.
 pub async fn is_telegram_admin(bot: &Bot, chat_id: i64, user_id: u64) -> bool {
-    if is_sudo_or_privileged(user_id) {
+    if chat_id > 0 || is_sudo_or_privileged(user_id) {
         return true;
     }
 

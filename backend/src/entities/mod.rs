@@ -43,13 +43,17 @@ pub async fn establish_connection_via_socket(
 pub async fn establish_connection(env: &worker::Env) -> Result<Client, String> {
     if let Ok(hyperdrive) = env.hyperdrive("HYPERDRIVE") {
         let host = hyperdrive.host();
-        let port = hyperdrive.port();
-        let user = hyperdrive.user();
-        let password = hyperdrive.password();
-        let database = hyperdrive.database();
+        if !host.is_empty() && !host.contains("dummy") && !host.contains("replace") && !host.contains("localhost") {
+            let port = hyperdrive.port();
+            let user = hyperdrive.user();
+            let password = hyperdrive.password();
+            let database = hyperdrive.database();
 
-        tracing::info!(host = %host, port = %port, db = %database, "connecting via hyperdrive socket");
-        return establish_connection_via_socket(&host, port, &user, &password, &database).await;
+            tracing::info!(host = %host, port = %port, db = %database, "connecting via hyperdrive socket");
+            if let Ok(client) = establish_connection_via_socket(&host, port, &user, &password, &database).await {
+                return Ok(client);
+            }
+        }
     }
 
     let db_url = env
