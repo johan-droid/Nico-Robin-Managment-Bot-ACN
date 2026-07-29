@@ -12,7 +12,7 @@ class_name = "ChatState"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["ChatState"]
+new_sqlite_classes = ["ChatState"]
 
 [vars]
 ENVIRONMENT = "production"

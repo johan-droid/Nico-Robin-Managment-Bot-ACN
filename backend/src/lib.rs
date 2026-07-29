@@ -13,7 +13,7 @@ pub mod telegram;
 pub mod utils;
 
 #[cfg(target_arch = "wasm32")]
-use worker::{event, durable_object, Context, Env, Headers, Method, Request, Response, Result, Router, State, DurableObject};
+use worker::{event, durable_object, Context, Env, Headers, Method, Request, Response, Result, Router, State};
 
 #[cfg(target_arch = "wasm32")]
 #[durable_object]
