@@ -5,9 +5,6 @@ compatibility_date = "2024-01-01"
 [build]
 command = "cargo install worker-build --version \"<0.2.0\" && worker-build --release"
 
-[[hyperdrive]]
-binding = "HYPERDRIVE"
-id = "dummy_id_replace_with_actual"
 
 [[durable_objects.bindings]]
 name = "CHAT_STATE"
