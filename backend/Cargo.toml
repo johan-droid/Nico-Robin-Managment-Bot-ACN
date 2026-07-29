@@ -30,7 +30,7 @@ chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
 worker = { version = "0.4", features = ["tokio-postgres"] }
 wasm-bindgen-futures = "0.4"
-wasm-bindgen = "0.2"
+wasm-bindgen = "=0.2.105"
 async-trait = "0.1"
 getrandom_02 = { package = "getrandom", version = "0.2", features = ["js"] }
 getrandom = { version = "0.4", features = ["wasm_js"] }

@@ -118,7 +118,6 @@ pub async fn handle_unban(bot: Bot, msg: Message, client: &Client, settings: &Se
             // Get the invite link
             let group_title = msg.chat.title().unwrap_or("the group");
             let mut invite_link_str = String::new();
-            let mut invite_sent_message = String::new();
 
             match bot.export_chat_invite_link(msg.chat.id).await {
                 Ok(link) => {
@@ -132,7 +131,7 @@ pub async fn handle_unban(bot: Bot, msg: Message, client: &Client, settings: &Se
                 }
             }
 
-            if !invite_link_str.is_empty() {
+            let invite_sent_message = if !invite_link_str.is_empty() {
                 let dm_text = format!(
                     "You have been unbanned in {}.\n\nHere is the link to join back:\n{}",
                     group_title,
@@ -141,16 +140,16 @@ pub async fn handle_unban(bot: Bot, msg: Message, client: &Client, settings: &Se
                 match bot.send_message(target_id, dm_text).await {
                     Ok(_) => {
                         tracing::info!(target_id = %target_id, "Direct message with group invite link sent successfully");
-                        invite_sent_message = " 📬 Invite link sent to their DMs.".to_string();
+                        " 📬 Invite link sent to their DMs.".to_string()
                     }
                     Err(dm_err) => {
                         tracing::warn!(target_id = %target_id, error = %dm_err, "Failed to DM invite link to unbanned user");
-                        invite_sent_message = format!(" ⚠️ Could not send DM (Error: {}).", dm_err);
+                        format!(" ⚠️ Could not send DM (Error: {}).", dm_err)
                     }
                 }
             } else {
-                invite_sent_message = " ⚠️ Could not generate invite link for group.".to_string();
-            }
+                " ⚠️ Could not generate invite link for group.".to_string()
+            };
 
             send_text(
                 &bot,
