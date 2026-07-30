@@ -30,13 +30,13 @@ Thumbs.db
 # Build artifacts
 dist/
 target/
-!backend/build/
-!build/
 *.o
 *.obj
 *.so
 *.dll
 *.exe
+*.rlib
+*.dylib
 
 # Dependencies
 node_modules/

@@ -1,3 +1,6 @@
+pub mod assets;
+pub mod auto_warn;
+pub mod feature_cache;
 pub mod features;
 pub mod federations;
 pub mod filters;

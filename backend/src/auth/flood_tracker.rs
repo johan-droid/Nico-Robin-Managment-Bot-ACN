@@ -8,38 +8,45 @@ use crate::config::Settings;
 use crate::handlers::log_mod_action;
 use crate::utils::escape_md_v2;
 
-#[allow(dead_code)]
 pub struct FloodTracker {
     buckets: HashMap<i64, Vec<Instant>>,
-    settings_cache: Option<(i32, String, i32)>,
+    flood_settings_cache: Option<Option<(i32, String, i32)>>,
 }
 
-#[allow(dead_code)]
+impl Default for FloodTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FloodTracker {
-    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             buckets: HashMap::new(),
-            settings_cache: None,
+            flood_settings_cache: None,
         }
     }
 
     pub fn invalidate(&mut self) {
-        self.settings_cache = None;
+        self.flood_settings_cache = None;
     }
 
-    pub fn update_cache(&mut self, settings: Option<(i32, String, i32)>) {
-        self.settings_cache = settings;
+    /// Fetch flood settings from DB and cache in-memory. No-op if already cached.
+    pub async fn get_or_fetch_flood_settings(
+        &mut self,
+        client: &tokio_postgres::Client,
+        chat_id: i64,
+    ) -> Option<(i32, String, i32)> {
+        if self.flood_settings_cache.is_none() {
+            let fs = crate::db::flood::get_flood_settings(client, chat_id)
+                .await
+                .ok()
+                .flatten();
+            self.flood_settings_cache = Some(fs);
+        }
+        self.flood_settings_cache.clone().flatten()
     }
 
-    pub fn get_cache(&self) -> Option<Option<(i32, String, i32)>> {
-        // Return Some(None) if cached as no-settings, None if missing cache
-        // But for simplicity, let's just make the caller pass it in via process_message instead.
-        None
-    }
-
-    /// Checks if a user message violates group flood settings.
-    /// If violated, takes action (mute/ban/warn), deletes message, and returns true.
     pub async fn process_message(
         &mut self,
         bot: &Bot,
@@ -99,7 +106,6 @@ impl FloodTracker {
                         .await;
                 }
                 _ => {
-                    // Default action: MUTE
                     let permissions = ChatPermissions::empty();
                     let _ = bot
                         .restrict_chat_member(msg.chat.id, user_id as u64, permissions)

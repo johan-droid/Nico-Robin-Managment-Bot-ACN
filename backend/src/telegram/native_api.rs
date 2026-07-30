@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use reqwest::Client;
 use serde_json::Value;
 use crate::telegram::update::{ChatPermissions, ChatMember};
@@ -5,23 +8,31 @@ use crate::telegram::update::{ChatPermissions, ChatMember};
 #[derive(Clone)]
 pub struct Bot {
     token: String,
-    client: Client,
+    client: Arc<Client>,
+    last_messages: Arc<Mutex<HashMap<i64, (i64, Instant)>>>,
 }
+
+static SHARED_CLIENT: std::sync::LazyLock<Arc<Client>> = std::sync::LazyLock::new(|| {
+    Arc::new(Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(25))
+        .pool_max_idle_per_host(20)
+        .tcp_keepalive(std::time::Duration::from_secs(30))
+        .build()
+        .expect("Failed to build reqwest Client"))
+});
 
 impl Bot {
     pub fn new(token: String) -> Self {
-        Self { token, client: Client::new() }
+        Self {
+            token,
+            client: SHARED_CLIENT.clone(),
+            last_messages: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 
     pub async fn api_post(&self, method: &str, payload: Value) -> Result<Value, String> {
         let url = format!("https://api.telegram.org/bot{}/{}", self.token, method);
-        
-        sentry::add_breadcrumb(sentry::Breadcrumb {
-            category: Some("telegram_api".into()),
-            message: Some(format!("Request: {}", method)),
-            level: sentry::Level::Info,
-            ..Default::default()
-        });
 
         let resp = self
             .client
@@ -31,12 +42,25 @@ impl Bot {
             .await
             .map_err(|e| e.to_string())?;
 
-        sentry::add_breadcrumb(sentry::Breadcrumb {
-            category: Some("telegram_api".into()),
-            message: Some(format!("Response for: {} status={}", method, resp.status())),
-            level: sentry::Level::Info,
-            ..Default::default()
-        });
+        let text = resp.text().await.map_err(|e| e.to_string())?;
+        let json: Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+        if json["ok"].as_bool() == Some(true) {
+            Ok(json["result"].clone())
+        } else {
+            Err(format!("API error: {}", text))
+        }
+    }
+
+    pub async fn api_post_multipart(&self, method: &str, form: reqwest::multipart::Form) -> Result<Value, String> {
+        let url = format!("https://api.telegram.org/bot{}/{}", self.token, method);
+
+        let resp = self
+            .client
+            .post(&url)
+            .multipart(form)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
 
         let text = resp.text().await.map_err(|e| e.to_string())?;
         let json: Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
@@ -50,6 +74,92 @@ impl Bot {
     pub fn client(&self) -> RawClient {
         RawClient {
             token: self.token.clone(),
+            client: self.client.clone(),
+        }
+    }
+
+    /// Send a new message or edit the last bot message in this chat.
+    pub async fn send_or_edit(
+        &self,
+        chat_id: i64,
+        text: &str,
+        parse_mode: Option<crate::telegram::ParseMode>,
+        reply_markup: Option<crate::telegram::update::InlineKeyboardMarkup>,
+    ) -> Result<crate::telegram::update::Message, String> {
+        let pm_str = parse_mode.map(|pm| match pm {
+            crate::telegram::ParseMode::MarkdownV2 => "MarkdownV2".to_string(),
+            crate::telegram::ParseMode::Html => "HTML".to_string(),
+        });
+
+        // Only attempt edit if the tracked message is < 30 seconds old.
+        // Stale messages (old commands, previous sessions) skip edit
+        // and send fresh, avoiding a guaranteed-fail Telegram API call.
+        let should_edit = self.last_messages.lock().ok()
+            .and_then(|m| m.get(&chat_id).copied())
+            .filter(|&(_, ts)| ts.elapsed() < std::time::Duration::from_secs(30))
+            .is_some();
+
+        if should_edit {
+            let (msg_id, _ts) = self.last_messages.lock().ok().and_then(|mut m| m.remove(&chat_id)).unwrap();
+            let mut payload = serde_json::json!({
+                "chat_id": chat_id,
+                "message_id": msg_id,
+                "text": text,
+            });
+            if let Some(ref pm) = pm_str {
+                payload["parse_mode"] = serde_json::Value::String(pm.clone());
+            }
+            if let Some(ref rm) = reply_markup {
+                payload["reply_markup"] = serde_json::to_value(rm).map_err(|e| e.to_string())?;
+            }
+            match self.api_post("editMessageText", payload).await {
+                Ok(res) => {
+                    if let Ok(msg) = serde_json::from_value::<crate::telegram::update::Message>(res) {
+                        if let Ok(mut m) = self.last_messages.lock() {
+                            m.insert(chat_id, (msg.id() as i64, Instant::now()));
+                        }
+                        return Ok(msg);
+                    }
+                    if let Ok(mut m) = self.last_messages.lock() {
+                        m.insert(chat_id, (msg_id, Instant::now()));
+                    }
+                    return Err("edit succeeded but response not a Message".into());
+                }
+                Err(_) => {}
+            }
+        }
+
+        let mut payload = serde_json::json!({
+            "chat_id": chat_id,
+            "text": text,
+        });
+        if let Some(ref pm) = pm_str {
+            payload["parse_mode"] = serde_json::Value::String(pm.clone());
+        }
+        if let Some(ref rm) = reply_markup {
+            payload["reply_markup"] = serde_json::to_value(rm).map_err(|e| e.to_string())?;
+        }
+        let res = self.api_post("sendMessage", payload).await?;
+        let msg: crate::telegram::update::Message = serde_json::from_value(res).map_err(|e| e.to_string())?;
+        if let Ok(mut m) = self.last_messages.lock() {
+            m.insert(chat_id, (msg.id() as i64, Instant::now()));
+        }
+        Ok(msg)
+    }
+
+    pub fn clear_last_message(&self, chat_id: i64) {
+        if let Ok(mut m) = self.last_messages.lock() {
+            m.remove(&chat_id);
+        }
+    }
+
+    pub fn reply_or_edit(&self, chat_id: i64, text: impl Into<String>) -> EditOrSendBuilder {
+        EditOrSendBuilder {
+            bot: self.clone(),
+            chat_id,
+            text: text.into(),
+            parse_mode: None,
+            reply_markup: None,
         }
     }
 
@@ -59,6 +169,7 @@ impl Bot {
             chat_id,
             text: text.into(),
             parse_mode: None,
+            reply_markup: None,
         }
     }
 
@@ -153,7 +264,6 @@ impl Bot {
         }
     }
 
-    /// Remove any active webhook so `getUpdates` (long-polling) can receive messages.
     pub async fn delete_webhook(&self, drop_pending_updates: bool) -> Result<(), String> {
         self.api_post(
             "deleteWebhook",
@@ -163,7 +273,6 @@ impl Bot {
         Ok(())
     }
 
-    /// Long-poll Telegram for new updates. `timeout` is seconds (Telegram max is 50).
     pub async fn get_updates(
         &self,
         offset: i64,
@@ -199,6 +308,120 @@ impl Bot {
             .map(|s| s.to_string())
             .ok_or_else(|| "Failed to parse invite link as string".to_string())
     }
+
+    pub async fn answer_callback_query(&self, callback_query_id: &str) -> Result<(), String> {
+        self.api_post(
+            "answerCallbackQuery",
+            serde_json::json!({"callback_query_id": callback_query_id}),
+        )
+        .await?;
+        Ok(())
+    }
+
+    pub fn send_photo(&self, chat_id: i64, photo: impl Into<String>) -> SendPhotoBuilder {
+        SendPhotoBuilder {
+            bot: self.clone(),
+            chat_id,
+            photo: photo.into(),
+            caption: None,
+            parse_mode: None,
+            reply_markup: None,
+        }
+    }
+
+    pub async fn send_photo_file(
+        &self,
+        chat_id: i64,
+        filename: &str,
+        data: Vec<u8>,
+        caption: Option<String>,
+        parse_mode: Option<crate::telegram::ParseMode>,
+        reply_markup: Option<crate::telegram::update::InlineKeyboardMarkup>,
+    ) -> Result<crate::telegram::update::Message, String> {
+        let mut form = reqwest::multipart::Form::new()
+            .text("chat_id", chat_id.to_string())
+            .part(
+                "photo",
+                reqwest::multipart::Part::bytes(data)
+                    .file_name(filename.to_string())
+                    .mime_str("image/jpeg")
+                    .map_err(|e| e.to_string())?,
+            );
+
+        if let Some(cap) = caption {
+            form = form.text("caption", cap);
+        }
+
+        if let Some(pm) = parse_mode {
+            let pm_str = match pm {
+                crate::telegram::ParseMode::MarkdownV2 => "MarkdownV2",
+                crate::telegram::ParseMode::Html => "HTML",
+            };
+            form = form.text("parse_mode", pm_str.to_string());
+        }
+
+        if let Some(rm) = reply_markup {
+            let rm_str = serde_json::to_string(&rm).map_err(|e| e.to_string())?;
+            form = form.text("reply_markup", rm_str);
+        }
+
+        let res = self.api_post_multipart("sendPhoto", form).await?;
+        serde_json::from_value(res).map_err(|e| e.to_string())
+    }
+}
+
+pub struct SendPhotoBuilder {
+    bot: Bot,
+    chat_id: i64,
+    photo: String,
+    caption: Option<String>,
+    parse_mode: Option<String>,
+    reply_markup: Option<crate::telegram::update::InlineKeyboardMarkup>,
+}
+
+impl SendPhotoBuilder {
+    pub fn caption(mut self, caption: Option<String>) -> Self {
+        self.caption = caption;
+        self
+    }
+
+    pub fn parse_mode(mut self, parse_mode: crate::telegram::ParseMode) -> Self {
+        self.parse_mode = match parse_mode {
+            crate::telegram::ParseMode::MarkdownV2 => Some("MarkdownV2".to_string()),
+            crate::telegram::ParseMode::Html => Some("HTML".to_string()),
+        };
+        self
+    }
+
+    pub fn reply_markup(mut self, markup: crate::telegram::update::InlineKeyboardMarkup) -> Self {
+        self.reply_markup = Some(markup);
+        self
+    }
+}
+
+impl std::future::IntoFuture for SendPhotoBuilder {
+    type Output = Result<crate::telegram::update::Message, String>;
+    type IntoFuture = std::pin::Pin<Box<dyn std::future::Future<Output = Self::Output> + Send>>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        Box::pin(async move {
+            let mut payload = serde_json::json!({
+                "chat_id": self.chat_id,
+                "photo": self.photo
+            });
+            if let Some(caption) = self.caption {
+                payload["caption"] = serde_json::Value::String(caption);
+            }
+            if let Some(pm) = self.parse_mode {
+                payload["parse_mode"] = serde_json::Value::String(pm);
+            }
+            if let Some(rm) = &self.reply_markup {
+                payload["reply_markup"] = serde_json::to_value(rm).map_err(|e| e.to_string())?;
+            }
+            let res = self.bot.api_post("sendPhoto", payload).await?;
+            serde_json::from_value(res).map_err(|e| e.to_string())
+        })
+    }
 }
 
 pub struct SendMessageBuilder {
@@ -206,13 +429,20 @@ pub struct SendMessageBuilder {
     chat_id: i64,
     text: String,
     parse_mode: Option<String>,
+    reply_markup: Option<crate::telegram::update::InlineKeyboardMarkup>,
 }
 
 impl SendMessageBuilder {
     pub fn parse_mode(mut self, parse_mode: crate::telegram::ParseMode) -> Self {
         self.parse_mode = match parse_mode {
             crate::telegram::ParseMode::MarkdownV2 => Some("MarkdownV2".to_string()),
+            crate::telegram::ParseMode::Html => Some("HTML".to_string()),
         };
+        self
+    }
+
+    pub fn reply_markup(mut self, markup: crate::telegram::update::InlineKeyboardMarkup) -> Self {
+        self.reply_markup = Some(markup);
         self
     }
 }
@@ -227,14 +457,57 @@ impl std::future::IntoFuture for SendMessageBuilder {
             if let Some(pm) = self.parse_mode {
                 payload["parse_mode"] = serde_json::Value::String(pm);
             }
+            if let Some(rm) = &self.reply_markup {
+                payload["reply_markup"] = serde_json::to_value(rm).map_err(|e| e.to_string())?;
+            }
             let res = self.bot.api_post("sendMessage", payload).await?;
             serde_json::from_value(res).map_err(|e| e.to_string())
         })
     }
 }
 
+pub struct EditOrSendBuilder {
+    bot: Bot,
+    chat_id: i64,
+    text: String,
+    parse_mode: Option<String>,
+    reply_markup: Option<crate::telegram::update::InlineKeyboardMarkup>,
+}
+
+impl EditOrSendBuilder {
+    pub fn parse_mode(mut self, parse_mode: crate::telegram::ParseMode) -> Self {
+        self.parse_mode = match parse_mode {
+            crate::telegram::ParseMode::MarkdownV2 => Some("MarkdownV2".to_string()),
+            crate::telegram::ParseMode::Html => Some("HTML".to_string()),
+        };
+        self
+    }
+
+    pub fn reply_markup(mut self, markup: crate::telegram::update::InlineKeyboardMarkup) -> Self {
+        self.reply_markup = Some(markup);
+        self
+    }
+}
+
+impl std::future::IntoFuture for EditOrSendBuilder {
+    type Output = Result<crate::telegram::update::Message, String>;
+    type IntoFuture = std::pin::Pin<Box<dyn std::future::Future<Output = Self::Output> + Send>>;
+
+    fn into_future(self) -> Self::IntoFuture {
+        Box::pin(async move {
+            let pm = self.parse_mode.map(|s| match s.as_str() {
+                "MarkdownV2" => crate::telegram::ParseMode::MarkdownV2,
+                "HTML" => crate::telegram::ParseMode::Html,
+                _ => crate::telegram::ParseMode::MarkdownV2,
+            });
+            self.bot.send_or_edit(self.chat_id, &self.text, pm, self.reply_markup).await
+        })
+    }
+}
+
 pub struct RawClient {
     pub token: String,
+    pub client: Arc<Client>,
 }
 
 impl RawClient {
@@ -242,7 +515,7 @@ impl RawClient {
         RawRequestBuilder {
             url: url.to_string(),
             json: None,
-            client: Client::new(),
+            client: self.client.clone(),
         }
     }
 }
@@ -250,7 +523,7 @@ impl RawClient {
 pub struct RawRequestBuilder {
     url: String,
     json: Option<Value>,
-    client: Client,
+    client: Arc<Client>,
 }
 
 impl RawRequestBuilder {

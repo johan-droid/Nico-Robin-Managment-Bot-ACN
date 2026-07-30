@@ -24,6 +24,12 @@ pub struct RateLimiter {
     global_bucket: Vec<Instant>,
 }
 
+impl Default for RateLimiter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[allow(dead_code)]
 impl RateLimiter {
     pub fn new() -> Self {

@@ -61,14 +61,6 @@ pub fn report_failure(err: &BotError, trace_id: u64, component: &str, operation:
     let filename = format!("failure_{}_{}.md", Utc::now().format("%Y%m%d_%H%M%S"), trace_id);
     let filepath = dir.join(filename);
 
-    let git_commit = std::process::Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .ok()
-        .and_then(|out| String::from_utf8(out.stdout).ok())
-        .unwrap_or_else(|| "Unknown".to_string());
-    let git_commit = git_commit.trim();
-
     let logs = crate::utils::logging::LOG_BUFFER.try_with(|buf| {
         buf.borrow().join("\n")
     }).unwrap_or_else(|_| "No trace logs recorded".to_string());
@@ -82,7 +74,6 @@ pub fn report_failure(err: &BotError, trace_id: u64, component: &str, operation:
          - **Trace ID**: {}\n\
          - **Component**: {}\n\
          - **Operation**: {}\n\
-         - **Git Commit**: {}\n\
          - **Error Type**: {:?}\n\n\
          ## Error Message\n\
          ```\n\
@@ -92,22 +83,19 @@ pub fn report_failure(err: &BotError, trace_id: u64, component: &str, operation:
          ```\n\
          {}\n\
          ```\n",
-        timestamp, trace_id, component, operation, git_commit, err, sanitized_err, sanitized_logs
+        timestamp, trace_id, component, operation, err, sanitized_err, sanitized_logs
     );
 
     if let Err(e) = fs::write(&filepath, report) {
         eprintln!("Failed to write failure report: {}", e);
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        sentry::configure_scope(|scope| {
-            scope.set_tag("trace_id", trace_id.to_string());
-            scope.set_tag("component", component);
-            scope.set_tag("operation", operation);
-        });
-        sentry::capture_message(&format!("Failure: {}", sanitized_err), sentry::Level::Error);
-    }
+    sentry::configure_scope(|scope| {
+        scope.set_tag("trace_id", trace_id.to_string());
+        scope.set_tag("component", component);
+        scope.set_tag("operation", operation);
+    });
+    sentry::capture_message(&format!("Failure: {}", sanitized_err), sentry::Level::Error);
 }
 
 pub fn sanitize_secrets(input: &str) -> String {

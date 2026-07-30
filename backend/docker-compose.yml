@@ -11,6 +11,7 @@ services:
     environment:
       DATABASE_URL: postgresql://robin:password@db:5432/robin_db
       REDIS_URL: redis://redis:6379/0
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
     depends_on:
       db:
         condition: service_healthy

@@ -7,10 +7,11 @@ pub async fn create_federation(
     name: &str,
     creator_id: i64,
 ) -> Result<(), String> {
+    let name_enc = crate::crypto::try_encrypt(name);
     client
         .execute(
             r#"INSERT INTO federations (fed_id, name, creator_id) VALUES ($1, $2, $3)"#,
-            &[&fed_id, &name, &creator_id],
+            &[&fed_id, &name_enc, &creator_id],
         )
         .await
         .map_err(|e| e.to_string())?;

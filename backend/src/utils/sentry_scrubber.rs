@@ -1,4 +1,3 @@
-#[cfg(not(target_arch = "wasm32"))]
 pub fn sentry_before_send(mut event: sentry::protocol::Event<'static>) -> Option<sentry::protocol::Event<'static>> {
     use crate::utils::error::sanitize_secrets;
 

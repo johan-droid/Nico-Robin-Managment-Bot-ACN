@@ -22,9 +22,9 @@ pub async fn get_welcome_settings(
     .map_err(|e| e.to_string())?;
 
     Ok(row.map(|r| WelcomeSettings {
-        welcome_message: r.get(0),
-        farewell_message: r.get(1),
-        welcome_dm_message: r.get(2),
+        welcome_message: r.get::<_, Option<String>>(0).map(|v| crate::crypto::try_decrypt(&v)),
+        farewell_message: r.get::<_, Option<String>>(1).map(|v| crate::crypto::try_decrypt(&v)),
+        welcome_dm_message: r.get::<_, Option<String>>(2).map(|v| crate::crypto::try_decrypt(&v)),
         clean_welcome: r.get(3),
     }))
 }
@@ -35,11 +35,12 @@ pub async fn set_welcome_message(
     group_id: i64,
     message: &str,
 ) -> Result<(), String> {
+    let msg_enc = crate::crypto::try_encrypt(message);
     client
         .execute(
             r#"INSERT INTO welcome_settings (group_id, welcome_message) VALUES ($1, $2)
            ON CONFLICT (group_id) DO UPDATE SET welcome_message = $2, updated_at = NOW()"#,
-            &[&group_id, &message],
+            &[&group_id, &msg_enc],
         )
         .await
         .map_err(|e| e.to_string())?;
@@ -63,11 +64,12 @@ pub async fn set_farewell_message(
     group_id: i64,
     message: &str,
 ) -> Result<(), String> {
+    let msg_enc = crate::crypto::try_encrypt(message);
     client
         .execute(
             r#"INSERT INTO welcome_settings (group_id, farewell_message) VALUES ($1, $2)
            ON CONFLICT (group_id) DO UPDATE SET farewell_message = $2, updated_at = NOW()"#,
-            &[&group_id, &message],
+            &[&group_id, &msg_enc],
         )
         .await
         .map_err(|e| e.to_string())?;
@@ -80,11 +82,12 @@ pub async fn set_welcome_dm_message(
     group_id: i64,
     message: &str,
 ) -> Result<(), String> {
+    let msg_enc = crate::crypto::try_encrypt(message);
     client
         .execute(
             r#"INSERT INTO welcome_settings (group_id, welcome_dm_message) VALUES ($1, $2)
            ON CONFLICT (group_id) DO UPDATE SET welcome_dm_message = $2, updated_at = NOW()"#,
-            &[&group_id, &message],
+            &[&group_id, &msg_enc],
         )
         .await
         .map_err(|e| e.to_string())?;

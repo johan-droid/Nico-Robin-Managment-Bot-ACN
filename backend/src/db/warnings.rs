@@ -8,11 +8,12 @@ pub async fn add_warning(
     reason: &str,
     warned_by: i64,
 ) -> Result<i32, String> {
+    let reason_enc = crate::crypto::try_encrypt(reason);
     let row = client
         .query_one(
             r#"INSERT INTO warnings (group_id, user_id, reason, warned_by)
            VALUES ($1, $2, $3, $4) RETURNING id"#,
-            &[&group_id, &user_id, &reason, &warned_by],
+            &[&group_id, &user_id, &reason_enc, &warned_by],
         )
         .await
         .map_err(|e| e.to_string())?;
@@ -52,7 +53,12 @@ pub async fn get_warnings(
 
     Ok(rows
         .into_iter()
-        .map(|row| (row.get(0), row.get(1), row.get(2)))
+        .map(|row| {
+            let id: i32 = row.get(0);
+            let reason: String = crate::crypto::try_decrypt(&row.get::<_, String>(1));
+            let warned_by: i64 = row.get(2);
+            (id, reason, warned_by)
+        })
         .collect())
 }
 

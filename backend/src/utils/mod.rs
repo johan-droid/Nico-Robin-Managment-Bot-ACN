@@ -20,27 +20,9 @@ pub fn escape_md_v2(text: &str) -> String {
     result
 }
 
-#[cfg(target_arch = "wasm32")]
-pub fn spawn_task<F>(future: F)
-where
-    F: std::future::Future<Output = ()> + 'static,
-{
-    wasm_bindgen_futures::spawn_local(future);
-}
-
-#[cfg(not(target_arch = "wasm32"))]
 pub fn spawn_task<F>(future: F)
 where
     F: std::future::Future<Output = ()> + Send + 'static,
 {
     tokio::spawn(future);
-}#[cfg(target_arch = "wasm32")]
-pub fn get_env_val(env: &worker::Env, key: &str) -> Result<String, String> {
-    if let Ok(s) = env.secret(key) {
-        return Ok(s.to_string());
-    }
-    if let Ok(v) = env.var(key) {
-        return Ok(v.to_string());
-    }
-    Err(format!("Environment variable or secret '{}' missing", key))
 }

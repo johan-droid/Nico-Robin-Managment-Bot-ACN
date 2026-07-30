@@ -91,6 +91,20 @@ pub struct CallbackQuery {
     pub data: Option<String>,
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct InlineKeyboardButton {
+    pub text: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub callback_data: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct InlineKeyboardMarkup {
+    pub inline_keyboard: Vec<Vec<InlineKeyboardButton>>,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ChatMemberUpdated {
     pub chat: Chat,

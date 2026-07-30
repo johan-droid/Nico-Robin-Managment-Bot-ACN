@@ -8,7 +8,7 @@ use crate::handlers::log_mod_action;
 use crate::utils::escape_md_v2;
 
 async fn send_text(bot: &Bot, chat_id: i64, text: &str) {
-    let _ = bot.send_message(chat_id, text).await;
+    let _ = bot.send_or_edit(chat_id, text, None, None).await;
 }
 
 async fn extract_target(bot: &Bot, msg: &Message, client: &Client, usage: &str) -> Option<(i64, String)> {
@@ -23,7 +23,7 @@ async fn extract_target(bot: &Bot, msg: &Message, client: &Client, usage: &str) 
                 match client.query_one("SELECT user_id, first_name FROM username_cache WHERE username = $1", &[&clean_uname]).await {
                     Ok(row) => {
                         let user_id: i64 = row.get(0);
-                        let first_name: String = row.get(1);
+                        let first_name: String = crate::crypto::try_decrypt(&row.get::<_, String>(1));
                         Some((user_id, first_name))
                     }
                     Err(_) => {

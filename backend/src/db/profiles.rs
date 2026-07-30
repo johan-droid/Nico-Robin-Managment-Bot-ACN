@@ -22,18 +22,19 @@ pub async fn get_or_create_profile(client: &Client, user_id: i64) -> Result<User
 
     Ok(UserProfile {
         user_id: row.get(0),
-        bio: row.get(1),
-        data: row.get(2),
+        bio: crate::crypto::try_decrypt(&row.get::<_, String>(1)),
+        data: row.get::<_, serde_json::Value>(2),
     })
 }
 
 /// Sets the bio for a user.
 pub async fn set_bio(client: &Client, user_id: i64, bio: &str) -> Result<(), String> {
+    let bio_enc = crate::crypto::try_encrypt(bio);
     client
         .execute(
             r#"INSERT INTO user_profiles (user_id, bio) VALUES ($1, $2)
            ON CONFLICT (user_id) DO UPDATE SET bio = $2, updated_at = NOW()"#,
-            &[&user_id, &bio],
+            &[&user_id, &bio_enc],
         )
         .await
         .map_err(|e| e.to_string())?;

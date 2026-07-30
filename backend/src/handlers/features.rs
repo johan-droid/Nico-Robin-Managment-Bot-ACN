@@ -54,7 +54,7 @@ pub async fn handle_enable(bot: Bot, msg: Message, client: &Client) -> Result<()
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/enable ").unwrap_or("").trim();
     if name.is_empty() {
-        bot.send_message(msg.chat.id, "Usage: /enable <feature_name>")
+        bot.reply_or_edit(msg.chat.id, "Usage: /enable <feature_name>")
             .await?;
         return Ok(());
     }
@@ -86,7 +86,7 @@ pub async fn handle_disable(bot: Bot, msg: Message, client: &Client) -> Result<(
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/disable ").unwrap_or("").trim();
     if name.is_empty() {
-        bot.send_message(msg.chat.id, "Usage: /disable <feature_name>")
+        bot.reply_or_edit(msg.chat.id, "Usage: /disable <feature_name>")
             .await?;
         return Ok(());
     }
@@ -118,7 +118,7 @@ pub async fn handle_toggle(bot: Bot, msg: Message, client: &Client) -> Result<()
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/toggle ").unwrap_or("").trim();
     if name.is_empty() {
-        bot.send_message(msg.chat.id, "Usage: /toggle <feature_name>")
+        bot.reply_or_edit(msg.chat.id, "Usage: /toggle <feature_name>")
             .await?;
         return Ok(());
     }
@@ -177,7 +177,7 @@ pub async fn handle_my_features(bot: Bot, msg: Message, client: &Client) -> Resu
                 disabled_count,
                 features.len()
             );
-            let _ = bot.send_message(msg.chat.id, text).await;
+            let _ = bot.reply_or_edit(msg.chat.id, text).await;
         }
         Err(e) => {
             let _ = bot
@@ -213,14 +213,18 @@ pub async fn handle_reset_features(bot: Bot, msg: Message, client: &Client) -> R
 
 pub async fn handle_enable_category(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
-    let category = text.strip_prefix("/enable_category ").unwrap_or("").trim();
+    let category = text
+        .strip_prefix("/enablecategory ")
+        .or_else(|| text.strip_prefix("/enable_category "))
+        .unwrap_or("")
+        .trim();
     if category.is_empty() {
         let cats: Vec<&str> = FEATURE_CATEGORIES.iter().map(|(c, _)| *c).collect();
         let _ = bot
             .send_message(
                 msg.chat.id,
                 format!(
-                    "Usage: /enable_category <category>\nAvailable: {}",
+                    "Usage: /enablecategory <category>\nAvailable: {}",
                     cats.join(", ")
                 ),
             )
@@ -252,7 +256,7 @@ pub async fn handle_enable_category(bot: Bot, msg: Message, client: &Client) -> 
                 .await;
         }
         None => {
-            let _ = bot.send_message(msg.chat.id, "Category not found.").await;
+            let _ = bot.reply_or_edit(msg.chat.id, "Category not found.").await;
         }
     }
     Ok(())
@@ -264,14 +268,18 @@ pub async fn handle_disable_category(
     client: &Client,
 ) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
-    let category = text.strip_prefix("/disable_category ").unwrap_or("").trim();
+    let category = text
+        .strip_prefix("/disablecategory ")
+        .or_else(|| text.strip_prefix("/disable_category "))
+        .unwrap_or("")
+        .trim();
     if category.is_empty() {
         let cats: Vec<&str> = FEATURE_CATEGORIES.iter().map(|(c, _)| *c).collect();
         let _ = bot
             .send_message(
                 msg.chat.id,
                 format!(
-                    "Usage: /disable_category <category>\nAvailable: {}",
+                    "Usage: /disablecategory <category>\nAvailable: {}",
                     cats.join(", ")
                 ),
             )
@@ -303,7 +311,7 @@ pub async fn handle_disable_category(
                 .await;
         }
         None => {
-            let _ = bot.send_message(msg.chat.id, "Category not found.").await;
+            let _ = bot.reply_or_edit(msg.chat.id, "Category not found.").await;
         }
     }
     Ok(())

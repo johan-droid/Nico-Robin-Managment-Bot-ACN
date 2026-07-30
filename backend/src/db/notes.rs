@@ -8,12 +8,13 @@ pub async fn save_note(
     content: &str,
     created_by: i64,
 ) -> Result<(), String> {
+    let content_enc = crate::crypto::try_encrypt(content);
     client
         .execute(
             r#"INSERT INTO notes (group_id, name, content, created_by)
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (group_id, name) DO UPDATE SET content = $3"#,
-            &[&group_id, &name, &content, &created_by],
+            &[&group_id, &name, &content_enc, &created_by],
         )
         .await
         .map_err(|e| e.to_string())?;
@@ -34,7 +35,7 @@ pub async fn get_note(
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(row.map(|r| r.get(0)))
+    Ok(row.map(|r| crate::crypto::try_decrypt(&r.get::<_, String>(0))))
 }
 
 /// Lists all notes for a group.

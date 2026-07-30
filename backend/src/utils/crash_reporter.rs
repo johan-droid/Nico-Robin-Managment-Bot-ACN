@@ -41,23 +41,15 @@ pub fn report_crash(trace_id: u64, panic_msg: &str) {
     let filename = format!("crash_{}_{}.md", Utc::now().format("%Y%m%d_%H%M%S"), trace_id);
     let filepath = dir.join(filename);
 
-    let git_commit = std::process::Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .ok()
-        .and_then(|out| String::from_utf8(out.stdout).ok())
-        .unwrap_or_else(|| "Unknown".to_string());
-    let git_commit = git_commit.trim();
-
     let logs = crate::utils::logging::LOG_BUFFER.try_with(|buf| {
         buf.borrow().join("\n")
     }).unwrap_or_else(|_| "No trace logs recorded".to_string());
 
-    let backtrace = std::backtrace::Backtrace::capture();
-    let backtrace_str = format!("{:#?}", backtrace);
-
     let sanitized_msg = sanitize_secrets(panic_msg);
     let sanitized_logs = sanitize_secrets(&logs);
+
+    let backtrace = std::backtrace::Backtrace::capture();
+    let backtrace_str = format!("{:#?}", backtrace);
     let sanitized_backtrace = sanitize_secrets(&backtrace_str);
 
     let report = format!(
@@ -65,8 +57,7 @@ pub fn report_crash(trace_id: u64, panic_msg: &str) {
          - **Timestamp**: {}\n\
          - **Trace ID**: {}\n\
          - **Component**: Webhook Handler\n\
-         - **Operation**: Process Telegram Message\n\
-         - **Git Commit**: {}\n\n\
+         - **Operation**: Process Telegram Message\n\n\
          ## Panic Message\n\
          ```\n\
          {}\n\
@@ -79,22 +70,19 @@ pub fn report_crash(trace_id: u64, panic_msg: &str) {
          ```\n\
          {}\n\
          ```\n",
-        timestamp, trace_id, git_commit, sanitized_msg, sanitized_backtrace, sanitized_logs
+        timestamp, trace_id, sanitized_msg, sanitized_backtrace, sanitized_logs
     );
 
     if let Err(e) = fs::write(&filepath, report) {
         eprintln!("Failed to write crash report: {}", e);
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        sentry::configure_scope(|scope| {
-            scope.set_tag("trace_id", trace_id.to_string());
-            scope.set_tag("component", "Webhook Handler");
-            scope.set_tag("operation", "Process Telegram Message");
-            scope.set_extra("backtrace", serde_json::Value::String(sanitized_backtrace));
-            scope.set_extra("logs", serde_json::Value::String(sanitized_logs));
-        });
-        sentry::capture_message(&format!("Crash: {}", sanitized_msg), sentry::Level::Fatal);
-    }
+    sentry::configure_scope(|scope| {
+        scope.set_tag("trace_id", trace_id.to_string());
+        scope.set_tag("component", "Webhook Handler");
+        scope.set_tag("operation", "Process Telegram Message");
+        scope.set_extra("backtrace", serde_json::Value::String(sanitized_backtrace));
+        scope.set_extra("logs", serde_json::Value::String(sanitized_logs));
+    });
+    sentry::capture_message(&format!("Crash: {}", sanitized_msg), sentry::Level::Fatal);
 }

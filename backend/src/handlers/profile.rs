@@ -12,7 +12,7 @@ pub async fn handle_profile(bot: Bot, msg: Message, client: &Client) -> Result<(
         _ => msg.from().map(|u| u.id as i64).unwrap_or(0),
     };
     if target_id == 0 {
-        bot.send_message(msg.chat.id, "Could not resolve user.")
+        bot.reply_or_edit(msg.chat.id, "Could not resolve user.")
             .await?;
         return Ok(());
     }
@@ -49,14 +49,14 @@ pub async fn handle_setbio(bot: Bot, msg: Message, client: &Client) -> Result<()
     let text = msg.text().unwrap_or("");
     let content = text.strip_prefix("/setbio ").unwrap_or("");
     if content.is_empty() {
-        bot.send_message(msg.chat.id, "Usage: /setbio <your bio>")
+        bot.reply_or_edit(msg.chat.id, "Usage: /setbio <your bio>")
             .await?;
         return Ok(());
     }
     let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
     match crate::db::profiles::set_bio(client, user_id, content).await {
         Ok(_) => {
-            let _ = bot.send_message(msg.chat.id, "Bio updated.").await;
+            let _ = bot.reply_or_edit(msg.chat.id, "Bio updated.").await;
         }
         Err(e) => {
             let _ = bot

@@ -1,5 +1,6 @@
 use tokio_postgres::Client;
 
+#[derive(Clone)]
 pub struct Filter {
     pub trigger_text: String,
     pub response: String,
@@ -12,12 +13,13 @@ pub async fn add_filter(
     response: &str,
     created_by: i64,
 ) -> Result<(), String> {
+    let response_enc = crate::crypto::try_encrypt(response);
     client
         .execute(
             r#"INSERT INTO filters (group_id, trigger_text, response, created_by)
            VALUES ($1, $2, $3, $4)
            ON CONFLICT (group_id, trigger_text) DO UPDATE SET response = $3"#,
-            &[&group_id, &trigger_text, &response, &created_by],
+            &[&group_id, &trigger_text, &response_enc, &created_by],
         )
         .await
         .map_err(|e| e.to_string())?;
@@ -36,7 +38,7 @@ pub async fn list_filters(client: &Client, group_id: i64) -> Result<Vec<Filter>,
         .into_iter()
         .map(|row| Filter {
             trigger_text: row.get(0),
-            response: row.get(1),
+            response: crate::crypto::try_decrypt(&row.get::<_, String>(1)),
         })
         .collect())
 }
@@ -57,7 +59,7 @@ pub async fn check_filter(
 
     for row in rows {
         let trigger: String = row.get(0);
-        let response: String = row.get(1);
+        let response: String = crate::crypto::try_decrypt(&row.get::<_, String>(1));
         if text_lower.contains(&trigger.to_lowercase()) {
             return Ok(Some(response));
         }

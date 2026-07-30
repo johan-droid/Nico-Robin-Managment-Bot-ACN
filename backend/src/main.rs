@@ -1,42 +1,43 @@
-#[cfg(not(target_arch = "wasm32"))]
-mod native_main {
-    use std::sync::Arc;
-    use std::env;
-    use axum::{
-        Router,
-        routing::get,
-        routing::post,
-        http::StatusCode,
-        extract::{Path, State},
-        response::Response,
-        body::Bytes,
-    };
-    use tokio_postgres::Client;
-    use tracing::{info, error, warn, Instrument};
+use std::sync::Arc;
+use std::env;
+use axum::{
+    Router, routing::get, routing::post,
+    http::StatusCode,
+    extract::{Path, State},
+    response::Response,
+    body::Bytes,
+};
+use deadpool_postgres::{Config, Runtime};
+use tracing::{info, debug, error, warn, Instrument};
 
-    use nico_robin_bot::handlers;
-    use nico_robin_bot::telegram;
-    use nico_robin_bot::telegram::update::Update;
-    use nico_robin_bot::auth::flood_tracker::FloodTracker;
-    use nico_robin_bot::auth::rate_limiter::RateLimiter;
-    use std::collections::HashMap;
-    use tokio::sync::Mutex;
+use nico_robin_bot::handlers;
+use nico_robin_bot::telegram;
+use nico_robin_bot::telegram::update::Update;
+use nico_robin_bot::auth::flood_tracker::FloodTracker;
+use nico_robin_bot::auth::rate_limiter::RateLimiter;
+use nico_robin_bot::perf;
+use std::collections::HashMap;
+use tokio::sync::Mutex as TokioMutex;
 
-    #[derive(Clone)]
-    struct NativeState {
-        db: Arc<Client>,
-        bot_token: String,
-        chat_states: Arc<Mutex<HashMap<i64, (FloodTracker, RateLimiter, Option<Option<(i32, String, i32)>>, Option<Vec<String>>)>>>,
-    }
+type PerChatState = Arc<TokioMutex<(FloodTracker, RateLimiter)>>;
 
-    pub async fn run() {
-        dotenvy::from_filename(".env.local").ok();
-        dotenvy::dotenv().ok();
-        nico_robin_bot::utils::logging::init();
+#[derive(Clone)]
+struct NativeState {
+    pool: deadpool_postgres::Pool,
+    bot: telegram::api::Bot,
+    chat_states: Arc<std::sync::Mutex<HashMap<i64, PerChatState>>>,
+}
 
+#[tokio::main]
+async fn main() {
+    dotenvy::from_filename(".env.local").ok();
+    dotenvy::dotenv().ok();
+    nico_robin_bot::utils::logging::init();
+
+    let _sentry_guard = {
         let sentry_dsn = env::var("SENTRY_DSN").ok();
         let sentry_env = env::var("SENTRY_ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
-        let _sentry_guard = if let Some(ref dsn) = sentry_dsn {
+        if let Some(ref dsn) = sentry_dsn {
             if !dsn.is_empty() {
                 info!(env = %sentry_env, "Initializing Sentry error monitoring");
                 Some(sentry::init((dsn.as_str(), sentry::ClientOptions {
@@ -50,260 +51,289 @@ mod native_main {
             }
         } else {
             None
-        };
-
-        let port = env::var("PORT").unwrap_or_else(|_| "8000".to_string());
-        let port: u16 = port.parse().expect("PORT must be a valid number");
-        let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-        let bot_token = env::var("BOT_TOKEN").expect("BOT_TOKEN must be set");
-        let bot_mode = env::var("BOT_MODE").unwrap_or_else(|_| "polling".to_string()).to_lowercase();
-
-        info!("Connecting to database");
-        let native_tls_connector = native_tls::TlsConnector::builder()
-            .build()
-            .expect("Failed to build TLS connector");
-        let connector = postgres_native_tls::MakeTlsConnector::new(native_tls_connector);
-
-        let (db_client, db_connection) = tokio_postgres::connect(&database_url, connector)
-            .await
-            .expect("Failed to connect to database");
-
-        tokio::spawn(async move {
-            if let Err(e) = db_connection.await {
-                error!(error = %e, "Database connection error");
-            }
-        });
-
-        info!("Connected to database");
-
-        let create_table_res = db_client.batch_execute(
-            "CREATE TABLE IF NOT EXISTS username_cache (
-                username TEXT PRIMARY KEY,
-                user_id BIGINT NOT NULL,
-                first_name TEXT NOT NULL,
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-             );
-             CREATE INDEX IF NOT EXISTS idx_username_cache_user_id ON username_cache(user_id);"
-        ).await;
-        if let Err(e) = create_table_res {
-            error!(error = %e, "Failed to create username_cache table");
         }
+    };
 
-        let state = NativeState {
-            db: Arc::new(db_client),
-            bot_token: bot_token.clone(),
-            chat_states: Arc::new(Mutex::new(HashMap::new())),
-        };
+    let port = env::var("PORT").unwrap_or_else(|_| "8000".to_string());
+    let port: u16 = port.parse().expect("PORT must be a valid number");
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let bot_token = env::var("BOT_TOKEN").expect("BOT_TOKEN must be set");
+    let bot_mode = env::var("BOT_MODE").unwrap_or_else(|_| "polling".to_string()).to_lowercase();
 
-        if bot_mode == "polling" {
-            info!("Starting in long-polling mode (local development)");
-            run_polling(state).await;
-        } else {
-            info!("Starting in webhook mode");
-            run_webhook_server(state, port).await;
-        }
+    // Initialize global settings singleton ONCE at startup
+    nico_robin_bot::config::Settings::init_global();
+    info!("Global settings initialized");
+
+    // Initialize global crypto singleton
+    let enc_key = nico_robin_bot::config::Settings::global().encryption_key.clone();
+    if enc_key.is_empty() {
+        warn!("ENCRYPTION_KEY not set — database data will be stored in plaintext");
+    } else {
+        nico_robin_bot::crypto::init(&enc_key);
+        info!("Database encryption initialized");
     }
 
-    async fn run_webhook_server(state: NativeState, port: u16) {
-        let app = Router::new()
-            .route("/health", get(health))
-            .route("/webhook/:secret", post(webhook_handler))
-            .with_state(state);
+    info!("Connecting to database with connection pool");
+    let native_tls_connector = native_tls::TlsConnector::builder()
+        .build()
+        .expect("Failed to build TLS connector");
+    let connector = postgres_native_tls::MakeTlsConnector::new(native_tls_connector);
 
-        let addr = format!("0.0.0.0:{}", port);
-        let listener = tokio::net::TcpListener::bind(&addr)
-            .await
-            .expect("Failed to bind to address");
+    let mut cfg = Config::new();
+    cfg.url = Some(database_url.clone());
+    cfg.pool = Some(deadpool_postgres::PoolConfig::new(5));
+    let pool = cfg.create_pool(Some(Runtime::Tokio1), connector)
+        .expect("Failed to create database connection pool");
 
-        info!(addr = %addr, "Listening for webhooks");
-        axum::serve(listener, app).await.expect("Server failed");
+    // Verify connectivity by checking out one connection
+    let db_client = pool.get().await.expect("Failed to connect to database");
+    info!("Connected to database");
+
+    let create_table_res = db_client.batch_execute(
+        "CREATE TABLE IF NOT EXISTS username_cache (
+            username TEXT PRIMARY KEY,
+            user_id BIGINT NOT NULL,
+            first_name TEXT NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+         );
+         CREATE INDEX IF NOT EXISTS idx_username_cache_user_id ON username_cache(user_id);
+         CREATE TABLE IF NOT EXISTS bot_assets (
+            key TEXT PRIMARY KEY,
+            data BYTEA NOT NULL,
+            mime_type TEXT NOT NULL DEFAULT 'image/jpeg',
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+         );"
+    ).await;
+    if let Err(e) = create_table_res {
+        error!(error = %e, "Failed to create username_cache or bot_assets table");
     }
+    // Return client to pool
+    drop(db_client);
 
-    async fn run_polling(state: NativeState) {
-        let bot = telegram::api::Bot::new(state.bot_token.clone());
-
-        info!("Clearing any active Telegram webhook so long-polling can receive updates");
-        match bot.delete_webhook(false).await {
-            Ok(()) => info!("Webhook cleared (if any was set)"),
-            Err(e) => warn!(error = %e, "Failed to clear webhook — getUpdates may conflict"),
-        }
-
-        let mut offset: i64 = 0;
-        info!("Long-polling for Telegram updates… send a message to the bot");
-
-        loop {
-            match bot.get_updates(offset, 30).await {
-                Ok(updates) => {
-                    for update in updates {
-                        offset = (update.update_id as i64) + 1;
-                        let state_clone = state.clone();
-                        tokio::spawn(async move {
-                            if let Err(e) = process_update(state_clone, update).await {
-                                error!(error = %e, "Failed to process polled update");
-                            }
-                        });
-                    }
-                }
-                Err(e) => {
-                    error!(error = %e, "getUpdates failed — retrying in 3s");
-                    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-                }
+    // Seed welcome image into database
+    info!("Seeding welcome image into database");
+    let image_path = env::var("WELCOME_IMAGE_PATH")
+        .unwrap_or_else(|_| "Images/photo_2026-07-30_12-26-35.jpg".to_string());
+    let seed_client = pool.get().await.expect("Failed to get connection for seeding");
+    match std::fs::read(&image_path) {
+        Ok(image_data) => {
+            if let Err(e) = nico_robin_bot::db::assets::set_asset(
+                &seed_client, "welcome", &image_data, "image/jpeg"
+            ).await {
+                error!(error = %e, "Failed to seed welcome image");
+            } else {
+                info!("Welcome image seeded successfully");
             }
         }
+        Err(e) => {
+            warn!(path = %image_path, error = %e, "Welcome image not found, skipping seed");
+        }
+    }
+    drop(seed_client);
+
+    let state = NativeState {
+        pool: pool.clone(),
+        bot: telegram::api::Bot::new(bot_token),
+        chat_states: Arc::new(std::sync::Mutex::new(HashMap::new())),
+    };
+
+    if bot_mode == "polling" {
+        info!("Starting in long-polling mode (local development)");
+        run_polling(state).await;
+    } else {
+        info!("Starting in webhook mode");
+        run_webhook_server(state, port).await;
+    }
+}
+
+async fn run_webhook_server(state: NativeState, port: u16) {
+    let app = Router::new()
+        .route("/health", get(health))
+        .route("/webhook/:secret", post(webhook_handler))
+        .with_state(state);
+
+    let addr = format!("0.0.0.0:{}", port);
+    let listener = tokio::net::TcpListener::bind(&addr)
+        .await
+        .expect("Failed to bind to address");
+
+    info!(addr = %addr, "Listening for webhooks");
+    axum::serve(listener, app).await.expect("Server failed");
+}
+
+async fn run_polling(state: NativeState) {
+    let bot = state.bot.clone();
+
+    info!("Clearing any active Telegram webhook so long-polling can receive updates");
+    match bot.delete_webhook(false).await {
+        Ok(()) => info!("Webhook cleared (if any was set)"),
+        Err(e) => warn!(error = %e, "getUpdates may conflict with active webhook"),
     }
 
-    async fn health() -> &'static str {
-        "OK"
+    let mut offset: i64 = 0;
+    info!("Long-polling for Telegram updates… send a message to the bot");
+
+    loop {
+        match bot.get_updates(offset, 30).await {
+            Ok(updates) => {
+                for update in updates {
+                    offset = (update.update_id as i64) + 1;
+                    let state_clone = state.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = process_update(state_clone, update).await {
+                            error!(error = %e, "Failed to process polled update");
+                        }
+                    });
+                }
+            }
+            Err(e) => {
+                debug!(error = %e, "Long-poll timeout (no updates) — retrying");
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+            }
+        }
+    }
+}
+
+async fn health() -> &'static str {
+    "OK"
+}
+
+#[axum::debug_handler]
+async fn webhook_handler(
+    State(state): State<NativeState>,
+    Path(secret): Path<String>,
+    body: Bytes,
+) -> impl axum::response::IntoResponse {
+    let webhook_secret = env::var("WEBHOOK_SECRET_PATH")
+        .or_else(|_| env::var("WEBHOOK_SECRET"))
+        .unwrap_or_else(|_| "secret-webhook-path".to_string());
+    if secret != webhook_secret {
+        return Response::builder()
+            .status(StatusCode::UNAUTHORIZED)
+            .body(axum::body::Body::empty())
+            .unwrap();
     }
 
-    #[axum::debug_handler]
-    async fn webhook_handler(
-        State(state): State<NativeState>,
-        Path(secret): Path<String>,
-        body: Bytes,
-    ) -> impl axum::response::IntoResponse {
-        let webhook_secret = env::var("WEBHOOK_SECRET_PATH")
-            .or_else(|_| env::var("WEBHOOK_SECRET"))
-            .unwrap_or_else(|_| "secret-webhook-path".to_string());
-        if secret != webhook_secret {
+    let update: Update = match serde_json::from_slice(&body) {
+        Ok(u) => u,
+        Err(e) => {
+            error!(error = %e, "Failed to parse JSON");
             return Response::builder()
-                .status(StatusCode::UNAUTHORIZED)
+                .status(StatusCode::BAD_REQUEST)
                 .body(axum::body::Body::empty())
                 .unwrap();
         }
+    };
 
-        let update: Update = match serde_json::from_slice(&body) {
-            Ok(u) => u,
-            Err(e) => {
-                error!(error = %e, "Failed to parse JSON");
-                return Response::builder()
-                    .status(StatusCode::BAD_REQUEST)
-                    .body(axum::body::Body::empty())
-                    .unwrap();
-            }
-        };
-
-        if let Err(e) = process_update(state, update).await {
-            error!(error = %e, "Webhook update processing failed");
-        }
-
-        Response::builder()
-            .status(StatusCode::OK)
-            .body(axum::body::Body::from("OK"))
-            .unwrap()
+    if let Err(e) = process_update(state, update).await {
+        error!(error = %e, "Webhook update processing failed");
     }
 
-    async fn process_update(state: NativeState, update: Update) -> Result<(), String> {
-        let trace_id = update.update_id;
+    Response::builder()
+        .status(StatusCode::OK)
+        .body(axum::body::Body::from("OK"))
+        .unwrap()
+}
 
-        nico_robin_bot::utils::logging::LOG_BUFFER
-            .scope(std::cell::RefCell::new(Vec::new()), async move {
-                let span = tracing::info_span!("update", trace_id = %trace_id);
-                async move {
-                    tracing::info!("Received Telegram Update");
-                    sentry::add_breadcrumb(sentry::Breadcrumb {
-                        category: Some("telegram".into()),
-                        message: Some(format!("Received Telegram Update ID {}", trace_id)),
-                        level: sentry::Level::Info,
-                        ..Default::default()
-                    });
+async fn process_update(state: NativeState, update: Update) -> Result<(), String> {
+    let trace_id = perf::next_trace_id();
 
-                    let handle_future = async move {
-                        let settings = nico_robin_bot::config::Settings::from_env();
-                        let app_state = Arc::new(nico_robin_bot::AppState {
-                            settings: Arc::new(settings),
-                        });
-                        let bot = telegram::api::Bot::new(state.bot_token.clone());
+    // Checkout a database connection from the pool for this update
+    let db_client = state.pool.get().await.map_err(|e| format!("DB pool error: {}", e))?;
 
-                        if let Some(msg) = update.message {
-                            let chat_id = msg.chat.id;
-                            let text = msg.text().unwrap_or("");
-                            let is_settings_change = text.starts_with("/setflood")
-                                || text.starts_with("/addswear")
-                                || text.starts_with("/delswear");
+    {
+        let span = tracing::info_span!("update", trace_id = %trace_id);
+        async move {
+            let _t_total = perf::Timer::start("total");
+            perf::LatencyTrace::begin(trace_id);
 
-                            let mut states = state.chat_states.lock().await;
-                            let entry = states.entry(chat_id).or_insert_with(|| {
-                                (FloodTracker::new(), RateLimiter::new(), None, None)
-                            });
+                let handle_future = async move {
+                    let t_bot = perf::Timer::start("bot_clone");
+                    let bot = state.bot.clone();
+                    perf::LatencyTrace::record("bot_clone", t_bot.stop());
 
-                            if entry.2.is_none() {
-                                let fs = nico_robin_bot::db::flood::get_flood_settings(&state.db, chat_id)
-                                    .await
-                                    .ok()
-                                    .flatten();
-                                entry.2 = Some(fs);
-                            }
-                            let flood_settings = entry.2.clone().flatten();
+                    if let Some(cq) = update.callback_query {
+                        return nico_robin_bot::handlers::core::handle_category_callback(bot, cq, &db_client).await;
+                    }
 
-                            let (ref mut tracker, ref mut limiter, _, ref mut swears_cache) = entry;
+                    if let Some(msg) = update.message {
+                        let chat_id = msg.chat.id;
+                        let text = msg.text().unwrap_or("");
+                        let is_settings_change = text.starts_with("/setflood")
+                            || text.starts_with("/addswear")
+                            || text.starts_with("/delswear");
 
-                            tracing::info!(chat_id = %chat_id, "Routing message to handler");
-                            let res = handlers::handle_message(
-                                bot,
-                                msg,
-                                app_state,
-                                &state.db,
-                                tracker,
-                                limiter,
-                                flood_settings,
-                                swears_cache,
-                            )
-                            .await;
+                        let t_lock = perf::Timer::start("chat_state_lookup");
+                        let per_chat = {
+                            let mut states = state.chat_states.lock().unwrap();
+                            states.entry(chat_id)
+                                .or_insert_with(|| Arc::new(TokioMutex::new(
+                                    (FloodTracker::new(), RateLimiter::new())
+                                )))
+                                .clone()
+                        };
+                        perf::LatencyTrace::record("chat_state_lookup", t_lock.stop());
 
-                            if is_settings_change {
-                                entry.2 = None;
-                                entry.3 = None;
-                                entry.0.invalidate();
-                            }
+                        let t_cache = perf::Timer::start("chat_state_lock");
+                        let mut chat_guard = per_chat.lock().await;
+                        let (ref mut tracker, ref mut limiter) = &mut *chat_guard;
+                        perf::LatencyTrace::record("chat_state_lock", t_cache.stop());
 
-                            res.map_err(nico_robin_bot::utils::error::BotError::Unexpected)
-                        } else {
-                            Ok(())
+                        let t_flood = perf::Timer::start("flood_settings_fetch");
+                        let flood_settings = tracker.get_or_fetch_flood_settings(&db_client, chat_id).await;
+                        perf::LatencyTrace::record("flood_settings_fetch", t_flood.stop());
+
+                        let swear_words_cache = &mut None;
+
+                        tracing::info!(chat_id = %chat_id, "Routing message to handler");
+                        let res = handlers::handle_message(
+                            bot,
+                            msg,
+                            &db_client,
+                            tracker,
+                            limiter,
+                            flood_settings,
+                            swear_words_cache,
+                        )
+                        .await;
+
+                        if is_settings_change {
+                            nico_robin_bot::db::feature_cache::invalidate_group(chat_id);
                         }
-                    };
 
-                    match nico_robin_bot::utils::crash_reporter::catch_handler_panic(trace_id, async move {
-                        handle_future.await.map_err(|err| {
-                            nico_robin_bot::utils::error::report_failure(
-                                &err,
-                                trace_id,
-                                "Update Handler",
-                                "Process Telegram Message",
-                            );
-                            err.to_string()
-                        })
-                    })
-                    .await
-                    {
-                        Ok(_) => {
-                            tracing::info!("Update processed successfully");
-                            sentry::add_breadcrumb(sentry::Breadcrumb {
-                                category: Some("telegram".into()),
-                                message: Some("Update processed successfully".into()),
-                                level: sentry::Level::Info,
-                                ..Default::default()
-                            });
-                            Ok(())
-                        }
-                        Err(e) => {
-                            tracing::error!(error = %e, "Update processing failed");
-                            Err(e)
-                        }
+                        res
+                    } else {
+                        Ok(())
+                    }
+                };
+
+                let result = handle_future.await;
+                if let Err(ref err) = result {
+                    nico_robin_bot::utils::error::report_failure(
+                        &nico_robin_bot::utils::error::BotError::Unexpected(err.clone()),
+                        trace_id,
+                        "Update Handler",
+                        "Process Telegram Message",
+                    );
+                }
+                let res = result;
+
+                match &res {
+                    Ok(_) => {
+                        tracing::info!("Update processed successfully");
+                    }
+                    Err(e) => {
+                        tracing::error!(error = %e, "Update processing failed");
                     }
                 }
-                .instrument(span)
-                .await
-            })
+
+                let total_us = _t_total.stop();
+                perf::LatencyTrace::record("total", total_us);
+                perf::LatencyTrace::finish();
+
+                res
+            }
+            .instrument(span)
             .await
-    }
+        }
 }
-
-#[cfg(not(target_arch = "wasm32"))]
-#[tokio::main]
-async fn main() {
-    native_main::run().await;
-}
-
-#[cfg(target_arch = "wasm32")]
-fn main() {}
