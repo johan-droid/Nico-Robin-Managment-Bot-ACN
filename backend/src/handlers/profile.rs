@@ -92,7 +92,7 @@ fn build_profile_card(
     }
 
     let bio_text = if bio.trim().is_empty() {
-        "_No bio set yet — use /setbio to add one._".to_string()
+        "_No bio set yet_ — use /setbio to add one".to_string()
     } else {
         escape_md_v2(bio.trim())
     };
@@ -153,37 +153,104 @@ pub async fn handle_profile(bot: Bot, msg: Message, client: &Client) -> Result<(
     );
 
     // Prefer sending the profile picture with the card as its caption.
+    // Telegram lets us send the freshly-fetched `file_id` directly — no
+    // download / re-upload needed, which keeps the command fast and reliable.
     if let Ok(Some(photo)) = bot.get_user_profile_photo(target_id as u64).await {
-        if let Ok(file_path) = bot.get_file_path(&photo.file_id).await {
-            if let Ok(bytes) = bot.download_file(&file_path).await {
-                let filename = if file_path.to_lowercase().ends_with(".png") {
-                    "profile.png"
-                } else {
-                    "profile.jpg"
-                };
-                let sent = bot
-                    .send_photo_file(
-                        msg.chat.id,
-                        filename,
-                        bytes,
-                        Some(card.clone()),
-                        Some(ParseMode::MarkdownV2),
-                        None,
-                    )
-                    .await;
-                if sent.is_ok() {
-                    return Ok(());
-                }
-            }
+        let sent = bot
+            .send_photo(msg.chat.id, photo.file_id.clone())
+            .caption(Some(card.clone()))
+            .parse_mode(ParseMode::MarkdownV2)
+            .await;
+        if sent.is_ok() {
+            return Ok(());
         }
+        tracing::warn!(
+            target_id = %target_id,
+            error = %sent.unwrap_err(),
+            "Profile photo send failed, falling back to text"
+        );
     }
 
-    // Fallback: text-only profile card.
-    let _ = bot
-        .send_message(msg.chat.id, card)
+    // Fallback: text-only profile card. Try MarkdownV2 first, then plain
+    // text so the user always gets a response even if parsing fails.
+    match bot
+        .send_message(msg.chat.id, card.clone())
         .parse_mode(ParseMode::MarkdownV2)
-        .await;
-    Ok(())
+        .await
+    {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            tracing::warn!(
+                target_id = %target_id,
+                error = %e,
+                "MarkdownV2 profile card failed, sending plain text"
+            );
+            let _ = bot.send_message(msg.chat.id, strip_md_v2(&card)).await;
+            Ok(())
+        }
+    }
+}
+
+/// Removes MarkdownV2 formatting markers so the card can be shown as plain text.
+fn strip_md_v2(text: &str) -> String {
+    text.replace('*', "").replace('`', "").replace('_', "")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn profile_card_renders_valid_markdown() {
+        let card = build_profile_card(
+            "John Doe",
+            Some("johndoe"),
+            123456789,
+            Some("creator"),
+            true,
+            "",
+            Some("ACN Test Group"),
+        );
+
+        // The card must contain the key fields.
+        assert!(card.contains("*Name:* John Doe"), "missing name:\n{card}");
+        assert!(card.contains("*Username:* @johndoe"), "missing username:\n{card}");
+        assert!(card.contains("*User ID:* `123456789`"), "missing id:\n{card}");
+        assert!(card.contains("*Role:* 👑 Owner"), "missing role:\n{card}");
+        assert!(card.contains("*Group:* ACN Test Group"), "missing group:\n{card}");
+
+        // The empty-bio placeholder must be valid MarkdownV2: the italic span
+        // must NOT contain an unescaped `.` or `!` (they break parsing).
+        assert!(
+            !card.contains("add one._"),
+            "unescaped '.' inside italic span:\n{card}"
+        );
+        assert!(
+            card.contains("_No bio set yet_ — use /setbio to add one"),
+            "missing safe placeholder:\n{card}"
+        );
+    }
+
+    #[test]
+    fn profile_card_escapes_user_content() {
+        let card = build_profile_card(
+            "A.B!C",
+            Some("user_name"),
+            42,
+            None,
+            false,
+            "Bio with . and ! chars.",
+            None,
+        );
+        // User-controlled dots must be escaped for MarkdownV2.
+        assert!(card.contains("A\\.B\\!C"), "name not escaped:\n{card}");
+        assert!(card.contains("Bio with \\. and \\! chars\\."), "bio not escaped:\n{card}");
+    }
+
+    #[test]
+    fn strip_md_v2_removes_markers() {
+        assert_eq!(strip_md_v2("*Name:* `123` _text_"), "Name: 123 text");
+    }
 }
 
 pub async fn handle_setbio(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
