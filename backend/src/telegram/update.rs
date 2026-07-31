@@ -19,6 +19,17 @@ pub struct Message {
     pub reply_to_message: Option<Box<Message>>,
     pub new_chat_members: Option<Vec<User>>,
     pub left_chat_member: Option<User>,
+    pub photo: Option<Vec<PhotoSize>>,
+    pub video: Option<serde_json::Value>,
+    pub animation: Option<serde_json::Value>,
+    pub sticker: Option<serde_json::Value>,
+    pub document: Option<serde_json::Value>,
+    pub voice: Option<serde_json::Value>,
+    pub audio: Option<serde_json::Value>,
+    pub video_note: Option<serde_json::Value>,
+    pub poll: Option<serde_json::Value>,
+    pub forward_date: Option<u64>,
+    pub forward_from: Option<User>,
 }
 
 impl Message {
@@ -112,6 +123,13 @@ pub struct ChatMemberUpdated {
     pub date: u64,
     pub old_chat_member: ChatMember,
     pub new_chat_member: ChatMember,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct PhotoSize {
+    pub file_id: String,
+    pub width: u64,
+    pub height: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

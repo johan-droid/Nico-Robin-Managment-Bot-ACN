@@ -191,6 +191,61 @@ impl Bot {
         Ok(())
     }
 
+    /// Bans a user for a duration. `until_date` is a Unix timestamp (seconds).
+    pub async fn ban_chat_member_until(
+        &self,
+        chat_id: i64,
+        user_id: u64,
+        until_date: i64,
+    ) -> Result<(), String> {
+        self.api_post(
+            "banChatMember",
+            serde_json::json!({
+                "chat_id": chat_id,
+                "user_id": user_id,
+                "until_date": until_date,
+                "revoke_messages": false,
+            }),
+        )
+        .await?;
+        Ok(())
+    }
+
+    /// Restricts a user until `until_date` (Unix timestamp, seconds).
+    pub async fn restrict_chat_member_until(
+        &self,
+        chat_id: i64,
+        user_id: u64,
+        permissions: ChatPermissions,
+        until_date: i64,
+    ) -> Result<(), String> {
+        self.api_post(
+            "restrictChatMember",
+            serde_json::json!({
+                "chat_id": chat_id,
+                "user_id": user_id,
+                "permissions": permissions,
+                "until_date": until_date,
+            }),
+        )
+        .await?;
+        Ok(())
+    }
+
+    /// Bulk-deletes up to 100 messages in one call.
+    pub async fn delete_messages(&self, chat_id: i64, message_ids: Vec<u64>) -> Result<(), String> {
+        for chunk in message_ids.chunks(100) {
+            let ids: Vec<i64> = chunk.iter().map(|&id| id as i64).collect();
+            let _ = self
+                .api_post(
+                    "deleteMessages",
+                    serde_json::json!({"chat_id": chat_id, "message_ids": ids}),
+                )
+                .await?;
+        }
+        Ok(())
+    }
+
     pub async fn unban_chat_member(&self, chat_id: i64, user_id: u64) -> Result<(), String> {
         self.api_post(
             "unbanChatMember",
@@ -218,6 +273,24 @@ impl Bot {
         self.api_post(
             "pinChatMessage",
             serde_json::json!({"chat_id": chat_id, "message_id": message_id}),
+        )
+        .await?;
+        Ok(())
+    }
+
+    pub async fn unpin_chat_message(&self, chat_id: i64, message_id: u64) -> Result<(), String> {
+        self.api_post(
+            "unpinChatMessage",
+            serde_json::json!({"chat_id": chat_id, "message_id": message_id}),
+        )
+        .await?;
+        Ok(())
+    }
+
+    pub async fn unpin_all_chat_messages(&self, chat_id: i64) -> Result<(), String> {
+        self.api_post(
+            "unpinAllChatMessages",
+            serde_json::json!({"chat_id": chat_id}),
         )
         .await?;
         Ok(())

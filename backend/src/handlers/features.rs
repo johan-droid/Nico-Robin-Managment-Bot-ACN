@@ -8,14 +8,16 @@ use crate::utils::escape_md_v2;
 const FEATURE_CATEGORIES: &[(&str, &[&str])] = &[
     (
         "moderation",
-        &["ban", "unban", "kick", "mute", "unmute", "warn", "slowmode"],
+        &["ban", "unban", "kick", "mute", "unmute", "warn", "slowmode", "purge", "tmute", "tban", "kickme", "pin", "unpin", "del", "staff"],
     ),
     ("notes", &["save", "get", "notes", "clear"]),
     ("filters", &["filter", "stop", "filters"]),
     ("welcome", &["welcome", "farewell"]),
-    ("security", &["flood", "swear"]),
+    ("security", &["flood", "swear", "report"]),
+    ("rules", &["setrules", "rules", "clearrules"]),
+    ("locks", &["lock", "unlock", "locks"]),
     ("profile", &["profile", "setbio"]),
-    ("federation", &["newfed", "joinfed"]),
+    ("federation", &["newfed", "joinfed", "gban", "ungban", "gbans"]),
 ];
 
 pub async fn handle_features_list(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {

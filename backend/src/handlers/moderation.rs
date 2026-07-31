@@ -623,3 +623,192 @@ pub async fn handle_pin(bot: Bot, msg: Message, settings: &Settings) -> Result<(
     }
     Ok(())
 }
+
+pub async fn handle_unpin(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
+    let text = msg.text().unwrap_or("");
+    let args = text.splitn(2, ' ').nth(1).unwrap_or("").trim().to_lowercase();
+    let result = if args == "all" {
+        bot.unpin_all_chat_messages(msg.chat.id).await
+    } else if let Some(reply) = msg.reply_to_message() {
+        bot.unpin_chat_message(msg.chat.id, reply.id()).await
+    } else {
+        bot.unpin_chat_message(msg.chat.id, msg.id()).await
+    };
+
+    match result {
+        Ok(_) => {
+            let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
+            log_mod_action(
+                &bot,
+                settings,
+                msg.chat.id,
+                &format!(
+                    "Unpinned message in {} (by {})",
+                    escape_md_v2(msg.chat.title().unwrap_or("group")),
+                    escape_md_v2(executor)
+                ),
+            )
+            .await;
+        }
+        Err(e) => {
+            send_text(
+                &bot,
+                msg.chat.id,
+                &format!("Failed to unpin: {}", escape_md_v2(&e)),
+            )
+            .await
+        }
+    }
+    Ok(())
+}
+
+/// Parses a human duration like "30s", "5m", "2h", "3d" into seconds.
+fn parse_duration(input: &str) -> Option<i64> {
+    let input = input.trim().to_lowercase();
+    if input.is_empty() {
+        return None;
+    }
+    let (num, unit) = if input.ends_with('s') {
+        (&input[..input.len() - 1], 1i64)
+    } else if input.ends_with('m') {
+        (&input[..input.len() - 1], 60i64)
+    } else if input.ends_with('h') {
+        (&input[..input.len() - 1], 3600i64)
+    } else if input.ends_with('d') {
+        (&input[..input.len() - 1], 86400i64)
+    } else {
+        (input.as_str(), 60i64) // default to minutes
+    };
+    let value: i64 = num.trim().parse().ok()?;
+    Some(value * unit)
+}
+
+/// /tmute @user <duration> — mute a user for a limited time (e.g. 30m, 2h, 1d).
+pub async fn handle_tmute(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
+    let text = msg.text().unwrap_or("");
+    let rest = text.strip_prefix("/tmute").unwrap_or("").trim();
+    let parts: Vec<&str> = rest.split_whitespace().collect();
+
+    let target_text = parts.iter().find(|p| p.starts_with('@') || p.parse::<i64>().is_ok());
+    let duration_str = parts.iter().find(|p| !p.starts_with('@') && p.parse::<i64>().is_err());
+
+    let (Some(target_text), Some(duration_str)) = (target_text, duration_str) else {
+        send_text(&bot, msg.chat.id, "Usage: /tmute @user <duration> (e.g. /tmute @user 30m)").await;
+        return Ok(());
+    };
+
+    let seconds = match parse_duration(duration_str) {
+        Some(s) if s > 0 => s,
+        _ => {
+            send_text(&bot, msg.chat.id, "Invalid duration. Examples: 30m, 2h, 1d").await;
+            return Ok(());
+        }
+    };
+
+    // Build a mock message containing only the target so the shared extractor works.
+    let mut mock = msg.clone();
+    mock.text = Some(format!("/tmute {}", target_text));
+    let (target_id, target_name) = match extract_target(&bot, &mock, client, "Usage: Reply to a user or /tmute @user <duration>").await {
+        Some(v) => v,
+        None => return Ok(()),
+    };
+
+    let now = chrono::Utc::now().timestamp();
+    let until = now + seconds;
+    let permissions = ChatPermissions::empty();
+    match bot.restrict_chat_member_until(msg.chat.id, target_id as u64, permissions, until).await {
+        Ok(_) => {
+            let human = format_duration(seconds);
+            send_text(&bot, msg.chat.id, &format!("Muted {} for {}.", escape_md_v2(&target_name), human)).await;
+            let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
+            log_mod_action(&bot, settings, msg.chat.id, &format!(
+                "Temporarily muted {} for {} in {} (by {})",
+                escape_md_v2(&target_name), human,
+                escape_md_v2(msg.chat.title().unwrap_or("group")),
+                escape_md_v2(executor)
+            )).await;
+        }
+        Err(e) => send_text(&bot, msg.chat.id, &format!("Failed to tmute: {}", escape_md_v2(&e))).await,
+    }
+    Ok(())
+}
+
+/// /tban @user <duration> — ban a user for a limited time (e.g. 1h, 1d, 1w).
+pub async fn handle_tban(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
+    let text = msg.text().unwrap_or("");
+    let rest = text.strip_prefix("/tban").unwrap_or("").trim();
+
+    // target is the @mention or numeric id anywhere in args
+    let target_text = rest.split_whitespace().find(|p| p.starts_with('@') || p.parse::<i64>().is_ok()).unwrap_or("");
+    let duration_str = rest.split_whitespace()
+        .find(|p| !p.starts_with('@') && p.parse::<i64>().is_err())
+        .map(|s| s.to_string());
+
+    if target_text.is_empty() || duration_str.is_none() {
+        send_text(&bot, msg.chat.id, "Usage: /tban @user <duration> (e.g. /tban @user 1d)").await;
+        return Ok(());
+    }
+
+    let seconds = match parse_duration(duration_str.as_deref().unwrap()) {
+        Some(s) if s > 0 => s,
+        _ => {
+            send_text(&bot, msg.chat.id, "Invalid duration. Examples: 30m, 2h, 1d").await;
+            return Ok(());
+        }
+    };
+
+    let mut mock = msg.clone();
+    mock.text = Some(format!("/tban {}", target_text));
+    let (target_id, target_name) = match extract_target(&bot, &mock, client, "Usage: Reply to a user or /tban @user <duration>").await {
+        Some(v) => v,
+        None => return Ok(()),
+    };
+
+    let now = chrono::Utc::now().timestamp();
+    let until = now + seconds;
+    match bot.ban_chat_member_until(msg.chat.id, target_id as u64, until).await {
+        Ok(_) => {
+            let human = format_duration(seconds);
+            send_text(&bot, msg.chat.id, &format!("Banned {} for {}.", escape_md_v2(&target_name), human)).await;
+            let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
+            log_mod_action(&bot, settings, msg.chat.id, &format!(
+                "Temporarily banned {} for {} in {} (by {})",
+                escape_md_v2(&target_name), human,
+                escape_md_v2(msg.chat.title().unwrap_or("group")),
+                escape_md_v2(executor)
+            )).await;
+        }
+        Err(e) => send_text(&bot, msg.chat.id, &format!("Failed to tban: {}", escape_md_v2(&e))).await,
+    }
+    Ok(())
+}
+
+/// /kickme — the sender removes themselves from the group.
+pub async fn handle_kickme(bot: Bot, msg: Message, _client: &Client, _settings: &Settings) -> Result<(), String> {
+    let user_id = msg.from().map(|u| u.id).unwrap_or(0);
+    if user_id == 0 {
+        send_text(&bot, msg.chat.id, "Could not determine your user id.").await;
+        return Ok(());
+    }
+    match bot.ban_chat_member(msg.chat.id, user_id).await {
+        Ok(_) => {
+            let _ = bot.unban_chat_member(msg.chat.id, user_id).await;
+            send_text(&bot, msg.chat.id, "You have left the group. See you! 👋").await;
+        }
+        Err(e) => send_text(&bot, msg.chat.id, &format!("Failed to kick you: {}", escape_md_v2(&e))).await,
+    }
+    Ok(())
+}
+
+fn format_duration(total_secs: i64) -> String {
+    let days = total_secs / 86400;
+    let hours = (total_secs % 86400) / 3600;
+    let mins = (total_secs % 3600) / 60;
+    let secs = total_secs % 60;
+    let mut parts = Vec::new();
+    if days > 0 { parts.push(format!("{}d", days)); }
+    if hours > 0 { parts.push(format!("{}h", hours)); }
+    if mins > 0 { parts.push(format!("{}m", mins)); }
+    if secs > 0 { parts.push(format!("{}s", secs)); }
+    if parts.is_empty() { "0s".into() } else { parts.join(" ") }
+}

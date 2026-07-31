@@ -2,11 +2,17 @@ pub mod core;
 pub mod features;
 pub mod federation;
 pub mod filters;
+pub mod gbans;
+pub mod locks;
 pub mod moderation;
 pub mod notes;
 pub mod profile;
+pub mod purge;
 pub mod quote;
+pub mod reports;
+pub mod rules;
 pub mod security;
+pub mod staff;
 pub mod welcome;
 
 use std::collections::HashMap;
@@ -18,6 +24,7 @@ use crate::perf;
 use crate::perf::LatencyTrace;
 use crate::telegram::api::Bot;
 use crate::telegram::update::Message;
+use crate::utils::escape_md_v2;
 use tokio_postgres::Client;
 
 // ── In-memory write guards ─────────────────────────────────────────────
@@ -281,6 +288,12 @@ pub async fn handle_message(
     if let Some(new_members) = &msg.new_chat_members {
         let t_welcome = perf::Timer::start("new_member_welcome");
         for member in new_members {
+            // Auto-kick globally banned users before they get a welcome.
+            if let Ok(Some(_gban)) = crate::db::gbans::get_gban(client, member.id as i64).await {
+                let _ = bot.ban_chat_member(msg.chat.id, member.id).await;
+                let _ = bot.delete_message(msg.chat.id, msg.id()).await;
+                continue;
+            }
             let _ = welcome::handle_new_member(&bot, &msg, client, member).await;
         }
         LatencyTrace::record("new_member_welcome", t_welcome.stop());
@@ -363,6 +376,25 @@ pub async fn handle_message(
                         if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
                         return moderation::handle_slowmode(bot, msg, Settings::global()).await;
                     }
+                    "purge" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        return purge::handle_purge(bot, msg, client).await;
+                    }
+                    "tmute" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        return moderation::handle_tmute(bot, msg, client, Settings::global()).await;
+                    }
+                    "tban" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        return moderation::handle_tban(bot, msg, client, Settings::global()).await;
+                    }
+                    "kickme" => {
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        return moderation::handle_kickme(bot, msg, client, Settings::global()).await;
+                    }
                     "del" => {
                         if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
                         if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
@@ -372,6 +404,15 @@ pub async fn handle_message(
                         if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
                         if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
                         return moderation::handle_pin(bot, msg, Settings::global()).await;
+                    }
+                    "unpin" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        return moderation::handle_unpin(bot, msg, Settings::global()).await;
+                    }
+                    "staff" => {
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        return staff::handle_staff(bot, msg).await;
                     }
 
                     "save" => {
@@ -391,6 +432,57 @@ pub async fn handle_message(
                         if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
                         if !require_feature_fast(client, &msg, "notes", bot.clone()).await? { return Ok(()); }
                         return notes::handle_clear(bot, msg, client).await;
+                    }
+
+                    "setrules" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "rules", bot.clone()).await? { return Ok(()); }
+                        return rules::handle_setrules(bot, msg, client).await;
+                    }
+                    "rules" => {
+                        if !require_feature_fast(client, &msg, "rules", bot.clone()).await? { return Ok(()); }
+                        return rules::handle_rules(bot, msg, client).await;
+                    }
+                    "clearrules" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "rules", bot.clone()).await? { return Ok(()); }
+                        return rules::handle_clearrules(bot, msg, client).await;
+                    }
+
+                    "lock" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "locks", bot.clone()).await? { return Ok(()); }
+                        return locks::handle_lock(bot, msg, client).await;
+                    }
+                    "unlock" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "locks", bot.clone()).await? { return Ok(()); }
+                        return locks::handle_unlock(bot, msg, client).await;
+                    }
+                    "locks" => {
+                        if !require_feature_fast(client, &msg, "locks", bot.clone()).await? { return Ok(()); }
+                        return locks::handle_locks_list(bot, msg, client).await;
+                    }
+
+                    "report" => {
+                        if !require_feature_fast(client, &msg, "security", bot.clone()).await? { return Ok(()); }
+                        return reports::handle_report(bot, msg, client).await;
+                    }
+
+                    "gban" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "federation", bot.clone()).await? { return Ok(()); }
+                        return gbans::handle_gban(bot, msg, client).await;
+                    }
+                    "ungban" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "federation", bot.clone()).await? { return Ok(()); }
+                        return gbans::handle_ungban(bot, msg, client).await;
+                    }
+                    "gbans" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "federation", bot.clone()).await? { return Ok(()); }
+                        return gbans::handle_gbans_list(bot, msg, client).await;
                     }
 
                     "filter" => {
@@ -533,6 +625,44 @@ pub async fn handle_message(
             }
         } else {
             // Non-command message processing
+
+            // Check lock enforcement (locks feature must be enabled for the group)
+            if !is_admin {
+                let locks_enabled = is_feature_enabled_cached(client, msg.chat.id, "locks")
+                    .await
+                    .unwrap_or(true);
+                if locks_enabled {
+                    if let Ok(Some(lock_type)) = locks::detect_lock_violation(client, &msg).await {
+                        let _ = bot.delete_message(msg.chat.id, msg.id()).await;
+                        let offender = msg
+                            .from()
+                            .map(|u| u.username.as_deref().unwrap_or(&u.first_name).to_string())
+                            .unwrap_or_else(|| "A member".to_string());
+                        let _ = bot
+                            .send_message(
+                                msg.chat.id,
+                                format!(
+                                    "🔒 {} is locked here — your message was removed.",
+                                    lock_type
+                                ),
+                            )
+                            .await;
+                        let _ = crate::handlers::log_mod_action(
+                            &bot,
+                            Settings::global(),
+                            msg.chat.id,
+                            &format!(
+                                "Deleted locked content ({}) from {} in {}",
+                                lock_type,
+                                escape_md_v2(&offender),
+                                escape_md_v2(msg.chat.title().unwrap_or("group"))
+                            ),
+                        )
+                        .await;
+                        return Ok(());
+                    }
+                }
+            }
 
             let text_lower = text.to_lowercase();
 

@@ -66,6 +66,35 @@ pub async fn get_recent(
     Ok(messages)
 }
 
+/// Returns messages between two message IDs (inclusive) for a chat, in ascending order.
+pub async fn get_recent_between(
+    client: &Client,
+    chat_id: i64,
+    from_id: u64,
+    to_id: u64,
+) -> Result<Vec<HistoryMessage>, String> {
+    let rows = client
+        .query(
+            "SELECT message_id, user_id, user_name, text, date \
+             FROM message_history WHERE chat_id = $1 AND message_id >= $2 AND message_id <= $3 \
+             ORDER BY message_id ASC",
+            &[&chat_id, &(from_id as i64), &(to_id as i64)],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
+    Ok(rows
+        .iter()
+        .map(|r| HistoryMessage {
+            message_id: r.get::<_, i64>(0) as u64,
+            user_id: r.get::<_, i64>(1) as u64,
+            user_name: r.get::<_, String>(2),
+            text: r.get::<_, String>(3),
+            date: r.get::<_, i64>(4) as u64,
+        })
+        .collect())
+}
+
 /// Deletes all but the newest `keep` messages for a chat.
 pub async fn prune_old(client: &Client, chat_id: i64, keep: i64) -> Result<(), String> {
     client

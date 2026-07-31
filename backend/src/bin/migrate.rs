@@ -29,7 +29,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("--reset: Dropping stale tables to ensure clean schema...");
         let drop_query = "
             DROP TABLE IF EXISTS feature_flags, warnings, welcome_settings,
-                                swears, flood_settings, federations, groups, notes, filters, user_profiles, username_cache CASCADE;
+                                swears, flood_settings, federations, groups, notes, filters, user_profiles,
+                                username_cache, group_rules, group_locks, gbans CASCADE;
         ";
         if let Err(e) = client.batch_execute(drop_query).await {
             println!("Warning while dropping old tables: {}", e);

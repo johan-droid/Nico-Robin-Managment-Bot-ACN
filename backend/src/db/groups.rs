@@ -14,3 +14,12 @@ pub async fn ensure_group(client: &Client, chat_id: i64, title: &str) -> Result<
         .map_err(|e| e.to_string())?;
     Ok(())
 }
+
+/// Returns all known group chat ids (used for global bans).
+pub async fn list_groups(client: &Client) -> Result<Vec<i64>, String> {
+    let rows = client
+        .query("SELECT chat_id FROM groups ORDER BY chat_id", &[])
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(rows.into_iter().map(|r| r.get(0)).collect())
+}
