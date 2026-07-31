@@ -155,12 +155,17 @@ async fn main() {
         chat_states: Arc::new(std::sync::Mutex::new(HashMap::new())),
     };
 
+    // Always serve the HTTP listener (health + webhook) so Render's port
+    // scan succeeds even in long-polling mode, which would otherwise leave
+    // no port open and cause the deploy to time out.
+    let server_handle = tokio::spawn(run_webhook_server(state.clone(), port));
+
     if bot_mode == "polling" {
         info!("Starting in long-polling mode (local development)");
         run_polling(state).await;
     } else {
         info!("Starting in webhook mode");
-        run_webhook_server(state, port).await;
+        server_handle.await.expect("Webhook server failed");
     }
 }
 

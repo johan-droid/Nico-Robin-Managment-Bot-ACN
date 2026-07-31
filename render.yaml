@@ -1,9 +1,10 @@
 services:
-  - type: worker
+  - type: web
     name: nico-robin-bot
     runtime: image
     plan: free
     dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
     envVars:
       - key: BOT_TOKEN
         sync: false
@@ -23,6 +24,8 @@ services:
         value: Nico Robin
       - key: LOG_LEVEL
         value: INFO
+      - key: PORT
+        value: "8000"
       - key: ENVIRONMENT
         value: production
       - key: ALLOWED_GROUP_IDS
