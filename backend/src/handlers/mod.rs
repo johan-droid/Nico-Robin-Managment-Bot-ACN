@@ -45,7 +45,7 @@ static FILTER_CACHE: std::sync::LazyLock<Mutex<HashMap<i64, (Vec<(String, String
 /// In-memory swear-word cache per group_id with 60-second TTL.
 /// Arc so hits clone the word list cheaply without re-querying the DB.
 static SWEAR_CACHE: std::sync::LazyLock<
-    Mutex<HashMap<i64, (std::sync::Arc<Vec<String>>, Instant)>>
+    Mutex<HashMap<i64, (std::sync::Arc<Vec<String>>, Instant)>>,
 > = std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// Minimum interval between consecutive DB writes for the same user/group.
@@ -61,7 +61,7 @@ const MAX_WARNINGS: i64 = 3;
 
 /// Issue a real DB warning and auto-ban if threshold exceeded.
 /// Returns (warning_count, was_banned).
-async fn auto_warn_and_maybe_ban(
+pub async fn auto_warn_and_maybe_ban(
     bot: &Bot,
     client: &Client,
     chat_id: i64,
@@ -70,7 +70,10 @@ async fn auto_warn_and_maybe_ban(
     reason: &str,
 ) -> (i64, bool) {
     // Respect per-group auto-warn toggle
-    if !crate::db::auto_warn::is_auto_warn_enabled(client, chat_id).await.unwrap_or(true) {
+    if !crate::db::auto_warn::is_auto_warn_enabled(client, chat_id)
+        .await
+        .unwrap_or(true)
+    {
         return (0, false);
     }
     let warned_by: i64 = 0; // system
@@ -143,9 +146,12 @@ pub fn security_precheck_sync(
         return SecurityDecision::Proceed;
     }
     let user_id = user_id_from_msg(msg);
-    let user_name = msg.from().as_ref().map(|u| {
-        u.username.as_deref().unwrap_or(&u.first_name)
-    }).unwrap_or("Unknown").to_string();
+    let user_name = msg
+        .from()
+        .as_ref()
+        .map(|u| u.username.as_deref().unwrap_or(&u.first_name))
+        .unwrap_or("Unknown")
+        .to_string();
 
     if security_enabled {
         if let Some(action) = tracker.evaluate_message(msg, flood_settings) {
@@ -170,11 +176,7 @@ pub fn security_precheck_sync(
 }
 
 /// Processes an incoming message. Handles commands, filters, swear checks, and flood detection.
-pub async fn handle_message(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let user_id = user_id_from_msg(&msg) as i64;
     quote::record_message(client, &msg).await;
 
@@ -182,14 +184,20 @@ pub async fn handle_message(
     let t_parallel = perf::Timer::start("admin+feature");
     let (is_admin, security_enabled) = tokio::join!(
         async { crate::auth::is_telegram_admin(&bot, msg.chat.id, user_id as u64).await },
-        async { is_feature_enabled_cached(client, msg.chat.id, "security").await.unwrap_or(true) }
+        async {
+            is_feature_enabled_cached(client, msg.chat.id, "security")
+                .await
+                .unwrap_or(true)
+        }
     );
     LatencyTrace::record("admin+feature", t_parallel.stop());
 
     // Cache the username-to-id mapping — skip if we wrote within the last 5 minutes
     if let Some(from) = msg.from() {
         if let Some(ref username) = from.username {
-            let should_write = USERNAME_CACHE_WRITE_GUARD.lock().ok()
+            let should_write = USERNAME_CACHE_WRITE_GUARD
+                .lock()
+                .ok()
                 .and_then(|m| m.get(&user_id).copied())
                 .map(|ts| ts.elapsed() > std::time::Duration::from_secs(CACHE_WRITE_INTERVAL_SECS))
                 .unwrap_or(true);
@@ -214,7 +222,9 @@ pub async fn handle_message(
         if let Some(reply_text) = reply_to.text() {
             if reply_text.starts_with("[Pending] User ") {
                 if !is_admin {
-                    let _ = bot.send_message(msg.chat.id, "You must be a chat admin to resolve this.").await;
+                    let _ = bot
+                        .send_message(msg.chat.id, "You must be a chat admin to resolve this.")
+                        .await;
                     return Ok(());
                 }
                 if let Some(reply_val) = msg.text() {
@@ -224,7 +234,8 @@ pub async fn handle_message(
                             let username = parts[2].trim_start_matches('@');
                             if let Some(start_idx) = reply_text.find("complete the ") {
                                 if let Some(end_idx) = reply_text.find(" command.") {
-                                    let command = &reply_text[start_idx + "complete the ".len() .. end_idx];
+                                    let command =
+                                        &reply_text[start_idx + "complete the ".len()..end_idx];
 
                                     // Cache the resolved username
                                     let lower_username = username.to_lowercase();
@@ -240,16 +251,17 @@ pub async fn handle_message(
                                     mock_msg.text = Some(format!("/{} {}", command, target_id));
                                     mock_msg.reply_to_message = None;
 
-                                    return Box::pin(handle_message(
-                                        bot,
-                                        mock_msg,
-                                        client,
-                                    )).await;
+                                    return Box::pin(handle_message(bot, mock_msg, client)).await;
                                 }
                             }
                         }
                     } else {
-                        let _ = bot.send_message(msg.chat.id, "Invalid User ID. Please reply with a valid numeric ID.").await;
+                        let _ = bot
+                            .send_message(
+                                msg.chat.id,
+                                "Invalid User ID. Please reply with a valid numeric ID.",
+                            )
+                            .await;
                         return Ok(());
                     }
                 }
@@ -260,7 +272,9 @@ pub async fn handle_message(
     // --- Critical path: security checks ---
     // Group tracking — skip if we upserted within the last 5 minutes
     if let Some(title) = msg.chat.title() {
-        let should_write = GROUP_WRITE_GUARD.lock().ok()
+        let should_write = GROUP_WRITE_GUARD
+            .lock()
+            .ok()
             .and_then(|m| m.get(&msg.chat.id).copied())
             .map(|ts| ts.elapsed() > std::time::Duration::from_secs(CACHE_WRITE_INTERVAL_SECS))
             .unwrap_or(true);
@@ -272,9 +286,12 @@ pub async fn handle_message(
         }
     }
 
-    let user_name = msg.from().as_ref().map(|u| {
-        u.username.as_deref().unwrap_or(&u.first_name)
-    }).unwrap_or("Unknown").to_string();
+    let user_name = msg
+        .from()
+        .as_ref()
+        .map(|u| u.username.as_deref().unwrap_or(&u.first_name))
+        .unwrap_or("Unknown")
+        .to_string();
 
     // Process new chat members (welcome messages)
     if let Some(new_members) = &msg.new_chat_members {
@@ -324,210 +341,363 @@ pub async fn handle_message(
                     "start" => return core::handle_start(bot, msg, client).await,
                     "help" => return core::handle_help(bot, msg).await,
                     "ban" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return moderation::handle_ban(bot, msg, client, Settings::global()).await;
                     }
                     "unban" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
-                        return moderation::handle_unban(bot, msg, client, Settings::global()).await;
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
+                        return moderation::handle_unban(bot, msg, client, Settings::global())
+                            .await;
                     }
                     "kick" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return moderation::handle_kick(bot, msg, client, Settings::global()).await;
                     }
                     "mute" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return moderation::handle_mute(bot, msg, client, Settings::global()).await;
                     }
                     "unmute" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
-                        return moderation::handle_unmute(bot, msg, client, Settings::global()).await;
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
+                        return moderation::handle_unmute(bot, msg, client, Settings::global())
+                            .await;
                     }
                     "warn" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return moderation::handle_warn(bot, msg, client, Settings::global()).await;
                     }
                     "warns" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return moderation::handle_warns(bot, msg, client).await;
                     }
                     "resetwarn" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
-                        return moderation::handle_resetwarn(bot, msg, client, Settings::global()).await;
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
+                        return moderation::handle_resetwarn(bot, msg, client, Settings::global())
+                            .await;
                     }
                     "slowmode" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return moderation::handle_slowmode(bot, msg, Settings::global()).await;
                     }
                     "purge" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return purge::handle_purge(bot, msg, client).await;
                     }
                     "tmute" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
-                        return moderation::handle_tmute(bot, msg, client, Settings::global()).await;
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
+                        return moderation::handle_tmute(bot, msg, client, Settings::global())
+                            .await;
                     }
                     "tban" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return moderation::handle_tban(bot, msg, client, Settings::global()).await;
                     }
                     "kickme" => {
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
-                        return moderation::handle_kickme(bot, msg, client, Settings::global()).await;
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
+                        return moderation::handle_kickme(bot, msg, client, Settings::global())
+                            .await;
                     }
                     "del" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return moderation::handle_del(bot, msg, Settings::global()).await;
                     }
                     "pin" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return moderation::handle_pin(bot, msg, Settings::global()).await;
                     }
                     "unpin" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return moderation::handle_unpin(bot, msg, Settings::global()).await;
                     }
                     "staff" => {
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return staff::handle_staff(bot, msg).await;
                     }
 
                     "save" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "notes", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "notes", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return notes::handle_save(bot, msg, client).await;
                     }
                     "get" => {
-                        if !require_feature_fast(client, &msg, "notes", bot.clone()).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "notes", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return notes::handle_get(bot, msg, client).await;
                     }
                     "notes" => {
-                        if !require_feature_fast(client, &msg, "notes", bot.clone()).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "notes", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return notes::handle_notes(bot, msg, client).await;
                     }
                     "clear" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "notes", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "notes", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return notes::handle_clear(bot, msg, client).await;
                     }
 
                     "setrules" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "rules", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "rules", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return rules::handle_setrules(bot, msg, client).await;
                     }
                     "rules" => {
-                        if !require_feature_fast(client, &msg, "rules", bot.clone()).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "rules", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return rules::handle_rules(bot, msg, client).await;
                     }
                     "clearrules" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "rules", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "rules", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return rules::handle_clearrules(bot, msg, client).await;
                     }
 
                     "lock" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "locks", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "locks", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return locks::handle_lock(bot, msg, client).await;
                     }
                     "unlock" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "locks", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "locks", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return locks::handle_unlock(bot, msg, client).await;
                     }
                     "locks" => {
-                        if !require_feature_fast(client, &msg, "locks", bot.clone()).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "locks", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return locks::handle_locks_list(bot, msg, client).await;
                     }
 
                     "report" => {
-                        if !require_feature_fast(client, &msg, "security", bot.clone()).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "security", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return reports::handle_report(bot, msg, client).await;
                     }
 
                     "gban" => {
-                        if !require_sudo_fast(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "federation", bot.clone()).await? { return Ok(()); }
+                        if !require_sudo_fast(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "federation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return gbans::handle_gban(bot, msg, client).await;
                     }
                     "ungban" => {
-                        if !require_sudo_fast(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "federation", bot.clone()).await? { return Ok(()); }
+                        if !require_sudo_fast(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "federation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return gbans::handle_ungban(bot, msg, client).await;
                     }
                     "gbans" => {
-                        if !require_sudo_fast(&bot, &msg).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "federation", bot.clone()).await? { return Ok(()); }
+                        if !require_sudo_fast(&bot, &msg).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "federation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return gbans::handle_gbans_list(bot, msg, client).await;
                     }
 
                     "filter" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "filters", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "filters", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return filters::handle_filter(bot, msg, client).await;
                     }
                     "stop" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "filters", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "filters", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return filters::handle_stop(bot, msg, client).await;
                     }
                     "filters" => {
-                        if !require_feature_fast(client, &msg, "filters", bot.clone()).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "filters", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return filters::handle_filters_list(bot, msg, client).await;
                     }
 
                     "setwelcome" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return welcome::handle_setwelcome(bot, msg, client).await;
                     }
                     "resetwelcome" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return welcome::handle_resetwelcome(bot, msg, client).await;
                     }
                     "welcome" => {
-                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return welcome::handle_welcome_preview(bot, msg, client).await;
                     }
                     "setwelcomedm" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return welcome::handle_setwelcomedm(bot, msg, client).await;
                     }
                     "setfarewell" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return welcome::handle_setfarewell(bot, msg, client).await;
                     }
                     "farewell" => {
-                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return welcome::handle_farewell_preview(bot, msg, client).await;
                     }
                     "cleanwelcome" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return welcome::handle_cleanwelcome(bot, msg, client).await;
                     }
                     "welcometest" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "welcome", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return welcome::handle_welcometest(bot, msg, client).await;
                     }
 
@@ -535,7 +705,9 @@ pub async fn handle_message(
                     "setbio" => return profile::handle_setbio(bot, msg, client).await,
                     "exportmydata" => return profile::handle_export(bot, msg, client).await,
                     "deletemydata" => {
-                        if !require_captain_fast(&bot, &msg).await? { return Ok(()); }
+                        if !require_captain_fast(&bot, &msg).await? {
+                            return Ok(());
+                        }
                         return profile::handle_delete_data(bot, msg, client).await;
                     }
                     "q" => return quote::handle_quote(bot, msg, client).await,
@@ -544,72 +716,114 @@ pub async fn handle_message(
                     }
 
                     "setflood" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "security", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "security", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return security::handle_setflood(bot, msg, client).await;
                     }
                     "flood" => {
-                        if !require_feature_fast(client, &msg, "security", bot.clone()).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "security", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return security::handle_flood(bot, msg, client).await;
                     }
                     "addswear" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "security", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "security", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return security::handle_addswear(bot, msg, client).await;
                     }
                     "delswear" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "security", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "security", bot.clone()).await? {
+                            return Ok(());
+                        }
                         return security::handle_delswear(bot, msg, client).await;
                     }
 
                     "autowarnon" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         let _ = crate::db::auto_warn::enable_auto_warn(client, msg.chat.id).await;
-                        let _ = bot.send_message(msg.chat.id, "Auto-warn has been enabled ✅").await;
+                        let _ = bot
+                            .send_message(msg.chat.id, "Auto-warn has been enabled ✅")
+                            .await;
                     }
                     "autowarnoff" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
-                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
                         let _ = crate::db::auto_warn::disable_auto_warn(client, msg.chat.id).await;
-                        let _ = bot.send_message(msg.chat.id, "Auto-warn has been disabled ❌").await;
+                        let _ = bot
+                            .send_message(msg.chat.id, "Auto-warn has been disabled ❌")
+                            .await;
                     }
 
                     "newfed" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
                         return federation::handle_newfed(bot, msg, client).await;
                     }
                     "joinfed" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
                         return federation::handle_joinfed(bot, msg, client).await;
                     }
 
                     "features" => return features::handle_features_list(bot, msg, client).await,
                     "enable" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
                         return features::handle_enable(bot, msg, client).await;
                     }
                     "disable" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
                         return features::handle_disable(bot, msg, client).await;
                     }
                     "toggle" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
                         return features::handle_toggle(bot, msg, client).await;
                     }
                     "featureinfo" => return features::handle_feature_info(bot, msg).await,
                     "myfeatures" => return features::handle_my_features(bot, msg, client).await,
                     "resetfeatures" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
                         return features::handle_reset_features(bot, msg, client).await;
                     }
                     "enablecategory" | "enable_category" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
                         return features::handle_enable_category(bot, msg, client).await;
                     }
                     "disablecategory" | "disable_category" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
                         return features::handle_disable_category(bot, msg, client).await;
                     }
                     _ => return unknown_command(bot, msg).await,
@@ -665,9 +879,13 @@ pub async fn handle_message(
             if filters_enabled {
                 // In-memory filter cache with 30s TTL — avoids full table scan per message.
                 // Triggers are pre-lowercased once at cache time so matching never allocates.
-                let cached: Option<(Vec<(String, String)>, Instant)> = FILTER_CACHE.lock().ok()
+                let cached: Option<(Vec<(String, String)>, Instant)> = FILTER_CACHE
+                    .lock()
+                    .ok()
                     .and_then(|m| m.get(&msg.chat.id).cloned())
-                    .filter(|(_, ts)| ts.elapsed() < std::time::Duration::from_secs(FILTER_CACHE_TTL_SECS));
+                    .filter(|(_, ts)| {
+                        ts.elapsed() < std::time::Duration::from_secs(FILTER_CACHE_TTL_SECS)
+                    });
                 let filters = if let Some((list, _)) = cached {
                     list
                 } else {
@@ -682,7 +900,10 @@ pub async fn handle_message(
                     }
                     list
                 };
-                if let Some((_, response)) = filters.iter().find(|(trigger, _)| text_lower.contains(trigger)) {
+                if let Some((_, response)) = filters
+                    .iter()
+                    .find(|(trigger, _)| text_lower.contains(trigger))
+                {
                     let _ = bot.send_message(msg.chat.id, response).await;
                 }
             }
@@ -701,13 +922,25 @@ pub async fn handle_message(
                     match cached {
                         Some(words) => words,
                         None => {
-                            let list = match client.query("SELECT word FROM swear_words WHERE group_id = $1", &[&msg.chat.id]).await {
-                                Ok(rows) => rows.into_iter().map(|r| r.get::<usize, String>(0)).collect::<Vec<_>>(),
+                            let list = match client
+                                .query(
+                                    "SELECT word FROM swear_words WHERE group_id = $1",
+                                    &[&msg.chat.id],
+                                )
+                                .await
+                            {
+                                Ok(rows) => rows
+                                    .into_iter()
+                                    .map(|r| r.get::<usize, String>(0))
+                                    .collect::<Vec<_>>(),
                                 Err(_) => Vec::new(),
                             };
                             let words = std::sync::Arc::new(list);
                             if let Ok(mut cache) = SWEAR_CACHE.lock() {
-                                cache.insert(msg.chat.id, (std::sync::Arc::clone(&words), Instant::now()));
+                                cache.insert(
+                                    msg.chat.id,
+                                    (std::sync::Arc::clone(&words), Instant::now()),
+                                );
                             }
                             words
                         }
@@ -717,12 +950,17 @@ pub async fn handle_message(
                 if let Some(swear) = swear_words.iter().find(|w| text_lower.contains(*w)) {
                     let _ = bot.delete_message(msg.chat.id, msg.id()).await;
                     let _ = bot
-                        .send_message(
-                            msg.chat.id,
-                            format!("Swear word detected: {}", swear),
-                        )
+                        .send_message(msg.chat.id, format!("Swear word detected: {}", swear))
                         .await;
-                    auto_warn_and_maybe_ban(&bot, client, msg.chat.id, user_id, &user_name, &format!("swear word: {}", swear)).await;
+                    auto_warn_and_maybe_ban(
+                        &bot,
+                        client,
+                        msg.chat.id,
+                        user_id,
+                        &user_name,
+                        &format!("swear word: {}", swear),
+                    )
+                    .await;
                 }
             }
         }
@@ -762,7 +1000,9 @@ async fn require_sudo_fast(bot: &Bot, msg: &Message) -> Result<bool, String> {
     if crate::auth::is_sudo_or_privileged(user_id) {
         Ok(true)
     } else {
-        let _ = bot.send_message(msg.chat.id, "This command is restricted to bot operators.").await;
+        let _ = bot
+            .send_message(msg.chat.id, "This command is restricted to bot operators.")
+            .await;
         Ok(false)
     }
 }
@@ -806,7 +1046,7 @@ async fn require_feature_fast(
 }
 
 /// Feature check with in-memory caching (30s TTL).
-async fn is_feature_enabled_cached(
+pub async fn is_feature_enabled_cached(
     client: &Client,
     chat_id: i64,
     feature: &str,

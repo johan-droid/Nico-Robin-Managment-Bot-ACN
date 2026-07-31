@@ -5,8 +5,18 @@ use tokio_postgres::Client;
 use crate::utils::escape_md_v2;
 
 const LOCK_TYPES: &[&str] = &[
-    "photos", "videos", "stickers", "gifs", "documents", "voice", "audio", "links",
-    "forward", "bots", "polls", "video_notes",
+    "photos",
+    "videos",
+    "stickers",
+    "gifs",
+    "documents",
+    "voice",
+    "audio",
+    "links",
+    "forward",
+    "bots",
+    "polls",
+    "video_notes",
 ];
 
 async fn send_text(bot: &Bot, chat_id: i64, text: &str) {
@@ -15,7 +25,10 @@ async fn send_text(bot: &Bot, chat_id: i64, text: &str) {
 
 fn parse_lock_type(arg: &str) -> Option<&'static str> {
     let arg = arg.trim().trim_start_matches('/');
-    LOCK_TYPES.iter().copied().find(|t| *t == arg.to_lowercase())
+    LOCK_TYPES
+        .iter()
+        .copied()
+        .find(|t| *t == arg.to_lowercase())
 }
 
 /// Returns the first lock type that a message violates (if any).
@@ -77,7 +90,8 @@ pub async fn detect_lock_violation(
                     e.type_ == "url" || e.type_ == "text_link" || e.type_ == "email"
                 })
             });
-            let has_tme = text.contains("t.me/") || text.contains("http://") || text.contains("https://");
+            let has_tme =
+                text.contains("t.me/") || text.contains("http://") || text.contains("https://");
             if has_link || has_tme {
                 return Ok(Some("links".into()));
             }
@@ -104,7 +118,11 @@ pub async fn handle_lock(bot: Bot, msg: Message, client: &Client) -> Result<(), 
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Unknown lock type '{}'. Available: {}", arg, LOCK_TYPES.join(", ")),
+                &format!(
+                    "Unknown lock type '{}'. Available: {}",
+                    arg,
+                    LOCK_TYPES.join(", ")
+                ),
             )
             .await;
             return Ok(());
@@ -125,7 +143,10 @@ pub async fn handle_unlock(bot: Bot, msg: Message, client: &Client) -> Result<()
         send_text(
             &bot,
             msg.chat.id,
-            &format!("Usage: /unlock <type>\nAvailable: {}", LOCK_TYPES.join(", ")),
+            &format!(
+                "Usage: /unlock <type>\nAvailable: {}",
+                LOCK_TYPES.join(", ")
+            ),
         )
         .await;
         return Ok(());
@@ -136,7 +157,11 @@ pub async fn handle_unlock(bot: Bot, msg: Message, client: &Client) -> Result<()
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Unknown lock type '{}'. Available: {}", arg, LOCK_TYPES.join(", ")),
+                &format!(
+                    "Unknown lock type '{}'. Available: {}",
+                    arg,
+                    LOCK_TYPES.join(", ")
+                ),
             )
             .await;
             return Ok(());

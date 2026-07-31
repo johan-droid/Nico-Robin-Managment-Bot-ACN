@@ -2,10 +2,7 @@ use aes_gcm::{
     aead::{Aead, AeadCore, KeyInit, OsRng},
     Aes256Gcm, Nonce,
 };
-use base64::{
-    engine::general_purpose::STANDARD as BASE64,
-    Engine,
-};
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine};
 use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha256};
 use std::sync::OnceLock;
@@ -23,7 +20,8 @@ pub struct Crypto {
 
 impl Crypto {
     pub fn from_hex_key(hex_key: &str) -> Self {
-        let raw = hex::decode(hex_key).expect("ENCRYPTION_KEY must be a valid hex string (64+ hex chars for 32+ bytes)");
+        let raw = hex::decode(hex_key)
+            .expect("ENCRYPTION_KEY must be a valid hex string (64+ hex chars for 32+ bytes)");
         let key = Sha256::digest(&raw);
         let cipher = Aes256Gcm::new_from_slice(&key).expect("Failed to create AES-256-GCM cipher");
         let hmac_key = key.to_vec();
@@ -83,7 +81,9 @@ pub fn init(hex_key: &str) {
 }
 
 pub fn global() -> &'static Crypto {
-    CRYPTO.get().expect("Crypto not initialized. Call crypto::init() at startup")
+    CRYPTO
+        .get()
+        .expect("Crypto not initialized. Call crypto::init() at startup")
 }
 
 /// Return the Crypto instance if initialized, or `None` if no key was configured.

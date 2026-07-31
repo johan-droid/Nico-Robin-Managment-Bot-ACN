@@ -1,11 +1,11 @@
 use crate::db::message_history::HistoryMessage;
 use crate::telegram::api::Bot;
 use crate::telegram::update::Message;
-use ab_glyph::{Font, FontRef, PxScale, ScaleFont, point};
+use ab_glyph::{point, Font, FontRef, PxScale, ScaleFont};
 use image::{ImageEncoder, Rgba, RgbaImage};
 use std::collections::{HashMap, VecDeque};
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Mutex;
 
 const FONT_DATA: &[u8] = include_bytes!("../../assets/DejaVuSans.ttf");
 
@@ -79,14 +79,19 @@ pub async fn record_message(client: &tokio_postgres::Client, msg: &Message) {
     .await;
 
     if count % PRUNE_EVERY == 0 {
-        let _ = crate::db::message_history::prune_old(client, chat_id, HISTORY_MAX_PER_CHAT as i64).await;
+        let _ = crate::db::message_history::prune_old(client, chat_id, HISTORY_MAX_PER_CHAT as i64)
+            .await;
     }
 }
 
 /// Returns history for a chat. Prefers the in-memory cache; on a cache miss
 /// (e.g. right after a restart) it hydrates the cache from the database.
 async fn get_history(client: &tokio_postgres::Client, chat_id: i64) -> Vec<HistoryMessage> {
-    if let Some(history) = MESSAGE_HISTORY.lock().ok().and_then(|h| h.get(&chat_id).cloned()) {
+    if let Some(history) = MESSAGE_HISTORY
+        .lock()
+        .ok()
+        .and_then(|h| h.get(&chat_id).cloned())
+    {
         let history: Vec<HistoryMessage> = history.into_iter().collect();
         if !history.is_empty() {
             return history;
@@ -115,7 +120,11 @@ fn parse_quote_count(text: &str) -> usize {
     t.parse::<usize>().unwrap_or(1).clamp(1, MAX_QUOTE_MESSAGES)
 }
 
-pub async fn handle_quote(bot: Bot, msg: Message, client: &tokio_postgres::Client) -> Result<(), String> {
+pub async fn handle_quote(
+    bot: Bot,
+    msg: Message,
+    client: &tokio_postgres::Client,
+) -> Result<(), String> {
     let n = parse_quote_count(msg.text().unwrap_or(""));
 
     let replied = match msg.reply_to_message() {
@@ -150,12 +159,16 @@ pub async fn handle_quote(bot: Bot, msg: Message, client: &tokio_postgres::Clien
     let selected: Vec<HistoryMessage> = history[start..=idx].to_vec();
 
     let selected_cloned = selected.clone();
-    let webp_res = tokio::task::spawn_blocking(move || render_quote_sticker(&selected_cloned)).await;
+    let webp_res =
+        tokio::task::spawn_blocking(move || render_quote_sticker(&selected_cloned)).await;
     let webp = match webp_res {
         Ok(Ok(bytes)) => bytes,
         Ok(Err(e)) => {
-            bot.send_message(msg.chat.id, format!("Could not render quote sticker: {}", e))
-                .await?;
+            bot.send_message(
+                msg.chat.id,
+                format!("Could not render quote sticker: {}", e),
+            )
+            .await?;
             return Ok(());
         }
         Err(e) => {
@@ -230,7 +243,13 @@ fn measure(
     w
 }
 
-fn wrap_text(font: FontRef<'static>, emoji_font: FontRef<'static>, scale: f32, max_width: f32, text: &str) -> Vec<String> {
+fn wrap_text(
+    font: FontRef<'static>,
+    emoji_font: FontRef<'static>,
+    scale: f32,
+    max_width: f32,
+    text: &str,
+) -> Vec<String> {
     let scaled = font.into_scaled(PxScale::from(scale));
     let emoji_scaled = emoji_font.into_scaled(PxScale::from(scale));
     let mut lines = Vec::new();
@@ -253,8 +272,13 @@ fn wrap_text(font: FontRef<'static>, emoji_font: FontRef<'static>, scale: f32, m
                     lines.push(std::mem::take(&mut line));
                 }
                 line = word.to_string();
-                while measure(&scaled, &emoji_scaled, &line) > max_width && line.chars().count() > 1 {
-                    let cut = line.char_indices().nth(1).map(|(i, _)| i).unwrap_or(line.len());
+                while measure(&scaled, &emoji_scaled, &line) > max_width && line.chars().count() > 1
+                {
+                    let cut = line
+                        .char_indices()
+                        .nth(1)
+                        .map(|(i, _)| i)
+                        .unwrap_or(line.len());
                     lines.push(line[..cut].to_string());
                     line = line[cut..].to_string();
                 }
@@ -282,7 +306,8 @@ fn draw_text_line(
         if is_emoji(c) {
             let gid = emoji_scaled.glyph_id(c);
             if gid.0 != 0 {
-                let glyph = gid.with_scale_and_position(PxScale::from(scale), point(pen_x, baseline_y));
+                let glyph =
+                    gid.with_scale_and_position(PxScale::from(scale), point(pen_x, baseline_y));
                 if let Some(outline) = emoji_scaled.outline_glyph(glyph) {
                     let bounds = outline.px_bounds();
                     outline.draw(|dx, dy, cov| {
@@ -382,8 +407,21 @@ fn render_quote_image(messages: &[HistoryMessage]) -> Result<RgbaImage, String> 
     let mut rows = Vec::with_capacity(messages.len());
     for m in messages {
         let text = truncate(&m.text, MAX_TEXT_CHARS);
-        let name = truncate(if m.user_name.is_empty() { "Unknown" } else { &m.user_name }, 30);
-        let lines = wrap_text(font.clone(), emoji_font.clone(), TEXT_SIZE, max_text_width, &text);
+        let name = truncate(
+            if m.user_name.is_empty() {
+                "Unknown"
+            } else {
+                &m.user_name
+            },
+            30,
+        );
+        let lines = wrap_text(
+            font.clone(),
+            emoji_font.clone(),
+            TEXT_SIZE,
+            max_text_width,
+            &text,
+        );
         rows.push(Row {
             name,
             lines,
@@ -420,16 +458,51 @@ fn render_quote_image(messages: &[HistoryMessage]) -> Result<RgbaImage, String> 
         let bubble_y0 = y.ceil() as u32;
         let bubble_y1 = bubble_y0 + bh - 1;
 
-        fill_rounded_rect(&mut img, bubble_x0, bubble_y0, bubble_x0 + ACCENT_W - 1, bubble_y1, 4, row.color);
-        fill_rounded_rect(&mut img, bubble_x0 + ACCENT_W, bubble_y0, bubble_x1, bubble_y1, RADIUS, BUBBLE);
+        fill_rounded_rect(
+            &mut img,
+            bubble_x0,
+            bubble_y0,
+            bubble_x0 + ACCENT_W - 1,
+            bubble_y1,
+            4,
+            row.color,
+        );
+        fill_rounded_rect(
+            &mut img,
+            bubble_x0 + ACCENT_W,
+            bubble_y0,
+            bubble_x1,
+            bubble_y1,
+            RADIUS,
+            BUBBLE,
+        );
 
         let text_x = (bubble_x0 + ACCENT_W + BUBBLE_PAD_X) as f32;
         let name_baseline = (bubble_y0 + BUBBLE_PAD_Y) as f32 + bold_scaled.ascent();
-        draw_text_line(&mut img, bold.clone(), emoji_font.clone(), NAME_SIZE, row.color, text_x, name_baseline, &row.name);
+        draw_text_line(
+            &mut img,
+            bold.clone(),
+            emoji_font.clone(),
+            NAME_SIZE,
+            row.color,
+            text_x,
+            name_baseline,
+            &row.name,
+        );
 
-        let mut tb = (bubble_y0 + BUBBLE_PAD_Y) as f32 + name_h + NAME_TO_TEXT_GAP + text_scaled.ascent();
+        let mut tb =
+            (bubble_y0 + BUBBLE_PAD_Y) as f32 + name_h + NAME_TO_TEXT_GAP + text_scaled.ascent();
         for line in &row.lines {
-            draw_text_line(&mut img, font.clone(), emoji_font.clone(), TEXT_SIZE, TEXT_WHITE, text_x, tb, line);
+            draw_text_line(
+                &mut img,
+                font.clone(),
+                emoji_font.clone(),
+                TEXT_SIZE,
+                TEXT_WHITE,
+                text_x,
+                tb,
+                line,
+            );
             tb += line_h;
         }
 
@@ -467,7 +540,12 @@ pub fn render_quote_sticker(messages: &[HistoryMessage]) -> Result<Vec<u8>, Stri
 
     let mut buf = Vec::new();
     image::codecs::webp::WebPEncoder::new_lossless(&mut buf)
-        .write_image(&canvas.into_raw(), STICKER_SIZE, STICKER_SIZE, image::ExtendedColorType::Rgba8)
+        .write_image(
+            &canvas.into_raw(),
+            STICKER_SIZE,
+            STICKER_SIZE,
+            image::ExtendedColorType::Rgba8,
+        )
         .map_err(|e| format!("webp encode error: {}", e))?;
     Ok(buf)
 }

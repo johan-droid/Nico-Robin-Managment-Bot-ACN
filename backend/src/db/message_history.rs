@@ -28,7 +28,14 @@ pub async fn record_message(
             "INSERT INTO message_history (chat_id, message_id, user_id, user_name, text, date) \
              VALUES ($1, $2, $3, $4, $5, $6) \
              ON CONFLICT (chat_id, message_id) DO NOTHING",
-            &[&chat_id, &(message_id as i64), &(user_id as i64), &user_name, &text, &(date as i64)],
+            &[
+                &chat_id,
+                &(message_id as i64),
+                &(user_id as i64),
+                &user_name,
+                &text,
+                &(date as i64),
+            ],
         )
         .await
         .map_err(|e| e.to_string())?;

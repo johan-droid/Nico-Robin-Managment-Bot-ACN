@@ -19,7 +19,7 @@ impl Default for FloodTracker {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FloodActionInfo {
     pub user_id: u64,
     pub user_name: String,

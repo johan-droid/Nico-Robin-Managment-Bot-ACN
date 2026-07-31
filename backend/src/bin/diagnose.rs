@@ -43,7 +43,14 @@ async fn main() {
 
     report.push_str(&format!("- **Branch**: {}\n", git_branch));
     report.push_str(&format!("- **Commit**: {}\n", git_commit));
-    report.push_str(&format!("- **Dirty Status**: {}\n", if is_dirty { "Yes (uncommitted changes present)" } else { "No (clean)" }));
+    report.push_str(&format!(
+        "- **Dirty Status**: {}\n",
+        if is_dirty {
+            "Yes (uncommitted changes present)"
+        } else {
+            "No (clean)"
+        }
+    ));
     if is_dirty {
         report.push_str("```\n");
         report.push_str(git_status);
@@ -62,7 +69,10 @@ async fn main() {
     let rustc_version = rustc_version.trim();
 
     report.push_str(&format!("- **Rustc Version**: {}\n", rustc_version));
-    report.push_str(&format!("- **Application Version**: {}\n", env!("CARGO_PKG_VERSION")));
+    report.push_str(&format!(
+        "- **Application Version**: {}\n",
+        env!("CARGO_PKG_VERSION")
+    ));
     report.push('\n');
 
     // 3. Configuration Check
@@ -104,7 +114,9 @@ async fn main() {
             report.push_str("- **Status**: ❌ Database URL is empty\n");
         } else {
             // Attempt to connect
-            let connector = if url.contains("sslmode=require") || env::var("DB_SSL_REQUIRED").unwrap_or_default() == "true" {
+            let connector = if url.contains("sslmode=require")
+                || env::var("DB_SSL_REQUIRED").unwrap_or_default() == "true"
+            {
                 let mut root_store = rustls::RootCertStore::empty();
                 root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
                 let rustls_config = rustls::ClientConfig::builder()
@@ -128,7 +140,10 @@ async fn main() {
                                 Err(e) => report.push_str(&format!("- **Status**: ❌ Connection established but query failed: {}\n", e)),
                             }
                         }
-                        Err(e) => report.push_str(&format!("- **Status**: ❌ Failed to connect (TLS): {}\n", e)),
+                        Err(e) => report.push_str(&format!(
+                            "- **Status**: ❌ Failed to connect (TLS): {}\n",
+                            e
+                        )),
                     }
                 }
                 ConnectMode::NoTls => {
@@ -142,7 +157,10 @@ async fn main() {
                                 Err(e) => report.push_str(&format!("- **Status**: ❌ Connection established but query failed: {}\n", e)),
                             }
                         }
-                        Err(e) => report.push_str(&format!("- **Status**: ❌ Failed to connect (No TLS): {}\n", e)),
+                        Err(e) => report.push_str(&format!(
+                            "- **Status**: ❌ Failed to connect (No TLS): {}\n",
+                            e
+                        )),
                     }
                 }
                 ConnectMode::Error(err) => {
@@ -160,8 +178,14 @@ async fn main() {
     let crash_count = count_reports("diagnostics/crashes");
     let failure_count = count_reports("diagnostics/failures");
 
-    report.push_str(&format!("- **Unhandled Crashes (diagnostics/crashes/)**: {}\n", crash_count));
-    report.push_str(&format!("- **Centralized Failures (diagnostics/failures/)**: {}\n", failure_count));
+    report.push_str(&format!(
+        "- **Unhandled Crashes (diagnostics/crashes/)**: {}\n",
+        crash_count
+    ));
+    report.push_str(&format!(
+        "- **Centralized Failures (diagnostics/failures/)**: {}\n",
+        failure_count
+    ));
     report.push('\n');
 
     // Save report to file

@@ -11,7 +11,12 @@ async fn send_text(bot: &Bot, chat_id: i64, text: &str) {
     let _ = bot.send_message(chat_id, text).await;
 }
 
-async fn extract_target(bot: &Bot, msg: &Message, client: &Client, usage: &str) -> Option<(i64, String)> {
+async fn extract_target(
+    bot: &Bot,
+    msg: &Message,
+    client: &Client,
+    usage: &str,
+) -> Option<(i64, String)> {
     match extract_target_user(msg) {
         Some((id, name)) if id != 0 => Some((id, name)),
         Some((0, name)) => {
@@ -20,14 +25,22 @@ async fn extract_target(bot: &Bot, msg: &Message, client: &Client, usage: &str) 
             } else {
                 // Try resolving from database cache
                 let clean_uname = name.trim_start_matches('@').to_lowercase();
-                match client.query_one("SELECT user_id, first_name FROM username_cache WHERE username = $1", &[&clean_uname]).await {
+                match client
+                    .query_one(
+                        "SELECT user_id, first_name FROM username_cache WHERE username = $1",
+                        &[&clean_uname],
+                    )
+                    .await
+                {
                     Ok(row) => {
                         let user_id: i64 = row.get(0);
-                        let first_name: String = crate::crypto::try_decrypt(&row.get::<_, String>(1));
+                        let first_name: String =
+                            crate::crypto::try_decrypt(&row.get::<_, String>(1));
                         Some((user_id, first_name))
                     }
                     Err(_) => {
-                        let command_name = msg.text()
+                        let command_name = msg
+                            .text()
                             .and_then(|t| t.split_whitespace().next())
                             .and_then(|cmd| cmd.strip_prefix('/'))
                             .map(|cmd| cmd.split('@').next().unwrap_or(cmd))
@@ -54,15 +67,26 @@ async fn extract_target(bot: &Bot, msg: &Message, client: &Client, usage: &str) 
     }
 }
 
-pub async fn handle_ban(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
-    let (target_id, target_name) =
-        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /ban @username").await {
-            Some(v) => v,
-            None => {
-                tracing::warn!("Failed to extract target user for ban command");
-                return Ok(());
-            }
-        };
+pub async fn handle_ban(
+    bot: Bot,
+    msg: Message,
+    client: &Client,
+    settings: &Settings,
+) -> Result<(), String> {
+    let (target_id, target_name) = match extract_target(
+        &bot,
+        &msg,
+        client,
+        "Usage: Reply to a user or /ban @username",
+    )
+    .await
+    {
+        Some(v) => v,
+        None => {
+            tracing::warn!("Failed to extract target user for ban command");
+            return Ok(());
+        }
+    };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
     tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /ban command");
     match bot.ban_chat_member(msg.chat.id, target_id as u64).await {
@@ -100,15 +124,26 @@ pub async fn handle_ban(bot: Bot, msg: Message, client: &Client, settings: &Sett
     Ok(())
 }
 
-pub async fn handle_unban(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
-    let (target_id, target_name) =
-        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /unban @username").await {
-            Some(v) => v,
-            None => {
-                tracing::warn!("Failed to extract target user for unban command");
-                return Ok(());
-            }
-        };
+pub async fn handle_unban(
+    bot: Bot,
+    msg: Message,
+    client: &Client,
+    settings: &Settings,
+) -> Result<(), String> {
+    let (target_id, target_name) = match extract_target(
+        &bot,
+        &msg,
+        client,
+        "Usage: Reply to a user or /unban @username",
+    )
+    .await
+    {
+        Some(v) => v,
+        None => {
+            tracing::warn!("Failed to extract target user for unban command");
+            return Ok(());
+        }
+    };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
     tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /unban command");
     match bot.unban_chat_member(msg.chat.id, target_id as u64).await {
@@ -134,8 +169,7 @@ pub async fn handle_unban(bot: Bot, msg: Message, client: &Client, settings: &Se
             let invite_sent_message = if !invite_link_str.is_empty() {
                 let dm_text = format!(
                     "You have been unbanned in {}.\n\nHere is the link to join back:\n{}",
-                    group_title,
-                    invite_link_str
+                    group_title, invite_link_str
                 );
                 match bot.send_message(target_id, dm_text).await {
                     Ok(_) => {
@@ -154,7 +188,11 @@ pub async fn handle_unban(bot: Bot, msg: Message, client: &Client, settings: &Se
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Unbanned {}.{}", escape_md_v2(&target_name), invite_sent_message),
+                &format!(
+                    "Unbanned {}.{}",
+                    escape_md_v2(&target_name),
+                    invite_sent_message
+                ),
             )
             .await;
 
@@ -184,15 +222,26 @@ pub async fn handle_unban(bot: Bot, msg: Message, client: &Client, settings: &Se
     Ok(())
 }
 
-pub async fn handle_kick(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
-    let (target_id, target_name) =
-        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /kick @username").await {
-            Some(v) => v,
-            None => {
-                tracing::warn!("Failed to extract target user for kick command");
-                return Ok(());
-            }
-        };
+pub async fn handle_kick(
+    bot: Bot,
+    msg: Message,
+    client: &Client,
+    settings: &Settings,
+) -> Result<(), String> {
+    let (target_id, target_name) = match extract_target(
+        &bot,
+        &msg,
+        client,
+        "Usage: Reply to a user or /kick @username",
+    )
+    .await
+    {
+        Some(v) => v,
+        None => {
+            tracing::warn!("Failed to extract target user for kick command");
+            return Ok(());
+        }
+    };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
     tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /kick command (ban-then-unban)");
     match bot.ban_chat_member(msg.chat.id, target_id as u64).await {
@@ -233,15 +282,26 @@ pub async fn handle_kick(bot: Bot, msg: Message, client: &Client, settings: &Set
     Ok(())
 }
 
-pub async fn handle_mute(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
-    let (target_id, target_name) =
-        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /mute @username").await {
-            Some(v) => v,
-            None => {
-                tracing::warn!("Failed to extract target user for mute command");
-                return Ok(());
-            }
-        };
+pub async fn handle_mute(
+    bot: Bot,
+    msg: Message,
+    client: &Client,
+    settings: &Settings,
+) -> Result<(), String> {
+    let (target_id, target_name) = match extract_target(
+        &bot,
+        &msg,
+        client,
+        "Usage: Reply to a user or /mute @username",
+    )
+    .await
+    {
+        Some(v) => v,
+        None => {
+            tracing::warn!("Failed to extract target user for mute command");
+            return Ok(());
+        }
+    };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
     let permissions = ChatPermissions::empty();
     tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /mute command");
@@ -283,15 +343,26 @@ pub async fn handle_mute(bot: Bot, msg: Message, client: &Client, settings: &Set
     Ok(())
 }
 
-pub async fn handle_unmute(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
-    let (target_id, target_name) =
-        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /unmute @username").await {
-            Some(v) => v,
-            None => {
-                tracing::warn!("Failed to extract target user for unmute command");
-                return Ok(());
-            }
-        };
+pub async fn handle_unmute(
+    bot: Bot,
+    msg: Message,
+    client: &Client,
+    settings: &Settings,
+) -> Result<(), String> {
+    let (target_id, target_name) = match extract_target(
+        &bot,
+        &msg,
+        client,
+        "Usage: Reply to a user or /unmute @username",
+    )
+    .await
+    {
+        Some(v) => v,
+        None => {
+            tracing::warn!("Failed to extract target user for unmute command");
+            return Ok(());
+        }
+    };
     let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
     let permissions = ChatPermissions::all();
     tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /unmute command");
@@ -339,11 +410,17 @@ pub async fn handle_warn(
     client: &Client,
     settings: &Settings,
 ) -> Result<(), String> {
-    let (target_id, target_name) =
-        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /warn @user [reason]").await {
-            Some(v) => v,
-            None => return Ok(()),
-        };
+    let (target_id, target_name) = match extract_target(
+        &bot,
+        &msg,
+        client,
+        "Usage: Reply to a user or /warn @user [reason]",
+    )
+    .await
+    {
+        Some(v) => v,
+        None => return Ok(()),
+    };
     let chat_id = msg.chat.id;
     let warned_by = msg.from().map(|u| u.id as i64).unwrap_or(0);
 
@@ -441,7 +518,12 @@ pub async fn handle_warns(bot: Bot, msg: Message, client: &Client) -> Result<(),
         .and_then(|v| v.parse().ok())
         .unwrap_or(3);
 
-    let mut text = format!("Warnings for {}: {} /{}\n", escape_md_v2(&target_name), count, threshold);
+    let mut text = format!(
+        "Warnings for {}: {} /{}\n",
+        escape_md_v2(&target_name),
+        count,
+        threshold
+    );
     for (i, (_id, reason, by)) in warnings.iter().enumerate() {
         text.push_str(&format!(
             "{}. {} (by {})\n",
@@ -464,11 +546,17 @@ pub async fn handle_resetwarn(
     client: &Client,
     settings: &Settings,
 ) -> Result<(), String> {
-    let (target_id, target_name) =
-        match extract_target(&bot, &msg, client, "Usage: Reply to a user or /resetwarn @user").await {
-            Some(v) => v,
-            None => return Ok(()),
-        };
+    let (target_id, target_name) = match extract_target(
+        &bot,
+        &msg,
+        client,
+        "Usage: Reply to a user or /resetwarn @user",
+    )
+    .await
+    {
+        Some(v) => v,
+        None => return Ok(()),
+    };
     let chat_id = msg.chat.id;
     let removed = crate::db::warnings::reset_warnings(client, chat_id, target_id)
         .await
@@ -626,7 +714,12 @@ pub async fn handle_pin(bot: Bot, msg: Message, settings: &Settings) -> Result<(
 
 pub async fn handle_unpin(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
-    let args = text.splitn(2, ' ').nth(1).unwrap_or("").trim().to_lowercase();
+    let args = text
+        .splitn(2, ' ')
+        .nth(1)
+        .unwrap_or("")
+        .trim()
+        .to_lowercase();
     let result = if args == "all" {
         bot.unpin_all_chat_messages(msg.chat.id).await
     } else if let Some(reply) = msg.reply_to_message() {
@@ -687,16 +780,30 @@ fn parse_duration(input: &str) -> Option<i64> {
 }
 
 /// /tmute @user <duration> — mute a user for a limited time (e.g. 30m, 2h, 1d).
-pub async fn handle_tmute(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
+pub async fn handle_tmute(
+    bot: Bot,
+    msg: Message,
+    client: &Client,
+    settings: &Settings,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let rest = text.strip_prefix("/tmute").unwrap_or("").trim();
     let parts: Vec<&str> = rest.split_whitespace().collect();
 
-    let target_text = parts.iter().find(|p| p.starts_with('@') || p.parse::<i64>().is_ok());
-    let duration_str = parts.iter().find(|p| !p.starts_with('@') && p.parse::<i64>().is_err());
+    let target_text = parts
+        .iter()
+        .find(|p| p.starts_with('@') || p.parse::<i64>().is_ok());
+    let duration_str = parts
+        .iter()
+        .find(|p| !p.starts_with('@') && p.parse::<i64>().is_err());
 
     let (Some(target_text), Some(duration_str)) = (target_text, duration_str) else {
-        send_text(&bot, msg.chat.id, "Usage: /tmute @user <duration> (e.g. /tmute @user 30m)").await;
+        send_text(
+            &bot,
+            msg.chat.id,
+            "Usage: /tmute @user <duration> (e.g. /tmute @user 30m)",
+        )
+        .await;
         return Ok(());
     };
 
@@ -711,7 +818,14 @@ pub async fn handle_tmute(bot: Bot, msg: Message, client: &Client, settings: &Se
     // Build a mock message containing only the target so the shared extractor works.
     let mut mock = msg.clone();
     mock.text = Some(format!("/tmute {}", target_text));
-    let (target_id, target_name) = match extract_target(&bot, &mock, client, "Usage: Reply to a user or /tmute @user <duration>").await {
+    let (target_id, target_name) = match extract_target(
+        &bot,
+        &mock,
+        client,
+        "Usage: Reply to a user or /tmute @user <duration>",
+    )
+    .await
+    {
         Some(v) => v,
         None => return Ok(()),
     };
@@ -719,36 +833,72 @@ pub async fn handle_tmute(bot: Bot, msg: Message, client: &Client, settings: &Se
     let now = chrono::Utc::now().timestamp();
     let until = now + seconds;
     let permissions = ChatPermissions::empty();
-    match bot.restrict_chat_member_until(msg.chat.id, target_id as u64, permissions, until).await {
+    match bot
+        .restrict_chat_member_until(msg.chat.id, target_id as u64, permissions, until)
+        .await
+    {
         Ok(_) => {
             let human = format_duration(seconds);
-            send_text(&bot, msg.chat.id, &format!("Muted {} for {}.", escape_md_v2(&target_name), human)).await;
+            send_text(
+                &bot,
+                msg.chat.id,
+                &format!("Muted {} for {}.", escape_md_v2(&target_name), human),
+            )
+            .await;
             let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
-            log_mod_action(&bot, settings, msg.chat.id, &format!(
-                "Temporarily muted {} for {} in {} (by {})",
-                escape_md_v2(&target_name), human,
-                escape_md_v2(msg.chat.title().unwrap_or("group")),
-                escape_md_v2(executor)
-            )).await;
+            log_mod_action(
+                &bot,
+                settings,
+                msg.chat.id,
+                &format!(
+                    "Temporarily muted {} for {} in {} (by {})",
+                    escape_md_v2(&target_name),
+                    human,
+                    escape_md_v2(msg.chat.title().unwrap_or("group")),
+                    escape_md_v2(executor)
+                ),
+            )
+            .await;
         }
-        Err(e) => send_text(&bot, msg.chat.id, &format!("Failed to tmute: {}", escape_md_v2(&e))).await,
+        Err(e) => {
+            send_text(
+                &bot,
+                msg.chat.id,
+                &format!("Failed to tmute: {}", escape_md_v2(&e)),
+            )
+            .await
+        }
     }
     Ok(())
 }
 
 /// /tban @user <duration> — ban a user for a limited time (e.g. 1h, 1d, 1w).
-pub async fn handle_tban(bot: Bot, msg: Message, client: &Client, settings: &Settings) -> Result<(), String> {
+pub async fn handle_tban(
+    bot: Bot,
+    msg: Message,
+    client: &Client,
+    settings: &Settings,
+) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let rest = text.strip_prefix("/tban").unwrap_or("").trim();
 
     // target is the @mention or numeric id anywhere in args
-    let target_text = rest.split_whitespace().find(|p| p.starts_with('@') || p.parse::<i64>().is_ok()).unwrap_or("");
-    let duration_str = rest.split_whitespace()
+    let target_text = rest
+        .split_whitespace()
+        .find(|p| p.starts_with('@') || p.parse::<i64>().is_ok())
+        .unwrap_or("");
+    let duration_str = rest
+        .split_whitespace()
         .find(|p| !p.starts_with('@') && p.parse::<i64>().is_err())
         .map(|s| s.to_string());
 
     if target_text.is_empty() || duration_str.is_none() {
-        send_text(&bot, msg.chat.id, "Usage: /tban @user <duration> (e.g. /tban @user 1d)").await;
+        send_text(
+            &bot,
+            msg.chat.id,
+            "Usage: /tban @user <duration> (e.g. /tban @user 1d)",
+        )
+        .await;
         return Ok(());
     }
 
@@ -762,32 +912,66 @@ pub async fn handle_tban(bot: Bot, msg: Message, client: &Client, settings: &Set
 
     let mut mock = msg.clone();
     mock.text = Some(format!("/tban {}", target_text));
-    let (target_id, target_name) = match extract_target(&bot, &mock, client, "Usage: Reply to a user or /tban @user <duration>").await {
+    let (target_id, target_name) = match extract_target(
+        &bot,
+        &mock,
+        client,
+        "Usage: Reply to a user or /tban @user <duration>",
+    )
+    .await
+    {
         Some(v) => v,
         None => return Ok(()),
     };
 
     let now = chrono::Utc::now().timestamp();
     let until = now + seconds;
-    match bot.ban_chat_member_until(msg.chat.id, target_id as u64, until).await {
+    match bot
+        .ban_chat_member_until(msg.chat.id, target_id as u64, until)
+        .await
+    {
         Ok(_) => {
             let human = format_duration(seconds);
-            send_text(&bot, msg.chat.id, &format!("Banned {} for {}.", escape_md_v2(&target_name), human)).await;
+            send_text(
+                &bot,
+                msg.chat.id,
+                &format!("Banned {} for {}.", escape_md_v2(&target_name), human),
+            )
+            .await;
             let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
-            log_mod_action(&bot, settings, msg.chat.id, &format!(
-                "Temporarily banned {} for {} in {} (by {})",
-                escape_md_v2(&target_name), human,
-                escape_md_v2(msg.chat.title().unwrap_or("group")),
-                escape_md_v2(executor)
-            )).await;
+            log_mod_action(
+                &bot,
+                settings,
+                msg.chat.id,
+                &format!(
+                    "Temporarily banned {} for {} in {} (by {})",
+                    escape_md_v2(&target_name),
+                    human,
+                    escape_md_v2(msg.chat.title().unwrap_or("group")),
+                    escape_md_v2(executor)
+                ),
+            )
+            .await;
         }
-        Err(e) => send_text(&bot, msg.chat.id, &format!("Failed to tban: {}", escape_md_v2(&e))).await,
+        Err(e) => {
+            send_text(
+                &bot,
+                msg.chat.id,
+                &format!("Failed to tban: {}", escape_md_v2(&e)),
+            )
+            .await
+        }
     }
     Ok(())
 }
 
 /// /kickme — the sender removes themselves from the group.
-pub async fn handle_kickme(bot: Bot, msg: Message, _client: &Client, _settings: &Settings) -> Result<(), String> {
+pub async fn handle_kickme(
+    bot: Bot,
+    msg: Message,
+    _client: &Client,
+    _settings: &Settings,
+) -> Result<(), String> {
     let user_id = msg.from().map(|u| u.id).unwrap_or(0);
     if user_id == 0 {
         send_text(&bot, msg.chat.id, "Could not determine your user id.").await;
@@ -798,7 +982,14 @@ pub async fn handle_kickme(bot: Bot, msg: Message, _client: &Client, _settings: 
             let _ = bot.unban_chat_member(msg.chat.id, user_id).await;
             send_text(&bot, msg.chat.id, "You have left the group. See you! 👋").await;
         }
-        Err(e) => send_text(&bot, msg.chat.id, &format!("Failed to kick you: {}", escape_md_v2(&e))).await,
+        Err(e) => {
+            send_text(
+                &bot,
+                msg.chat.id,
+                &format!("Failed to kick you: {}", escape_md_v2(&e)),
+            )
+            .await
+        }
     }
     Ok(())
 }
@@ -809,9 +1000,21 @@ fn format_duration(total_secs: i64) -> String {
     let mins = (total_secs % 3600) / 60;
     let secs = total_secs % 60;
     let mut parts = Vec::new();
-    if days > 0 { parts.push(format!("{}d", days)); }
-    if hours > 0 { parts.push(format!("{}h", hours)); }
-    if mins > 0 { parts.push(format!("{}m", mins)); }
-    if secs > 0 { parts.push(format!("{}s", secs)); }
-    if parts.is_empty() { "0s".into() } else { parts.join(" ") }
+    if days > 0 {
+        parts.push(format!("{}d", days));
+    }
+    if hours > 0 {
+        parts.push(format!("{}h", hours));
+    }
+    if mins > 0 {
+        parts.push(format!("{}m", mins));
+    }
+    if secs > 0 {
+        parts.push(format!("{}s", secs));
+    }
+    if parts.is_empty() {
+        "0s".into()
+    } else {
+        parts.join(" ")
+    }
 }

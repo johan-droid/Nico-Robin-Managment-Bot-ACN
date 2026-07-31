@@ -1,14 +1,11 @@
-use std::panic;
-use std::fs;
-use std::path::Path;
+use crate::utils::error::sanitize_secrets;
 use chrono::Utc;
 use futures_util::FutureExt;
-use crate::utils::error::sanitize_secrets;
+use std::fs;
+use std::panic;
+use std::path::Path;
 
-pub async fn catch_handler_panic<F, R>(
-    trace_id: u64,
-    fut: F,
-) -> Result<R, String>
+pub async fn catch_handler_panic<F, R>(trace_id: u64, fut: F) -> Result<R, String>
 where
     F: std::future::Future<Output = Result<R, String>> + Send + 'static,
 {
@@ -38,12 +35,16 @@ pub fn report_crash(trace_id: u64, panic_msg: &str) {
     }
 
     let timestamp = Utc::now().to_rfc3339();
-    let filename = format!("crash_{}_{}.md", Utc::now().format("%Y%m%d_%H%M%S"), trace_id);
+    let filename = format!(
+        "crash_{}_{}.md",
+        Utc::now().format("%Y%m%d_%H%M%S"),
+        trace_id
+    );
     let filepath = dir.join(filename);
 
-    let logs = crate::utils::logging::LOG_BUFFER.try_with(|buf| {
-        buf.borrow().join("\n")
-    }).unwrap_or_else(|_| "No trace logs recorded".to_string());
+    let logs = crate::utils::logging::LOG_BUFFER
+        .try_with(|buf| buf.borrow().join("\n"))
+        .unwrap_or_else(|_| "No trace logs recorded".to_string());
 
     let sanitized_msg = sanitize_secrets(panic_msg);
     let sanitized_logs = sanitize_secrets(&logs);

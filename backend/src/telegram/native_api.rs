@@ -1,9 +1,9 @@
+use crate::telegram::update::{ChatMember, ChatPermissions, PhotoSize};
+use reqwest::Client;
+use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use reqwest::Client;
-use serde_json::Value;
-use crate::telegram::update::{ChatPermissions, ChatMember, PhotoSize};
 
 #[derive(Clone)]
 pub struct Bot {
@@ -13,13 +13,15 @@ pub struct Bot {
 }
 
 static SHARED_CLIENT: std::sync::LazyLock<Arc<Client>> = std::sync::LazyLock::new(|| {
-    Arc::new(Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(10))
-        .timeout(std::time::Duration::from_secs(25))
-        .pool_max_idle_per_host(20)
-        .tcp_keepalive(std::time::Duration::from_secs(30))
-        .build()
-        .expect("Failed to build reqwest Client"))
+    Arc::new(
+        Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(25))
+            .pool_max_idle_per_host(20)
+            .tcp_keepalive(std::time::Duration::from_secs(30))
+            .build()
+            .expect("Failed to build reqwest Client"),
+    )
 });
 
 impl Bot {
@@ -52,7 +54,10 @@ impl Bot {
 
             let error_code = json["error_code"].as_i64().unwrap_or(0);
             if error_code == 429 && retries < 2 {
-                let retry_after = json["parameters"]["retry_after"].as_u64().unwrap_or(1).min(10);
+                let retry_after = json["parameters"]["retry_after"]
+                    .as_u64()
+                    .unwrap_or(1)
+                    .min(10);
                 tokio::time::sleep(std::time::Duration::from_secs(retry_after)).await;
                 retries += 1;
                 continue;
@@ -62,7 +67,11 @@ impl Bot {
         }
     }
 
-    pub async fn api_post_multipart(&self, method: &str, form: reqwest::multipart::Form) -> Result<Value, String> {
+    pub async fn api_post_multipart(
+        &self,
+        method: &str,
+        form: reqwest::multipart::Form,
+    ) -> Result<Value, String> {
         let url = format!("https://api.telegram.org/bot{}/{}", self.token, method);
 
         let resp = self
@@ -105,13 +114,21 @@ impl Bot {
         // Only attempt edit if the tracked message is < 30 seconds old.
         // Stale messages (old commands, previous sessions) skip edit
         // and send fresh, avoiding a guaranteed-fail Telegram API call.
-        let should_edit = self.last_messages.lock().ok()
+        let should_edit = self
+            .last_messages
+            .lock()
+            .ok()
             .and_then(|m| m.get(&chat_id).copied())
             .filter(|&(_, ts)| ts.elapsed() < std::time::Duration::from_secs(30))
             .is_some();
 
         if should_edit {
-            let (msg_id, _ts) = self.last_messages.lock().ok().and_then(|mut m| m.remove(&chat_id)).unwrap();
+            let (msg_id, _ts) = self
+                .last_messages
+                .lock()
+                .ok()
+                .and_then(|mut m| m.remove(&chat_id))
+                .unwrap();
             let mut payload = serde_json::json!({
                 "chat_id": chat_id,
                 "message_id": msg_id,
@@ -125,7 +142,8 @@ impl Bot {
             }
             match self.api_post("editMessageText", payload).await {
                 Ok(res) => {
-                    if let Ok(msg) = serde_json::from_value::<crate::telegram::update::Message>(res) {
+                    if let Ok(msg) = serde_json::from_value::<crate::telegram::update::Message>(res)
+                    {
                         if let Ok(mut m) = self.last_messages.lock() {
                             m.insert(chat_id, (msg.id() as i64, Instant::now()));
                         }
@@ -151,7 +169,8 @@ impl Bot {
             payload["reply_markup"] = serde_json::to_value(rm).map_err(|e| e.to_string())?;
         }
         let res = self.api_post("sendMessage", payload).await?;
-        let msg: crate::telegram::update::Message = serde_json::from_value(res).map_err(|e| e.to_string())?;
+        let msg: crate::telegram::update::Message =
+            serde_json::from_value(res).map_err(|e| e.to_string())?;
         if let Ok(mut m) = self.last_messages.lock() {
             m.insert(chat_id, (msg.id() as i64, Instant::now()));
         }
@@ -307,11 +326,7 @@ impl Bot {
         Ok(())
     }
 
-    pub async fn get_chat_member(
-        &self,
-        chat_id: i64,
-        user_id: u64,
-    ) -> Result<ChatMember, String> {
+    pub async fn get_chat_member(&self, chat_id: i64, user_id: u64) -> Result<ChatMember, String> {
         let res = self
             .api_post(
                 "getChatMember",
@@ -321,10 +336,7 @@ impl Bot {
         serde_json::from_value(res).map_err(|e| e.to_string())
     }
 
-    pub async fn get_chat_administrators(
-        &self,
-        chat_id: i64,
-    ) -> Result<Vec<ChatMember>, String> {
+    pub async fn get_chat_administrators(&self, chat_id: i64) -> Result<Vec<ChatMember>, String> {
         let res = self
             .api_post(
                 "getChatAdministrators",
@@ -630,7 +642,9 @@ impl std::future::IntoFuture for EditOrSendBuilder {
                 "HTML" => crate::telegram::ParseMode::Html,
                 _ => crate::telegram::ParseMode::MarkdownV2,
             });
-            self.bot.send_or_edit(self.chat_id, &self.text, pm, self.reply_markup).await
+            self.bot
+                .send_or_edit(self.chat_id, &self.text, pm, self.reply_markup)
+                .await
         })
     }
 }

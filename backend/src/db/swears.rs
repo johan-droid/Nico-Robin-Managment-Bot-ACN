@@ -24,12 +24,13 @@ pub async fn check_swear(
     text: &str,
 ) -> Result<Option<String>, String> {
     let text_lower = text.to_lowercase();
-    let rows = client.query(
-        r#"SELECT word FROM swear_words WHERE group_id = $1"#,
-        &[&group_id]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+    let rows = client
+        .query(
+            r#"SELECT word FROM swear_words WHERE group_id = $1"#,
+            &[&group_id],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
 
     for row in rows {
         let word: String = crate::crypto::try_decrypt(&row.get::<_, String>(0));
