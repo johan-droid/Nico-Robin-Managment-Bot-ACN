@@ -86,6 +86,9 @@ async fn main() {
     }
 
     info!("Connecting to database with connection pool");
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .ok();
     let mut root_store = rustls::RootCertStore::empty();
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
     let rustls_config = rustls::ClientConfig::builder()
