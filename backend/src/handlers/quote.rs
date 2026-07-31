@@ -117,7 +117,7 @@ pub async fn handle_quote(bot: Bot, msg: Message, client: &tokio_postgres::Clien
     let replied = match msg.reply_to_message() {
         Some(m) => m.clone(),
         None => {
-            bot.reply_or_edit(
+            bot.send_message(
                 msg.chat.id,
                 "Reply to a message to quote it.\n\n\
                  /q        —  quote the replied message\n\
@@ -132,7 +132,7 @@ pub async fn handle_quote(bot: Bot, msg: Message, client: &tokio_postgres::Clien
     let idx = match history.iter().position(|m| m.message_id == replied.id()) {
         Some(i) => i,
         None => {
-            bot.reply_or_edit(
+            bot.send_message(
                 msg.chat.id,
                 "That message is too old to quote (only the latest 500 messages are kept).\n\
                  Try quoting a more recent message.",
@@ -148,7 +148,7 @@ pub async fn handle_quote(bot: Bot, msg: Message, client: &tokio_postgres::Clien
     let webp = match render_quote_sticker(&selected) {
         Ok(bytes) => bytes,
         Err(e) => {
-            bot.reply_or_edit(msg.chat.id, format!("Could not render quote sticker: {}", e))
+            bot.send_message(msg.chat.id, format!("Could not render quote sticker: {}", e))
                 .await?;
             return Ok(());
         }

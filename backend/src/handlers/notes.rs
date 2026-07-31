@@ -8,7 +8,7 @@ pub async fn handle_save(bot: Bot, msg: Message, client: &Client) -> Result<(), 
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.splitn(3, ' ').collect();
     if parts.len() < 3 {
-        bot.reply_or_edit(msg.chat.id, "Usage: /save <name> <content>")
+        bot.send_message(msg.chat.id, "Usage: /save <name> <content>")
             .await?;
         return Ok(());
     }
@@ -39,7 +39,7 @@ pub async fn handle_get(bot: Bot, msg: Message, client: &Client) -> Result<(), S
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
-        bot.reply_or_edit(msg.chat.id, "Usage: /get <name>").await?;
+        bot.send_message(msg.chat.id, "Usage: /get <name>").await?;
         return Ok(());
     }
     let name = parts[1];
@@ -47,7 +47,7 @@ pub async fn handle_get(bot: Bot, msg: Message, client: &Client) -> Result<(), S
 
     match crate::db::notes::get_note(client, chat_id, name).await {
         Ok(Some(content)) => {
-            let _ = bot.reply_or_edit(msg.chat.id, &content).await;
+            let _ = bot.send_message(msg.chat.id, &content).await;
         }
         Ok(None) => {
             let _ = bot
@@ -74,7 +74,7 @@ pub async fn handle_notes(bot: Bot, msg: Message, client: &Client) -> Result<(),
     match crate::db::notes::list_notes(client, chat_id).await {
         Ok(notes) => {
             if notes.is_empty() {
-                let _ = bot.reply_or_edit(msg.chat.id, "No notes saved yet.").await;
+                let _ = bot.send_message(msg.chat.id, "No notes saved yet.").await;
             } else {
                 let list = notes.join(", ");
                 let _ = bot
@@ -98,7 +98,7 @@ pub async fn handle_clear(bot: Bot, msg: Message, client: &Client) -> Result<(),
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
-        bot.reply_or_edit(msg.chat.id, "Usage: /clear <name>")
+        bot.send_message(msg.chat.id, "Usage: /clear <name>")
             .await?;
         return Ok(());
     }

@@ -5,7 +5,7 @@ use tokio_postgres::Client;
 use crate::utils::escape_md_v2;
 
 async fn send_text(bot: &Bot, chat_id: i64, text: &str) {
-    let _ = bot.send_or_edit(chat_id, text, None, None).await;
+    let _ = bot.send_message(chat_id, text).await;
 }
 
 pub async fn handle_setrules(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {

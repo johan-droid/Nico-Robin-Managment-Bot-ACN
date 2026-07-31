@@ -8,7 +8,7 @@ pub async fn handle_setwelcome(bot: Bot, msg: Message, client: &Client) -> Resul
     let text = msg.text().unwrap_or("");
     let content = text.strip_prefix("/setwelcome ").unwrap_or("");
     if content.is_empty() {
-        bot.reply_or_edit(
+        bot.send_message(
             msg.chat.id,
             "Usage: /setwelcome <message>\nVariables: {user}, {group}, {count}",
         )
@@ -18,11 +18,11 @@ pub async fn handle_setwelcome(bot: Bot, msg: Message, client: &Client) -> Resul
     let chat_id = msg.chat.id;
     match crate::db::welcome::set_welcome_message(client, chat_id, content).await {
         Ok(_) => {
-            let _ = bot.reply_or_edit(msg.chat.id, "Welcome message set.").await;
+            let _ = bot.send_message(msg.chat.id, "Welcome message set.").await;
         }
         Err(e) => {
             let _ = bot
-                .reply_or_edit(
+                .send_message(
                     msg.chat.id,
                     format!("Error: {}", escape_md_v2(&e.to_string())),
                 )
@@ -59,7 +59,7 @@ pub async fn handle_welcome_preview(bot: Bot, msg: Message, client: &Client) -> 
             let welcome = settings
                 .welcome_message
                 .unwrap_or_else(|| "No welcome message set.".to_string());
-            let _ = bot.reply_or_edit(msg.chat.id, &welcome).await;
+            let _ = bot.send_message(msg.chat.id, &welcome).await;
         }
         Ok(None) => {
             let _ = bot
@@ -82,7 +82,7 @@ pub async fn handle_setwelcomedm(bot: Bot, msg: Message, client: &Client) -> Res
     let text = msg.text().unwrap_or("");
     let content = text.strip_prefix("/setwelcomedm ").unwrap_or("");
     if content.is_empty() {
-        bot.reply_or_edit(msg.chat.id, "Usage: /setwelcomedm <message>")
+        bot.send_message(msg.chat.id, "Usage: /setwelcomedm <message>")
             .await?;
         return Ok(());
     }
@@ -109,14 +109,14 @@ pub async fn handle_setfarewell(bot: Bot, msg: Message, client: &Client) -> Resu
     let text = msg.text().unwrap_or("");
     let content = text.strip_prefix("/setfarewell ").unwrap_or("");
     if content.is_empty() {
-        bot.reply_or_edit(msg.chat.id, "Usage: /setfarewell <message>")
+        bot.send_message(msg.chat.id, "Usage: /setfarewell <message>")
             .await?;
         return Ok(());
     }
     let chat_id = msg.chat.id;
     match crate::db::welcome::set_farewell_message(client, chat_id, content).await {
         Ok(_) => {
-            let _ = bot.reply_or_edit(msg.chat.id, "Farewell message set.").await;
+            let _ = bot.send_message(msg.chat.id, "Farewell message set.").await;
         }
         Err(e) => {
             let _ = bot
@@ -141,7 +141,7 @@ pub async fn handle_farewell_preview(
             let farewell = settings
                 .farewell_message
                 .unwrap_or_else(|| "No farewell message set.".to_string());
-            let _ = bot.reply_or_edit(msg.chat.id, &farewell).await;
+            let _ = bot.send_message(msg.chat.id, &farewell).await;
         }
         Ok(None) => {
             let _ = bot
@@ -276,7 +276,7 @@ pub async fn handle_welcometest(bot: Bot, msg: Message, client: &Client) -> Resu
                 .replace("{user}", user_name)
                 .replace("{group}", msg.chat.title().unwrap_or("this group"))
                 .replace("{count}", &member_count);
-            let _ = bot.reply_or_edit(msg.chat.id, &welcome).await;
+            let _ = bot.send_message(msg.chat.id, &welcome).await;
         }
         Ok(None) => {
             let _ = bot

@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use reqwest::Client;
 use serde_json::Value;
-use crate::telegram::update::{ChatPermissions, ChatMember};
+use crate::telegram::update::{ChatPermissions, ChatMember, PhotoSize};
 
 #[derive(Clone)]
 pub struct Bot {
@@ -335,6 +335,59 @@ impl Bot {
         } else {
             Err("Invalid response format".into())
         }
+    }
+
+    /// Fetch a user's most recent profile photo (largest available size).
+    pub async fn get_user_profile_photo(&self, user_id: u64) -> Result<Option<PhotoSize>, String> {
+        let res = self
+            .api_post(
+                "getUserProfilePhotos",
+                serde_json::json!({"user_id": user_id, "limit": 1}),
+            )
+            .await?;
+        let photos = res
+            .get("photos")
+            .and_then(|p| p.as_array())
+            .cloned()
+            .unwrap_or_default();
+        let Some(most_recent) = photos.first() else {
+            return Ok(None);
+        };
+        let sizes: Vec<PhotoSize> =
+            serde_json::from_value(most_recent.clone()).map_err(|e| e.to_string())?;
+        Ok(sizes.into_iter().max_by_key(|p| p.width))
+    }
+
+    /// Resolve a Telegram `file_id` to a downloadable `file_path`.
+    pub async fn get_file_path(&self, file_id: &str) -> Result<String, String> {
+        let res = self
+            .api_post("getFile", serde_json::json!({"file_id": file_id}))
+            .await?;
+        res.get("file_path")
+            .and_then(|p| p.as_str())
+            .map(|s| s.to_string())
+            .ok_or_else(|| "Failed to parse file_path".to_string())
+    }
+
+    /// Download raw bytes from Telegram's file CDN (`api.telegram.org/file/bot<token>/<path>`).
+    pub async fn download_file(&self, file_path: &str) -> Result<Vec<u8>, String> {
+        let url = format!(
+            "https://api.telegram.org/file/bot{}/{}",
+            self.token, file_path
+        );
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if !resp.status().is_success() {
+            return Err(format!(
+                "File download failed with status {}",
+                resp.status()
+            ));
+        }
+        resp.bytes().await.map(|b| b.to_vec()).map_err(|e| e.to_string())
     }
 
     pub async fn delete_webhook(&self, drop_pending_updates: bool) -> Result<(), String> {

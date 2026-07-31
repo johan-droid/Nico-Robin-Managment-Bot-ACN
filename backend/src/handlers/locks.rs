@@ -10,7 +10,7 @@ const LOCK_TYPES: &[&str] = &[
 ];
 
 async fn send_text(bot: &Bot, chat_id: i64, text: &str) {
-    let _ = bot.send_or_edit(chat_id, text, None, None).await;
+    let _ = bot.send_message(chat_id, text).await;
 }
 
 fn parse_lock_type(arg: &str) -> Option<&'static str> {

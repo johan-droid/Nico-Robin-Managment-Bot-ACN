@@ -9,7 +9,7 @@ pub async fn handle_filter(bot: Bot, msg: Message, client: &Client) -> Result<()
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.splitn(3, ' ').collect();
     if parts.len() < 3 {
-        bot.reply_or_edit(msg.chat.id, "Usage: /filter <trigger> <response>")
+        bot.send_message(msg.chat.id, "Usage: /filter <trigger> <response>")
             .await?;
         return Ok(());
     }
@@ -47,7 +47,7 @@ pub async fn handle_stop(bot: Bot, msg: Message, client: &Client) -> Result<(), 
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
-        bot.reply_or_edit(msg.chat.id, "Usage: /stop <trigger>")
+        bot.send_message(msg.chat.id, "Usage: /stop <trigger>")
             .await?;
         return Ok(());
     }
@@ -88,7 +88,7 @@ pub async fn handle_filters_list(bot: Bot, msg: Message, client: &Client) -> Res
     match crate::db::filters::list_filters(client, chat_id).await {
         Ok(filters) => {
             if filters.is_empty() {
-                let _ = bot.reply_or_edit(msg.chat.id, "No filters set.").await;
+                let _ = bot.send_message(msg.chat.id, "No filters set.").await;
             } else {
                 let mut text = String::from("*Filters:*\n");
                 for f in &filters {

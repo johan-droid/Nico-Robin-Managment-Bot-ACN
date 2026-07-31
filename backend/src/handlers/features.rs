@@ -56,7 +56,7 @@ pub async fn handle_enable(bot: Bot, msg: Message, client: &Client) -> Result<()
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/enable ").unwrap_or("").trim();
     if name.is_empty() {
-        bot.reply_or_edit(msg.chat.id, "Usage: /enable <feature_name>")
+        bot.send_message(msg.chat.id, "Usage: /enable <feature_name>")
             .await?;
         return Ok(());
     }
@@ -88,7 +88,7 @@ pub async fn handle_disable(bot: Bot, msg: Message, client: &Client) -> Result<(
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/disable ").unwrap_or("").trim();
     if name.is_empty() {
-        bot.reply_or_edit(msg.chat.id, "Usage: /disable <feature_name>")
+        bot.send_message(msg.chat.id, "Usage: /disable <feature_name>")
             .await?;
         return Ok(());
     }
@@ -120,7 +120,7 @@ pub async fn handle_toggle(bot: Bot, msg: Message, client: &Client) -> Result<()
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/toggle ").unwrap_or("").trim();
     if name.is_empty() {
-        bot.reply_or_edit(msg.chat.id, "Usage: /toggle <feature_name>")
+        bot.send_message(msg.chat.id, "Usage: /toggle <feature_name>")
             .await?;
         return Ok(());
     }
@@ -179,7 +179,7 @@ pub async fn handle_my_features(bot: Bot, msg: Message, client: &Client) -> Resu
                 disabled_count,
                 features.len()
             );
-            let _ = bot.reply_or_edit(msg.chat.id, text).await;
+            let _ = bot.send_message(msg.chat.id, text).await;
         }
         Err(e) => {
             let _ = bot
@@ -258,7 +258,7 @@ pub async fn handle_enable_category(bot: Bot, msg: Message, client: &Client) -> 
                 .await;
         }
         None => {
-            let _ = bot.reply_or_edit(msg.chat.id, "Category not found.").await;
+            let _ = bot.send_message(msg.chat.id, "Category not found.").await;
         }
     }
     Ok(())
@@ -313,7 +313,7 @@ pub async fn handle_disable_category(
                 .await;
         }
         None => {
-            let _ = bot.reply_or_edit(msg.chat.id, "Category not found.").await;
+            let _ = bot.send_message(msg.chat.id, "Category not found.").await;
         }
     }
     Ok(())

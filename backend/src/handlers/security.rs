@@ -14,18 +14,14 @@ pub async fn handle_setflood(
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
-        bot.send_or_edit(
-            msg.chat.id,
-            "Usage: /setflood <count>\nSets the max messages per user in a 10-second window.\nUse 0 to disable.",
-            None, None,
-        )
+        bot.send_message(msg.chat.id, "Usage: /setflood <count>\nSets the max messages per user in a 10-second window.\nUse 0 to disable.")
         .await?;
         return Ok(());
     }
     let count: i32 = match parts[1].parse() {
         Ok(v) => v,
         Err(_) => {
-            bot.send_or_edit(msg.chat.id, "Invalid number.", None, None).await?;
+            bot.send_message(msg.chat.id, "Invalid number.").await?;
             return Ok(());
         }
     };
@@ -107,7 +103,7 @@ pub async fn handle_addswear(
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
-        bot.reply_or_edit(msg.chat.id, "Usage: /addswear <word>")
+        bot.send_message(msg.chat.id, "Usage: /addswear <word>")
             .await?;
         return Ok(());
     }
@@ -144,7 +140,7 @@ pub async fn handle_delswear(
     let text = msg.text().unwrap_or("");
     let parts: Vec<&str> = text.split_whitespace().collect();
     if parts.len() < 2 {
-        bot.reply_or_edit(msg.chat.id, "Usage: /delswear <word>")
+        bot.send_message(msg.chat.id, "Usage: /delswear <word>")
             .await?;
         return Ok(());
     }

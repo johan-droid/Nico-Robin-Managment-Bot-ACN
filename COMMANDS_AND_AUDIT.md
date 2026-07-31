@@ -2,7 +2,7 @@
 
 > **Project:** Nico Robin Management Bot (ACN)  
 > **Stack:** Rust · Axum · Tokio · PostgreSQL (Neon) · Telegram Bot API  
-> **Last Updated:** 2026-07-25
+> **Last Updated:** 2026-07-31
 
 ---
 
@@ -58,13 +58,14 @@
 
 | Command | Syntax | Permission | Description |
 |---------|--------|------------|-------------|
-| `/profile` | `/profile` or `/profile @user` | 🌍 Everyone | Shows user ID, bio, and stored data for yourself or a target user |
+| `/profile` | `/profile` or `/profile @user` | 🌍 Everyone | Shows a rich profile card with the user's profile picture, username, group role, ID and bio for yourself or a target user |
 | `/setbio` | `/setbio <text>` | 🌍 Everyone | Sets your own bio (stored in DB under your user ID) |
 | `/exportmydata` | `/exportmydata` | 🌍 Everyone | Exports your stored profile data as a pretty-printed JSON block |
 | `/deletemydata` | `/deletemydata` | 🌍 Everyone | Permanently deletes all your stored profile data from the DB |
 
 **Implementation Notes:**
-- `/profile` falls back to the sender's ID if no target is specified.
+- `/profile` falls back to the sender if no target is specified, and resolves replies / `@username` targets via admins + the username cache.
+- The profile card includes the user's **profile picture** (sent as a photo with the card as caption), **username**, **group role** (Owner / Admin / Member / Banned / Restricted), user ID and stored bio.
 - `/exportmydata` calls `get_or_create_profile()`, so it always returns data (creates one if missing).
 - `/deletemydata` returns a clear "No data found" if the profile doesn't exist.
 
@@ -152,6 +153,7 @@
 | `/flood` | `/flood` | 🛡️ Admin | Displays current flood settings: limit, window (seconds), and action mode |
 | `/addswear` | `/addswear <word>` | 🛡️ Admin | Adds a word to the per-chat swear filter (case-insensitive, stored lowercase) |
 | `/delswear` | `/delswear <word>` | 🛡️ Admin | Removes a word from the swear filter |
+| `/report` | `/report` (reply to message) | 🌍 Everyone | Flags a message to the group's admins |
 
 **Flood Protection Modes:**
 
@@ -183,8 +185,15 @@
 | `/warns` | `/warns @user` or reply | 🛡️ Admin | Shows warning count and list of reasons for a user |
 | `/resetwarn` | `/resetwarn @user` or reply | 🛡️ Admin | Clears all warnings for a user |
 | `/slowmode` | `/slowmode <seconds>` | 🛡️ Admin | Sets chat slow mode delay. Use `0` to disable |
+| `/purge` | `/purge <count>` or reply | 🛡️ Admin | Deletes the replied-to message and everything after it, or the last N messages |
+| `/tmute` | `/tmute @user <duration>` | 🛡️ Admin | Temporarily mutes a user for a set time (e.g. 30m, 2h, 1d) |
+| `/tban` | `/tban @user <duration>` | 🛡️ Admin | Temporarily bans a user for a set time (e.g. 1h, 1d, 1w) |
 | `/del` | `/del` (reply to message) | 🛡️ Admin | Deletes the replied-to message and the `/del` command itself |
 | `/pin` | `/pin` (reply to message) | 🛡️ Admin | Pins the replied-to message and deletes the `/pin` command |
+| `/unpin` | `/unpin` or `/unpin all` | 🛡️ Admin | Unpins a specific message or clears all pinned messages |
+| `/autowarnon` | `/autowarnon` | 🛡️ Admin | Enables automatic warnings for repeat offenders |
+| `/autowarnoff` | `/autowarnoff` | 🛡️ Admin | Disables automatic warnings |
+| `/kickme` | `/kickme` | 🌍 Everyone | Removes yourself from the group |
 
 **Warn Auto-Ban Logic:**
 ```
@@ -206,24 +215,26 @@ warn_count >= warn_threshold  →  auto-ban + reset warns
 | `/features` | `/features` | 🌍 Everyone | Lists all feature overrides in the current chat (ON/OFF) |
 | `/enable` | `/enable <feature>` | 🛡️ Admin | Enables a named feature for this chat |
 | `/disable` | `/disable <feature>` | 🛡️ Admin | Disables a named feature |
+| `/enablecategory` | `/enablecategory <category>` | 🛡️ Admin | Enables every feature in a category at once |
+| `/disablecategory` | `/disablecategory <category>` | 🛡️ Admin | Disables every feature in a category at once |
 | `/toggle` | `/toggle <feature>` | 🛡️ Admin | Reads current state and flips it |
 | `/featureinfo` | `/featureinfo` | 🌍 Everyone | Shows all feature categories and the features they contain |
 | `/myfeatures` | `/myfeatures` | 🌍 Everyone | Shows enabled/disabled/total counts for this chat |
 | `/resetfeatures` | `/resetfeatures` | 🛡️ Admin | Removes all feature overrides — restores all to default (enabled) |
-| `/enablecategory` | `/enablecategory <category>` | 🛡️ Admin | Enables every feature in a category at once |
-| `/disablecategory` | `/disablecategory <category>` | 🛡️ Admin | Disables every feature in a category at once |
 
 **Feature Categories:**
 
 | Category | Features |
 |----------|---------|
-| `moderation` | ban, unban, kick, mute, unmute, warn, slowmode |
+| `moderation` | ban, unban, kick, mute, unmute, warn, slowmode, purge, tmute, tban, kickme, pin, unpin, del, staff |
 | `notes` | save, get, notes, clear |
 | `filters` | filter, stop, filters |
 | `welcome` | welcome, farewell |
-| `security` | flood, swear |
+| `security` | flood, swear, report |
+| `rules` | setrules, rules, clearrules |
+| `locks` | lock, unlock, locks |
 | `profile` | profile, setbio |
-| `federation` | newfed, joinfed |
+| `federation` | newfed, joinfed, gban, ungban, gbans |
 
 **Work Progress:** ✅ Complete
 
@@ -237,6 +248,9 @@ warn_count >= warn_threshold  →  auto-ban + reset warns
 |---------|--------|------------|-------------|
 | `/newfed` | `/newfed <name>` | 🛡️ Admin | Creates a new federation with the given name; returns a unique 8-character federation ID |
 | `/joinfed` | `/joinfed <fed_id>` | 🛡️ Admin | Links the current group to an existing federation by its ID |
+| `/gban` | `/gban @user <reason>` | 🛡️ Admin | Bans a user from every group the bot manages |
+| `/ungban` | `/ungban @user` | 🛡️ Admin | Removes a user from the global ban list |
+| `/gbans` | `/gbans` | 🛡️ Admin | Lists all globally banned users |
 
 **Implementation Notes:**
 - Federation IDs are the first 8 characters of a UUID v4.
@@ -296,7 +310,7 @@ Check      Rate Limit
 | Filters | `handlers/filters.rs` | ✅ Complete | `/filter`, `/stop`, `/filters` |
 | Welcome/Farewell | `handlers/welcome.rs` | ✅ Complete | All 8 commands + auto-events |
 | Security | `handlers/security.rs` | ✅ Complete | `/setflood`, `/flood`, `/addswear`, `/delswear` |
-| Moderation | `handlers/moderation.rs` | ✅ Complete | All 11 admin commands with logging |
+| Moderation | `handlers/moderation.rs` | ✅ Complete | 18 admin commands + `/kickme` with logging |
 | Feature toggles | `handlers/features.rs` | ✅ Complete | All 9 commands |
 | Federation | `handlers/federation.rs` | 🟡 Partial | Create/join done; cross-fed ban propagation missing |
 | DB — profiles | `db/profiles.rs` | ✅ Complete | CRUD for user profiles |

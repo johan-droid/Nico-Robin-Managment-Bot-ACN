@@ -11,7 +11,7 @@ pub async fn handle_newfed(bot: Bot, msg: Message, client: &Client) -> Result<()
     let text = msg.text().unwrap_or("");
     let name = text.strip_prefix("/newfed ").unwrap_or("").trim();
     if name.is_empty() {
-        bot.reply_or_edit(msg.chat.id, "Usage: /newfed <federation name>")
+        bot.send_message(msg.chat.id, "Usage: /newfed <federation name>")
             .await?;
         return Ok(());
     }
@@ -48,7 +48,7 @@ pub async fn handle_joinfed(bot: Bot, msg: Message, client: &Client) -> Result<(
     let text = msg.text().unwrap_or("");
     let fed_id = text.strip_prefix("/joinfed ").unwrap_or("").trim();
     if fed_id.is_empty() {
-        bot.reply_or_edit(msg.chat.id, "Usage: /joinfed <federation_id>")
+        bot.send_message(msg.chat.id, "Usage: /joinfed <federation_id>")
             .await?;
         return Ok(());
     }
@@ -80,7 +80,7 @@ pub async fn handle_joinfed(bot: Bot, msg: Message, client: &Client) -> Result<(
             }
         },
         Ok(false) => {
-            let _ = bot.reply_or_edit(msg.chat.id, "Federation not found.").await;
+            let _ = bot.send_message(msg.chat.id, "Federation not found.").await;
         }
         Err(e) => {
             let _ = bot

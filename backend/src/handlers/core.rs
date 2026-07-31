@@ -247,8 +247,6 @@ fn category_text(category: &str) -> &'static str {
             "   · Use it to ban someone for a set time (e.g. 1h, 1d, 1w).\n",
             "👋 /kickme  —  Leave the group\n",
             "   · Use it to remove yourself from the group.\n",
-            "📌 /pin  —  Pin a message\n",
-            "   · Reply to a message to pin it in the group.\n",
             "📌 /unpin  —  Unpin a message\n",
             "   · Reply to a message to unpin it, or use /unpin all to clear every pin.",
         ),

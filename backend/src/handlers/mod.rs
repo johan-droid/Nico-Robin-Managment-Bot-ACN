@@ -222,7 +222,7 @@ pub async fn handle_message(
         if let Some(reply_text) = reply_to.text() {
             if reply_text.starts_with("[Pending] User ") {
                 if !is_admin {
-                    let _ = bot.reply_or_edit(msg.chat.id, "You must be a chat admin to resolve this.").await;
+                    let _ = bot.send_message(msg.chat.id, "You must be a chat admin to resolve this.").await;
                     return Ok(());
                 }
                 if let Some(reply_val) = msg.text() {
@@ -257,7 +257,7 @@ pub async fn handle_message(
                             }
                         }
                     } else {
-                        let _ = bot.reply_or_edit(msg.chat.id, "Invalid User ID. Please reply with a valid numeric ID.").await;
+                        let _ = bot.send_message(msg.chat.id, "Invalid User ID. Please reply with a valid numeric ID.").await;
                         return Ok(());
                     }
                 }
@@ -771,7 +771,7 @@ async fn require_captain_fast(bot: &Bot, msg: &Message) -> Result<bool, String> 
         Ok(true)
     } else {
         let _ = bot
-            .reply_or_edit(
+            .send_message(
                 msg.chat.id,
                 "Only the group captain (owner) or a developer can delete data.",
             )
