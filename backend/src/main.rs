@@ -183,12 +183,11 @@ async fn main() {
     // no port open and cause the deploy to time out.
     let server_handle = tokio::spawn(run_webhook_server(state.clone(), port));
 
-    if bot_mode == "webhook" {
-        if env::var("WEBHOOK_SECRET_PATH").is_err() && env::var("WEBHOOK_SECRET").is_err() {
-            panic!(
-                "WEBHOOK_SECRET_PATH or WEBHOOK_SECRET env var must be set when BOT_MODE=webhook"
-            );
-        }
+    if bot_mode == "webhook"
+        && env::var("WEBHOOK_SECRET_PATH").is_err()
+        && env::var("WEBHOOK_SECRET").is_err()
+    {
+        panic!("WEBHOOK_SECRET_PATH or WEBHOOK_SECRET env var must be set when BOT_MODE=webhook");
     }
 
     let chat_states_clone = state.chat_states.clone();

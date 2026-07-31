@@ -1,10 +1,11 @@
+#![allow(clippy::manual_is_multiple_of)]
+#![allow(clippy::too_many_arguments)]
 use crate::db::message_history::HistoryMessage;
 use crate::telegram::api::Bot;
 use crate::telegram::update::Message;
 use ab_glyph::{point, Font, FontRef, PxScale, ScaleFont};
 use image::{ImageEncoder, Rgba, RgbaImage};
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 const FONT_DATA: &[u8] = include_bytes!("../../assets/DejaVuSans.ttf");

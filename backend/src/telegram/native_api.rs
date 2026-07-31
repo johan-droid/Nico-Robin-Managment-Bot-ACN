@@ -140,21 +140,17 @@ impl Bot {
             if let Some(ref rm) = reply_markup {
                 payload["reply_markup"] = serde_json::to_value(rm).map_err(|e| e.to_string())?;
             }
-            match self.api_post("editMessageText", payload).await {
-                Ok(res) => {
-                    if let Ok(msg) = serde_json::from_value::<crate::telegram::update::Message>(res)
-                    {
-                        if let Ok(mut m) = self.last_messages.lock() {
-                            m.insert(chat_id, (msg.id() as i64, Instant::now()));
-                        }
-                        return Ok(msg);
-                    }
+            if let Ok(res) = self.api_post("editMessageText", payload).await {
+                if let Ok(msg) = serde_json::from_value::<crate::telegram::update::Message>(res) {
                     if let Ok(mut m) = self.last_messages.lock() {
-                        m.insert(chat_id, (msg_id, Instant::now()));
+                        m.insert(chat_id, (msg.id() as i64, Instant::now()));
                     }
-                    return Err("edit succeeded but response not a Message".into());
+                    return Ok(msg);
                 }
-                Err(_) => {}
+                if let Ok(mut m) = self.last_messages.lock() {
+                    m.insert(chat_id, (msg_id, Instant::now()));
+                }
+                return Err("edit succeeded but response not a Message".into());
             }
         }
 
