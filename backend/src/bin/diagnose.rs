@@ -3,8 +3,6 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 use tokio_postgres::NoTls;
-use postgres_native_tls::MakeTlsConnector;
-use native_tls::TlsConnector;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
@@ -107,13 +105,13 @@ async fn main() {
         } else {
             // Attempt to connect
             let connector = if url.contains("sslmode=require") || env::var("DB_SSL_REQUIRED").unwrap_or_default() == "true" {
-                match TlsConnector::builder().build() {
-                    Ok(native_tls) => {
-                        let make_connector = MakeTlsConnector::new(native_tls);
-                        ConnectMode::Tls(make_connector)
-                    }
-                    Err(e) => ConnectMode::Error(format!("Failed to build TLS connector: {}", e)),
-                }
+                let mut root_store = rustls::RootCertStore::empty();
+                root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+                let rustls_config = rustls::ClientConfig::builder()
+                    .with_root_certificates(root_store)
+                    .with_no_client_auth();
+                let make_connector = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
+                ConnectMode::Tls(make_connector)
             } else {
                 ConnectMode::NoTls
             };
@@ -185,7 +183,7 @@ async fn main() {
 }
 
 enum ConnectMode {
-    Tls(MakeTlsConnector),
+    Tls(tokio_postgres_rustls::MakeRustlsConnect),
     NoTls,
     Error(String),
 }

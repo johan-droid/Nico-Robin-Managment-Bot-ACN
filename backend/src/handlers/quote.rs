@@ -7,9 +7,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-const REGULAR_FONT: &[u8] = include_bytes!("../../assets/DejaVuSans.ttf");
-const BOLD_FONT: &[u8] = include_bytes!("../../assets/DejaVuSans-Bold.ttf");
-const EMOJI_FONT: &[u8] = include_bytes!("../../assets/NotoEmoji-Regular.ttf");
+const FONT_DATA: &[u8] = include_bytes!("../../assets/DejaVuSans.ttf");
 
 // ── Per-chat message history (for quoting) ─────────────────────────────
 
@@ -22,9 +20,8 @@ const MAX_QUOTE_MESSAGES: usize = 10;
 static MESSAGE_HISTORY: std::sync::LazyLock<Mutex<HashMap<i64, VecDeque<HistoryMessage>>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
-/// Incremented per DB write; triggers pruning every N writes so the
-/// `message_history` table doesn't grow unbounded.
-static PRUNE_TICK: AtomicU64 = AtomicU64::new(0);
+static CHAT_PRUNE_TICKS: std::sync::LazyLock<Mutex<HashMap<i64, u64>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 const PRUNE_EVERY: u64 = 64;
 
 /// Stores every text message so `/q` can look up the replied message and the
@@ -50,6 +47,7 @@ pub async fn record_message(client: &tokio_postgres::Client, msg: &Message) {
     };
 
     let chat_id = msg.chat.id;
+    let mut count = 0u64;
     if let Ok(mut history) = MESSAGE_HISTORY.lock() {
         let buf = history.entry(chat_id).or_default();
         if let Some(last) = buf.back() {
@@ -63,6 +61,12 @@ pub async fn record_message(client: &tokio_postgres::Client, msg: &Message) {
         }
     }
 
+    if let Ok(mut ticks) = CHAT_PRUNE_TICKS.lock() {
+        let c = ticks.entry(chat_id).or_insert(0);
+        *c = c.wrapping_add(1);
+        count = *c;
+    }
+
     let _ = crate::db::message_history::record_message(
         client,
         chat_id,
@@ -74,7 +78,7 @@ pub async fn record_message(client: &tokio_postgres::Client, msg: &Message) {
     )
     .await;
 
-    if PRUNE_TICK.fetch_add(1, Ordering::Relaxed) % PRUNE_EVERY == 0 {
+    if count % PRUNE_EVERY == 0 {
         let _ = crate::db::message_history::prune_old(client, chat_id, HISTORY_MAX_PER_CHAT as i64).await;
     }
 }
@@ -145,10 +149,17 @@ pub async fn handle_quote(bot: Bot, msg: Message, client: &tokio_postgres::Clien
     let start = idx.saturating_sub(n - 1);
     let selected: Vec<HistoryMessage> = history[start..=idx].to_vec();
 
-    let webp = match render_quote_sticker(&selected) {
-        Ok(bytes) => bytes,
-        Err(e) => {
+    let selected_cloned = selected.clone();
+    let webp_res = tokio::task::spawn_blocking(move || render_quote_sticker(&selected_cloned)).await;
+    let webp = match webp_res {
+        Ok(Ok(bytes)) => bytes,
+        Ok(Err(e)) => {
             bot.send_message(msg.chat.id, format!("Could not render quote sticker: {}", e))
+                .await?;
+            return Ok(());
+        }
+        Err(e) => {
+            bot.send_message(msg.chat.id, format!("Image render task failed: {}", e))
                 .await?;
             return Ok(());
         }
@@ -356,9 +367,9 @@ fn truncate(s: &str, max_chars: usize) -> String {
 }
 
 fn render_quote_image(messages: &[HistoryMessage]) -> Result<RgbaImage, String> {
-    let font = FontRef::try_from_slice(REGULAR_FONT).map_err(|e| format!("font error: {}", e))?;
-    let bold = FontRef::try_from_slice(BOLD_FONT).map_err(|e| format!("bold font error: {}", e))?;
-    let emoji_font = FontRef::try_from_slice(EMOJI_FONT).map_err(|e| format!("emoji font error: {}", e))?;
+    let font = FontRef::try_from_slice(FONT_DATA).map_err(|e| format!("font error: {}", e))?;
+    let bold = font.clone();
+    let emoji_font = font.clone();
 
     let max_text_width = (WIDTH - PAD * 2 - BUBBLE_PAD_X * 2 - ACCENT_W - 4) as f32;
 

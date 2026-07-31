@@ -74,10 +74,12 @@ async fn main() {
     }
 
     info!("Connecting to database with connection pool");
-    let native_tls_connector = native_tls::TlsConnector::builder()
-        .build()
-        .expect("Failed to build TLS connector");
-    let connector = postgres_native_tls::MakeTlsConnector::new(native_tls_connector);
+    let mut root_store = rustls::RootCertStore::empty();
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    let rustls_config = rustls::ClientConfig::builder()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+    let connector = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
 
     let mut cfg = Config::new();
     cfg.url = Some(database_url.clone());
@@ -160,6 +162,31 @@ async fn main() {
     // no port open and cause the deploy to time out.
     let server_handle = tokio::spawn(run_webhook_server(state.clone(), port));
 
+    if bot_mode == "webhook" {
+        if env::var("WEBHOOK_SECRET_PATH").is_err() && env::var("WEBHOOK_SECRET").is_err() {
+            panic!("WEBHOOK_SECRET_PATH or WEBHOOK_SECRET env var must be set when BOT_MODE=webhook");
+        }
+    }
+
+    let chat_states_clone = state.chat_states.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(900));
+        loop {
+            interval.tick().await;
+            if let Ok(mut states) = chat_states_clone.lock() {
+                states.retain(|_, per_chat_arc| {
+                    if Arc::strong_count(per_chat_arc) == 1 {
+                        if let Ok(mut guard) = per_chat_arc.try_lock() {
+                            guard.0.cleanup_stale(std::time::Duration::from_secs(3600));
+                            guard.1.cleanup_stale(std::time::Duration::from_secs(3600));
+                        }
+                    }
+                    true
+                });
+            }
+        }
+    });
+
     if bot_mode == "polling" {
         info!("Starting in long-polling mode (local development)");
         run_polling(state).await;
@@ -227,10 +254,19 @@ async fn webhook_handler(
     Path(secret): Path<String>,
     body: Bytes,
 ) -> impl axum::response::IntoResponse {
-    let webhook_secret = env::var("WEBHOOK_SECRET_PATH")
-        .or_else(|_| env::var("WEBHOOK_SECRET"))
-        .unwrap_or_else(|_| "secret-webhook-path".to_string());
-    if secret != webhook_secret {
+    let webhook_secret = match env::var("WEBHOOK_SECRET_PATH").or_else(|_| env::var("WEBHOOK_SECRET")) {
+        Ok(s) => s,
+        Err(_) => {
+            error!("WEBHOOK_SECRET_PATH / WEBHOOK_SECRET is not configured");
+            return Response::builder()
+                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                .body(axum::body::Body::empty())
+                .unwrap();
+        }
+    };
+
+    use subtle::ConstantTimeEq;
+    if secret.as_bytes().ct_eq(webhook_secret.as_bytes()).unwrap_u8() != 1 {
         return Response::builder()
             .status(StatusCode::UNAUTHORIZED)
             .body(axum::body::Body::empty())
@@ -290,6 +326,12 @@ async fn process_update(state: NativeState, update: Update) -> Result<(), String
                             || text.starts_with("/addswear")
                             || text.starts_with("/delswear");
 
+                        let user_id = msg.from().map(|u| u.id).unwrap_or(0);
+                        let (is_admin, security_enabled) = tokio::join!(
+                            async { nico_robin_bot::auth::is_telegram_admin(&bot, chat_id, user_id).await },
+                            async { handlers::is_feature_enabled_cached(&db_client, chat_id, "security").await.unwrap_or(true) }
+                        );
+
                         let t_lock = perf::Timer::start("chat_state_lookup");
                         let per_chat = {
                             let mut states = state.chat_states.lock().unwrap();
@@ -301,20 +343,30 @@ async fn process_update(state: NativeState, update: Update) -> Result<(), String
                         };
                         perf::LatencyTrace::record("chat_state_lookup", t_lock.stop());
 
-                        // Fast in-memory security pre-check (flood + rate limit).
-                        // The per-chat lock is held ONLY for this quick check, then
-                        // released so slow DB/Telegram work never serializes a chat.
                         let t_cache = perf::Timer::start("chat_state_lock");
-                        let mut chat_guard = per_chat.lock().await;
-                        let (ref mut tracker, ref mut limiter) = &mut *chat_guard;
-                        let security_decision =
-                            handlers::security_precheck(&bot, &db_client, &msg, tracker, limiter).await;
-                        drop(chat_guard);
+                        let security_decision = {
+                            let mut chat_guard = per_chat.lock().await;
+                            let (ref mut tracker, ref mut limiter) = &mut *chat_guard;
+                            let flood_settings = tracker.get_or_fetch_flood_settings(&db_client, chat_id).await;
+                            handlers::security_precheck_sync(&msg, is_admin, tracker, limiter, flood_settings, security_enabled)
+                        };
                         perf::LatencyTrace::record("chat_state_lock", t_cache.stop());
 
                         match security_decision {
-                            handlers::SecurityDecision::FloodBlocked
-                            | handlers::SecurityDecision::RateLimited => {
+                            handlers::SecurityDecision::FloodAction(action) => {
+                                nico_robin_bot::auth::flood_tracker::execute_flood_action(
+                                    &bot,
+                                    &msg,
+                                    action,
+                                    nico_robin_bot::config::Settings::global(),
+                                ).await;
+                                let user_name = msg.from().map(|u| u.first_name.clone()).unwrap_or_default();
+                                handlers::auto_warn_and_maybe_ban(&bot, &db_client, chat_id, user_id as i64, &user_name, "flooding / spamming").await;
+                                return Ok(());
+                            }
+                            handlers::SecurityDecision::RateLimited { retry_after_secs, user_id: uid, user_name } => {
+                                let _ = bot.send_message(chat_id, format!("Rate limit exceeded. Please wait {} seconds.", retry_after_secs)).await;
+                                handlers::auto_warn_and_maybe_ban(&bot, &db_client, chat_id, uid, &user_name, "rate limit exceeded").await;
                                 return Ok(());
                             }
                             handlers::SecurityDecision::Proceed => {}

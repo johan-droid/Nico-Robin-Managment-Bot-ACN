@@ -123,52 +123,44 @@ async fn auto_warn_and_maybe_ban(
 pub enum SecurityDecision {
     /// Message should be processed normally.
     Proceed,
-    /// Message was flagged as flooding — no further processing.
-    FloodBlocked,
-    /// Message was rate-limited — no further processing.
-    RateLimited,
+    FloodAction(crate::auth::flood_tracker::FloodActionInfo),
+    RateLimited {
+        retry_after_secs: u32,
+        user_id: i64,
+        user_name: String,
+    },
 }
 
-/// Runs the flood + rate-limit checks under the per-chat lock.
-/// Must be called while holding the per-chat state lock; returns quickly so
-/// the lock can be released before the heavy message processing happens.
-pub async fn security_precheck(
-    bot: &Bot,
-    client: &Client,
+pub fn security_precheck_sync(
     msg: &Message,
+    is_admin: bool,
     tracker: &mut crate::auth::flood_tracker::FloodTracker,
     limiter: &mut crate::auth::rate_limiter::RateLimiter,
+    flood_settings: Option<(i32, String, i32)>,
+    security_enabled: bool,
 ) -> SecurityDecision {
-    let user_id = user_id_from_msg(msg);
-    if crate::auth::is_telegram_admin(bot, msg.chat.id, user_id).await {
+    if is_admin {
         return SecurityDecision::Proceed;
     }
+    let user_id = user_id_from_msg(msg);
     let user_name = msg.from().as_ref().map(|u| {
         u.username.as_deref().unwrap_or(&u.first_name)
     }).unwrap_or("Unknown").to_string();
 
-    let security_enabled = is_feature_enabled_cached(client, msg.chat.id, "security")
-        .await
-        .unwrap_or(true);
     if security_enabled {
-        let flood_settings = tracker.get_or_fetch_flood_settings(client, msg.chat.id).await;
-        if tracker.process_message(bot, msg, flood_settings, Settings::global()).await {
-            auto_warn_and_maybe_ban(bot, client, msg.chat.id, user_id as i64, &user_name, "flooding / spamming").await;
-            return SecurityDecision::FloodBlocked;
+        if let Some(action) = tracker.evaluate_message(msg, flood_settings) {
+            return SecurityDecision::FloodAction(action);
         }
     }
 
     if msg.text().is_some_and(|t| t.starts_with('/')) {
         match limiter.check(user_id as i64) {
             crate::auth::rate_limiter::RateLimitResult::Denied { retry_after_secs } => {
-                let _ = bot
-                    .send_message(
-                        msg.chat.id,
-                        format!("Rate limit exceeded. Please wait {} seconds.", retry_after_secs),
-                    )
-                    .await;
-                auto_warn_and_maybe_ban(bot, client, msg.chat.id, user_id as i64, &user_name, "rate limit exceeded").await;
-                return SecurityDecision::RateLimited;
+                return SecurityDecision::RateLimited {
+                    retry_after_secs,
+                    user_id: user_id as i64,
+                    user_name,
+                };
             }
             crate::auth::rate_limiter::RateLimitResult::Allowed => {}
         }
@@ -470,17 +462,17 @@ pub async fn handle_message(
                     }
 
                     "gban" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_sudo_fast(&bot, &msg).await? { return Ok(()); }
                         if !require_feature_fast(client, &msg, "federation", bot.clone()).await? { return Ok(()); }
                         return gbans::handle_gban(bot, msg, client).await;
                     }
                     "ungban" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_sudo_fast(&bot, &msg).await? { return Ok(()); }
                         if !require_feature_fast(client, &msg, "federation", bot.clone()).await? { return Ok(()); }
                         return gbans::handle_ungban(bot, msg, client).await;
                     }
                     "gbans" => {
-                        if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_sudo_fast(&bot, &msg).await? { return Ok(()); }
                         if !require_feature_fast(client, &msg, "federation", bot.clone()).await? { return Ok(()); }
                         return gbans::handle_gbans_list(bot, msg, client).await;
                     }
@@ -760,6 +752,17 @@ async fn require_admin_fast(bot: &Bot, msg: &Message, is_admin: bool) -> Result<
         Ok(true)
     } else {
         deny_telegram_admin(bot, msg).await?;
+        Ok(false)
+    }
+}
+
+/// Fast path: checks if user is a bot operator (SUDO_USERS / CAPTAIN_ID / COMMANDER_IDS).
+async fn require_sudo_fast(bot: &Bot, msg: &Message) -> Result<bool, String> {
+    let user_id = user_id_from_msg(msg);
+    if crate::auth::is_sudo_or_privileged(user_id) {
+        Ok(true)
+    } else {
+        let _ = bot.send_message(msg.chat.id, "This command is restricted to bot operators.").await;
         Ok(false)
     }
 }

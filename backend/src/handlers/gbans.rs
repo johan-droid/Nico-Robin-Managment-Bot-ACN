@@ -11,6 +11,12 @@ async fn send_text(bot: &Bot, chat_id: i64, text: &str) {
 
 /// /gban @user <reason> — ban a user in every group the bot manages.
 pub async fn handle_gban(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
+    let sender_id = msg.from().map(|u| u.id).unwrap_or(0);
+    if !crate::auth::is_sudo_or_privileged(sender_id) {
+        send_text(&bot, msg.chat.id, "This command is restricted to bot operators.").await;
+        return Ok(());
+    }
+
     let text = msg.text().unwrap_or("");
     let rest = text.strip_prefix("/gban").unwrap_or("").trim();
     let parts: Vec<&str> = rest.splitn(2, ' ').collect();
@@ -93,6 +99,12 @@ pub async fn handle_gban(bot: Bot, msg: Message, client: &Client) -> Result<(), 
 
 /// /ungban @user — remove a user from the global ban list.
 pub async fn handle_ungban(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
+    let sender_id = msg.from().map(|u| u.id).unwrap_or(0);
+    if !crate::auth::is_sudo_or_privileged(sender_id) {
+        send_text(&bot, msg.chat.id, "This command is restricted to bot operators.").await;
+        return Ok(());
+    }
+
     let text = msg.text().unwrap_or("");
     let target_text = text
         .strip_prefix("/ungban")
@@ -158,6 +170,12 @@ pub async fn handle_ungban(bot: Bot, msg: Message, client: &Client) -> Result<()
 
 /// /gbans — list all globally banned users.
 pub async fn handle_gbans_list(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
+    let sender_id = msg.from().map(|u| u.id).unwrap_or(0);
+    if !crate::auth::is_sudo_or_privileged(sender_id) {
+        send_text(&bot, msg.chat.id, "This command is restricted to bot operators.").await;
+        return Ok(());
+    }
+
     match crate::db::gbans::list_gbans(client).await {
         Ok(gbans) => {
             if gbans.is_empty() {

@@ -1,7 +1,5 @@
 use std::env;
 use std::fs;
-use native_tls::TlsConnector;
-use postgres_native_tls::MakeTlsConnector;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -14,8 +12,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set in env");
     println!("Connecting to database for migrations...");
 
-    let native_tls_connector = TlsConnector::builder().build()?;
-    let connector = MakeTlsConnector::new(native_tls_connector);
+    let mut root_store = rustls::RootCertStore::empty();
+    root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    let rustls_config = rustls::ClientConfig::builder()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+    let connector = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
 
     let (client, connection) = tokio_postgres::connect(&database_url, connector).await?;
 

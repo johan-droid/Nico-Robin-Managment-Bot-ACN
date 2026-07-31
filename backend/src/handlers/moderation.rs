@@ -680,7 +680,10 @@ fn parse_duration(input: &str) -> Option<i64> {
         (input.as_str(), 60i64) // default to minutes
     };
     let value: i64 = num.trim().parse().ok()?;
-    Some(value * unit)
+    let secs = value.checked_mul(unit)?;
+    // Telegram restricts temporary bans/mutes to max 366 days (31,622,400 seconds)
+    const MAX_DURATION_SECS: i64 = 366 * 86400;
+    Some(secs.clamp(30, MAX_DURATION_SECS))
 }
 
 /// /tmute @user <duration> — mute a user for a limited time (e.g. 30m, 2h, 1d).

@@ -3,6 +3,7 @@ WORKDIR /app
 
 COPY . .
 RUN cargo build --release --bin nico_robin_bot --bin migrate
+RUN strip target/release/nico_robin_bot target/release/migrate
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app

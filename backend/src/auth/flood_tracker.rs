@@ -19,6 +19,13 @@ impl Default for FloodTracker {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct FloodActionInfo {
+    pub user_id: u64,
+    pub user_name: String,
+    pub mode: String,
+}
+
 impl FloodTracker {
     pub fn new() -> Self {
         Self {
@@ -47,21 +54,19 @@ impl FloodTracker {
         self.flood_settings_cache.clone().flatten()
     }
 
-    pub async fn process_message(
+    /// Evaluates incoming message flood counter purely in-memory.
+    /// Does NOT perform any network I/O; lock can be dropped immediately after this call.
+    pub fn evaluate_message(
         &mut self,
-        bot: &Bot,
         msg: &Message,
         flood_settings: Option<(i32, String, i32)>,
-        settings: &Settings,
-    ) -> bool {
-        let user_id = match msg.from() {
-            Some(u) => u.id as i64,
-            None => return false,
-        };
+    ) -> Option<FloodActionInfo> {
+        let user = msg.from()?;
+        let user_id = user.id as i64;
 
         let (limit, mode, window_secs) = match flood_settings {
             Some((limit, mode, window)) if limit > 0 => (limit, mode, window),
-            _ => return false,
+            _ => return None,
         };
 
         let now = Instant::now();
@@ -70,68 +75,90 @@ impl FloodTracker {
         let timestamps = self.buckets.entry(user_id).or_default();
         timestamps.retain(|ts| now.duration_since(*ts) < window);
         timestamps.push(now);
-        let is_flooding = timestamps.len() > limit as usize;
 
-        if is_flooding {
-            let user_name = msg.from().map(|u| u.first_name.as_str()).unwrap_or("User");
-            let _ = bot.delete_message(msg.chat.id, msg.id()).await;
-
-            match mode.to_lowercase().as_str() {
-                "ban" => {
-                    let _ = bot.ban_chat_member(msg.chat.id, user_id as u64).await;
-                    let _ = bot
-                        .send_message(
-                            msg.chat.id,
-                            format!("Banned {} for flooding.", escape_md_v2(user_name)),
-                        )
-                        .await;
-                    log_mod_action(
-                        bot,
-                        settings,
-                        msg.chat.id,
-                        &format!(
-                            "Auto-banned {} in {} for flooding",
-                            escape_md_v2(user_name),
-                            escape_md_v2(msg.chat.title().unwrap_or("group"))
-                        ),
-                    )
-                    .await;
-                }
-                "warn" => {
-                    let _ = bot
-                        .send_message(
-                            msg.chat.id,
-                            format!("⚠️ {}, please stop flooding!", escape_md_v2(user_name)),
-                        )
-                        .await;
-                }
-                _ => {
-                    let permissions = ChatPermissions::empty();
-                    let _ = bot
-                        .restrict_chat_member(msg.chat.id, user_id as u64, permissions)
-                        .await;
-                    let _ = bot
-                        .send_message(
-                            msg.chat.id,
-                            format!("Muted {} for flooding.", escape_md_v2(user_name)),
-                        )
-                        .await;
-                    log_mod_action(
-                        bot,
-                        settings,
-                        msg.chat.id,
-                        &format!(
-                            "Auto-muted {} in {} for flooding",
-                            escape_md_v2(user_name),
-                            escape_md_v2(msg.chat.title().unwrap_or("group"))
-                        ),
-                    )
-                    .await;
-                }
-            }
-            return true;
+        if timestamps.len() > limit as usize {
+            self.buckets.remove(&user_id);
+            Some(FloodActionInfo {
+                user_id: user.id,
+                user_name: user.first_name.clone(),
+                mode,
+            })
+        } else {
+            None
         }
+    }
 
-        false
+    /// Periodically evicts stale user bucket entries.
+    pub fn cleanup_stale(&mut self, max_age: Duration) {
+        let now = Instant::now();
+        self.buckets.retain(|_, ts_vec| {
+            ts_vec.retain(|ts| now.duration_since(*ts) < max_age);
+            !ts_vec.is_empty()
+        });
+    }
+}
+
+/// Executes moderation actions (Telegram API network calls) outside the per-chat Mutex lock.
+pub async fn execute_flood_action(
+    bot: &Bot,
+    msg: &Message,
+    action: FloodActionInfo,
+    settings: &Settings,
+) {
+    let user_name = &action.user_name;
+    let _ = bot.delete_message(msg.chat.id, msg.id()).await;
+
+    match action.mode.to_lowercase().as_str() {
+        "ban" => {
+            let _ = bot.ban_chat_member(msg.chat.id, action.user_id).await;
+            let _ = bot
+                .send_message(
+                    msg.chat.id,
+                    format!("Banned {} for flooding.", escape_md_v2(user_name)),
+                )
+                .await;
+            log_mod_action(
+                bot,
+                settings,
+                msg.chat.id,
+                &format!(
+                    "Auto-banned {} in {} for flooding",
+                    escape_md_v2(user_name),
+                    escape_md_v2(msg.chat.title().unwrap_or("group"))
+                ),
+            )
+            .await;
+        }
+        "warn" => {
+            let _ = bot
+                .send_message(
+                    msg.chat.id,
+                    format!("⚠️ {}, please stop flooding!", escape_md_v2(user_name)),
+                )
+                .await;
+        }
+        _ => {
+            let permissions = ChatPermissions::empty();
+            let _ = bot
+                .restrict_chat_member(msg.chat.id, action.user_id, permissions)
+                .await;
+            let _ = bot
+                .send_message(
+                    msg.chat.id,
+                    format!("Muted {} for flooding.", escape_md_v2(user_name)),
+                )
+                .await;
+            log_mod_action(
+                bot,
+                settings,
+                msg.chat.id,
+                &format!(
+                    "Auto-muted {} in {} for flooding",
+                    escape_md_v2(user_name),
+                    escape_md_v2(msg.chat.title().unwrap_or("group"))
+                ),
+            )
+            .await;
+        }
     }
 }

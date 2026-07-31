@@ -33,21 +33,32 @@ impl Bot {
 
     pub async fn api_post(&self, method: &str, payload: Value) -> Result<Value, String> {
         let url = format!("https://api.telegram.org/bot{}/{}", self.token, method);
+        let mut retries = 0;
 
-        let resp = self
-            .client
-            .post(&url)
-            .json(&payload)
-            .send()
-            .await
-            .map_err(|e| e.to_string())?;
+        loop {
+            let resp = self
+                .client
+                .post(&url)
+                .json(&payload)
+                .send()
+                .await
+                .map_err(|e| e.to_string())?;
 
-        let text = resp.text().await.map_err(|e| e.to_string())?;
-        let json: Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
-        if json["ok"].as_bool() == Some(true) {
-            Ok(json["result"].clone())
-        } else {
-            Err(format!("API error: {}", text))
+            let text = resp.text().await.map_err(|e| e.to_string())?;
+            let json: Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+            if json["ok"].as_bool() == Some(true) {
+                return Ok(json["result"].clone());
+            }
+
+            let error_code = json["error_code"].as_i64().unwrap_or(0);
+            if error_code == 429 && retries < 2 {
+                let retry_after = json["parameters"]["retry_after"].as_u64().unwrap_or(1).min(10);
+                tokio::time::sleep(std::time::Duration::from_secs(retry_after)).await;
+                retries += 1;
+                continue;
+            }
+
+            return Err(format!("API error: {}", text));
         }
     }
 
