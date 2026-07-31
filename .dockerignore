@@ -8,6 +8,8 @@
 *.env
 
 target/
+**/target/
+backend/target/
 **/*.rs.bk
 
 *.log

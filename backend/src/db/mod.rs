@@ -5,6 +5,7 @@ pub mod features;
 pub mod federations;
 pub mod filters;
 pub mod flood;
+pub mod message_history;
 pub mod groups;
 pub mod notes;
 pub mod profiles;

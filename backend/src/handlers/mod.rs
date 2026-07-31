@@ -5,6 +5,7 @@ pub mod filters;
 pub mod moderation;
 pub mod notes;
 pub mod profile;
+pub mod quote;
 pub mod security;
 pub mod welcome;
 
@@ -30,12 +31,15 @@ static GROUP_WRITE_GUARD: std::sync::LazyLock<Mutex<HashMap<i64, Instant>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// In-memory filter cache per group_id with 30-second TTL.
-static FILTER_CACHE: std::sync::LazyLock<Mutex<HashMap<i64, (Vec<crate::db::filters::Filter>, Instant)>>> =
+/// Stores (lowercase_trigger, response) pairs so matching avoids per-message allocations.
+static FILTER_CACHE: std::sync::LazyLock<Mutex<HashMap<i64, (Vec<(String, String)>, Instant)>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
-/// Tracks last swear-word fetch time per group_id so we re-fetch after 60s.
-static SWEAR_FETCH_TIME: std::sync::LazyLock<Mutex<HashMap<i64, Instant>>> =
-    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+/// In-memory swear-word cache per group_id with 60-second TTL.
+/// Arc so hits clone the word list cheaply without re-querying the DB.
+static SWEAR_CACHE: std::sync::LazyLock<
+    Mutex<HashMap<i64, (std::sync::Arc<Vec<String>>, Instant)>>
+> = std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
 /// Minimum interval between consecutive DB writes for the same user/group.
 const CACHE_WRITE_INTERVAL_SECS: u64 = 300; // 5 minutes
@@ -107,17 +111,73 @@ async fn auto_warn_and_maybe_ban(
 
 // ───────────────────────────────────────────────────────────────────────
 
+/// Outcome of the fast security pre-check (flood + rate limit).
+#[derive(Debug, PartialEq)]
+pub enum SecurityDecision {
+    /// Message should be processed normally.
+    Proceed,
+    /// Message was flagged as flooding — no further processing.
+    FloodBlocked,
+    /// Message was rate-limited — no further processing.
+    RateLimited,
+}
+
+/// Runs the flood + rate-limit checks under the per-chat lock.
+/// Must be called while holding the per-chat state lock; returns quickly so
+/// the lock can be released before the heavy message processing happens.
+pub async fn security_precheck(
+    bot: &Bot,
+    client: &Client,
+    msg: &Message,
+    tracker: &mut crate::auth::flood_tracker::FloodTracker,
+    limiter: &mut crate::auth::rate_limiter::RateLimiter,
+) -> SecurityDecision {
+    let user_id = user_id_from_msg(msg);
+    if crate::auth::is_telegram_admin(bot, msg.chat.id, user_id).await {
+        return SecurityDecision::Proceed;
+    }
+    let user_name = msg.from().as_ref().map(|u| {
+        u.username.as_deref().unwrap_or(&u.first_name)
+    }).unwrap_or("Unknown").to_string();
+
+    let security_enabled = is_feature_enabled_cached(client, msg.chat.id, "security")
+        .await
+        .unwrap_or(true);
+    if security_enabled {
+        let flood_settings = tracker.get_or_fetch_flood_settings(client, msg.chat.id).await;
+        if tracker.process_message(bot, msg, flood_settings, Settings::global()).await {
+            auto_warn_and_maybe_ban(bot, client, msg.chat.id, user_id as i64, &user_name, "flooding / spamming").await;
+            return SecurityDecision::FloodBlocked;
+        }
+    }
+
+    if msg.text().is_some_and(|t| t.starts_with('/')) {
+        match limiter.check(user_id as i64) {
+            crate::auth::rate_limiter::RateLimitResult::Denied { retry_after_secs } => {
+                let _ = bot
+                    .send_message(
+                        msg.chat.id,
+                        format!("Rate limit exceeded. Please wait {} seconds.", retry_after_secs),
+                    )
+                    .await;
+                auto_warn_and_maybe_ban(bot, client, msg.chat.id, user_id as i64, &user_name, "rate limit exceeded").await;
+                return SecurityDecision::RateLimited;
+            }
+            crate::auth::rate_limiter::RateLimitResult::Allowed => {}
+        }
+    }
+
+    SecurityDecision::Proceed
+}
+
 /// Processes an incoming message. Handles commands, filters, swear checks, and flood detection.
 pub async fn handle_message(
     bot: Bot,
     msg: Message,
     client: &Client,
-    tracker: &mut crate::auth::flood_tracker::FloodTracker,
-    limiter: &mut crate::auth::rate_limiter::RateLimiter,
-    flood_settings: Option<(i32, String, i32)>,
-    swear_words_cache: &mut Option<Vec<String>>,
 ) -> Result<(), String> {
     let user_id = user_id_from_msg(&msg) as i64;
+    quote::record_message(client, &msg).await;
 
     // Run admin check + feature check in parallel — both involve network I/O
     let t_parallel = perf::Timer::start("admin+feature");
@@ -185,10 +245,6 @@ pub async fn handle_message(
                                         bot,
                                         mock_msg,
                                         client,
-                                        tracker,
-                                        limiter,
-                                        flood_settings,
-                                        swear_words_cache,
                                     )).await;
                                 }
                             }
@@ -220,36 +276,6 @@ pub async fn handle_message(
     let user_name = msg.from().as_ref().map(|u| {
         u.username.as_deref().unwrap_or(&u.first_name)
     }).unwrap_or("Unknown").to_string();
-
-    if security_enabled && !is_admin {
-        let t_flood = perf::Timer::start("flood_check");
-        if tracker.process_message(&bot, &msg, flood_settings, Settings::global()).await {
-            auto_warn_and_maybe_ban(&bot, client, msg.chat.id, user_id, &user_name, "flooding / spamming").await;
-            LatencyTrace::record("flood_check", t_flood.stop());
-            return Ok(());
-        }
-        LatencyTrace::record("flood_check", t_flood.stop());
-    }
-
-    // Check rate limit for commands
-    if msg.text().is_some_and(|t| t.starts_with('/')) && !is_admin {
-        let t_rate = perf::Timer::start("rate_limit_check");
-        match limiter.check(user_id) {
-            crate::auth::rate_limiter::RateLimitResult::Denied { retry_after_secs } => {
-                let _ = bot
-                    .send_message(
-                        msg.chat.id,
-                        format!("Rate limit exceeded. Please wait {} seconds.", retry_after_secs),
-                    )
-                    .await;
-                auto_warn_and_maybe_ban(&bot, client, msg.chat.id, user_id, &user_name, "rate limit exceeded").await;
-                LatencyTrace::record("rate_limit_check", t_rate.stop());
-                return Ok(());
-            }
-            crate::auth::rate_limiter::RateLimitResult::Allowed => {}
-        }
-        LatencyTrace::record("rate_limit_check", t_rate.stop());
-    }
 
     // Process new chat members (welcome messages)
     if let Some(new_members) = &msg.new_chat_members {
@@ -424,7 +450,14 @@ pub async fn handle_message(
                     "profile" => return profile::handle_profile(bot, msg, client).await,
                     "setbio" => return profile::handle_setbio(bot, msg, client).await,
                     "exportmydata" => return profile::handle_export(bot, msg, client).await,
-                    "deletemydata" => return profile::handle_delete_data(bot, msg, client).await,
+                    "deletemydata" => {
+                        if !require_captain_fast(&bot, &msg).await? { return Ok(()); }
+                        return profile::handle_delete_data(bot, msg, client).await;
+                    }
+                    "q" => return quote::handle_quote(bot, msg, client).await,
+                    cmd if cmd.starts_with('q') && cmd[1..].chars().all(|c| c.is_ascii_digit()) => {
+                        return quote::handle_quote(bot, msg, client).await;
+                    }
 
                     "setflood" => {
                         if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
@@ -448,11 +481,13 @@ pub async fn handle_message(
 
                     "autowarnon" => {
                         if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
                         let _ = crate::db::auto_warn::enable_auto_warn(client, msg.chat.id).await;
                         let _ = bot.send_message(msg.chat.id, "Auto-warn has been enabled ✅").await;
                     }
                     "autowarnoff" => {
                         if !require_admin_fast(&bot, &msg, is_admin).await? { return Ok(()); }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? { return Ok(()); }
                         let _ = crate::db::auto_warn::disable_auto_warn(client, msg.chat.id).await;
                         let _ = bot.send_message(msg.chat.id, "Auto-warn has been disabled ❌").await;
                     }
@@ -499,50 +534,64 @@ pub async fn handle_message(
         } else {
             // Non-command message processing
 
+            let text_lower = text.to_lowercase();
+
             // Check if filters feature is enabled before processing
             let filters_enabled = is_feature_enabled_cached(client, msg.chat.id, "filters")
                 .await
                 .unwrap_or(true);
             if filters_enabled {
-                // In-memory filter cache with 30s TTL — avoids full table scan per message
-                let cached: Option<(Vec<crate::db::filters::Filter>, Instant)> = FILTER_CACHE.lock().ok()
+                // In-memory filter cache with 30s TTL — avoids full table scan per message.
+                // Triggers are pre-lowercased once at cache time so matching never allocates.
+                let cached: Option<(Vec<(String, String)>, Instant)> = FILTER_CACHE.lock().ok()
                     .and_then(|m| m.get(&msg.chat.id).cloned())
                     .filter(|(_, ts)| ts.elapsed() < std::time::Duration::from_secs(FILTER_CACHE_TTL_SECS));
                 let filters = if let Some((list, _)) = cached {
                     list
                 } else {
-                    let list = crate::db::filters::list_filters(client, msg.chat.id).await.unwrap_or_default();
+                    let list = crate::db::filters::list_filters(client, msg.chat.id)
+                        .await
+                        .unwrap_or_default()
+                        .into_iter()
+                        .map(|f| (f.trigger_text.to_lowercase(), f.response))
+                        .collect::<Vec<_>>();
                     if let Ok(mut m) = FILTER_CACHE.lock() {
                         m.insert(msg.chat.id, (list.clone(), Instant::now()));
                     }
                     list
                 };
-                let text_lower = text.to_lowercase();
-                if let Some(f) = filters.iter().find(|f| text_lower.contains(&f.trigger_text.to_lowercase())) {
-                    let _ = bot.send_message(msg.chat.id, &f.response).await;
+                if let Some((_, response)) = filters.iter().find(|(trigger, _)| text_lower.contains(trigger)) {
+                    let _ = bot.send_message(msg.chat.id, response).await;
                 }
             }
 
-            // Check swear words if security feature is enabled
+            // Check swear words if security feature is enabled (in-memory 60s TTL)
             if security_enabled {
-                // Re-fetch swear words from DB every 60s (in-memory TTL)
-                let should_refetch = SWEAR_FETCH_TIME.lock().ok()
-                    .and_then(|m| m.get(&msg.chat.id).copied())
-                    .map(|ts| ts.elapsed() > std::time::Duration::from_secs(SWEAR_CACHE_TTL_SECS))
-                    .unwrap_or(true);
-                if should_refetch {
-                    let list = match client.query("SELECT word FROM swear_words WHERE group_id = $1", &[&msg.chat.id]).await {
-                        Ok(rows) => rows.into_iter().map(|r| r.get::<usize, String>(0)).collect::<Vec<_>>(),
-                        Err(_) => Vec::new(),
-                    };
-                    *swear_words_cache = Some(list);
-                    if let Ok(mut m) = SWEAR_FETCH_TIME.lock() {
-                        m.insert(msg.chat.id, Instant::now());
+                let swear_words = {
+                    let mut cached: Option<std::sync::Arc<Vec<String>>> = None;
+                    if let Ok(cache) = SWEAR_CACHE.lock() {
+                        if let Some((words, ts)) = cache.get(&msg.chat.id) {
+                            if ts.elapsed() < std::time::Duration::from_secs(SWEAR_CACHE_TTL_SECS) {
+                                cached = Some(std::sync::Arc::clone(words));
+                            }
+                        }
                     }
-                }
-                let swear_words = swear_words_cache.as_deref().unwrap_or(&[]);
+                    match cached {
+                        Some(words) => words,
+                        None => {
+                            let list = match client.query("SELECT word FROM swear_words WHERE group_id = $1", &[&msg.chat.id]).await {
+                                Ok(rows) => rows.into_iter().map(|r| r.get::<usize, String>(0)).collect::<Vec<_>>(),
+                                Err(_) => Vec::new(),
+                            };
+                            let words = std::sync::Arc::new(list);
+                            if let Ok(mut cache) = SWEAR_CACHE.lock() {
+                                cache.insert(msg.chat.id, (std::sync::Arc::clone(&words), Instant::now()));
+                            }
+                            words
+                        }
+                    }
+                };
 
-                let text_lower = text.to_lowercase();
                 if let Some(swear) = swear_words.iter().find(|w| text_lower.contains(*w)) {
                     let _ = bot.delete_message(msg.chat.id, msg.id()).await;
                     let _ = bot
@@ -581,6 +630,22 @@ async fn require_admin_fast(bot: &Bot, msg: &Message, is_admin: bool) -> Result<
         Ok(true)
     } else {
         deny_telegram_admin(bot, msg).await?;
+        Ok(false)
+    }
+}
+
+/// Requires the user to be the group captain (creator/owner) or a developer.
+async fn require_captain_fast(bot: &Bot, msg: &Message) -> Result<bool, String> {
+    let user_id = user_id_from_msg(msg);
+    if crate::auth::is_captain_or_developer(bot, msg.chat.id, user_id).await {
+        Ok(true)
+    } else {
+        let _ = bot
+            .reply_or_edit(
+                msg.chat.id,
+                "Only the group captain (owner) or a developer can delete data.",
+            )
+            .await;
         Ok(false)
     }
 }

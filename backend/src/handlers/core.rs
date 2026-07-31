@@ -41,25 +41,45 @@ fn start_keyboard() -> InlineKeyboardMarkup {
     }
 }
 
+const MODERATOR_CATEGORIES: &[(&str, &str)] = &[
+    ("⚔️ Moderation", "cat_moderation"),
+    ("🔒 Security", "cat_security"),
+    ("⭐ Features", "cat_features"),
+    ("🌐 Federation", "cat_federation"),
+];
+
+const NON_MODERATOR_CATEGORIES: &[(&str, &str)] = &[
+    ("🌸 Profile", "cat_profile"),
+    ("📝 Notes", "cat_notes"),
+    ("🔍 Filters", "cat_filters"),
+    ("👋 Welcome", "cat_welcome"),
+    ("🎨 Fun", "cat_fun"),
+];
+
 fn help_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![
-            vec![
-                _btn("👤 Profile", "cat_profile"),
-                _btn("📝 Notes", "cat_notes"),
-                _btn("⚔️ Moderation", "cat_moderation"),
-            ],
-            vec![
-                _btn("🔍 Filters", "cat_filters"),
-                _btn("👋 Welcome", "cat_welcome"),
-                _btn("🔒 Security", "cat_security"),
-            ],
-            vec![
-                _btn("⭐ Features", "cat_features"),
-                _btn("🌐 Federation", "cat_federation"),
-            ],
+            vec![_btn("🛡️ Moderator Commands", "moderator")],
+            vec![_btn("👤 Non-Moderator Commands", "nonmoderator")],
         ],
     }
+}
+
+fn category_keyboard(categories: &[(&str, &str)]) -> InlineKeyboardMarkup {
+    let mut rows: Vec<Vec<InlineKeyboardButton>> = categories
+        .chunks(2)
+        .map(|chunk| chunk.iter().map(|(label, cb)| _btn(label, cb)).collect())
+        .collect();
+    rows.push(vec![_btn("🔙 Back", "back")]);
+    InlineKeyboardMarkup { inline_keyboard: rows }
+}
+
+fn moderator_keyboard() -> InlineKeyboardMarkup {
+    category_keyboard(MODERATOR_CATEGORIES)
+}
+
+fn non_moderator_keyboard() -> InlineKeyboardMarkup {
+    category_keyboard(NON_MODERATOR_CATEGORIES)
 }
 
 fn category_back_keyboard() -> InlineKeyboardMarkup {
@@ -67,6 +87,24 @@ fn category_back_keyboard() -> InlineKeyboardMarkup {
         inline_keyboard: vec![
             vec![_btn("🔙 Back", "back")],
         ],
+    }
+}
+
+fn is_moderator_category(cb: &str) -> bool {
+    MODERATOR_CATEGORIES.iter().any(|(_, c)| *c == cb)
+}
+
+fn is_non_moderator_category(cb: &str) -> bool {
+    NON_MODERATOR_CATEGORIES.iter().any(|(_, c)| *c == cb)
+}
+
+fn back_keyboard_for(cb: &str) -> InlineKeyboardMarkup {
+    if is_moderator_category(cb) {
+        moderator_keyboard()
+    } else if is_non_moderator_category(cb) {
+        non_moderator_keyboard()
+    } else {
+        help_keyboard()
     }
 }
 
@@ -130,7 +168,12 @@ pub async fn handle_start(bot: Bot, msg: Message, client: &Client) -> Result<(),
 }
 
 pub async fn handle_help(bot: Bot, msg: Message) -> Result<(), String> {
-    let text = "📖 <b>Nico Robin Bot — Commands</b>\n\nChoose a category below to see its commands:";
+    let text = concat!(
+        "📖 <b>Nico Robin Bot — Commands</b>\n\n",
+        "🛡️ <b>Moderator Commands</b> — admin &amp; management tools\n",
+        "👤 <b>Non-Moderator Commands</b> — commands for everyone\n\n",
+        "Tap a category to see its commands:",
+    );
     let _ = bot
         .send_or_edit(msg.chat.id, text, Some(ParseMode::Html), Some(help_keyboard()))
         .await;
@@ -145,7 +188,7 @@ fn category_text(category: &str) -> &'static str {
             "👤 /profile  —  View your profile\n",
             "📝 /setbio &lt;text&gt;  —  Set your bio\n",
             "📦 /exportmydata  —  Export your data\n",
-            "🗑 /deletemydata  —  Delete your data",
+            "🗑 /deletemydata  —  Delete data (captain/dev only)",
         ),
         "cat_notes" => concat!(
             "📝 <b>Notes</b> 📝\n",
@@ -168,7 +211,9 @@ fn category_text(category: &str) -> &'static str {
             "🔄 /resetwarn @user  —  Reset warnings\n",
             "🐢 /slowmode &lt;s&gt;  —  Set slowmode\n",
             "❌ /del  —  Delete replied message\n",
-            "📌 /pin  —  Pin replied message",
+            "📌 /pin  —  Pin replied message\n",
+            "⚡ /autowarnon  —  Enable auto-warn\n",
+            "⚡ /autowarnoff  —  Disable auto-warn",
         ),
         "cat_filters" => concat!(
             "🔍 <b>Filters</b> 🔍\n",
@@ -216,6 +261,12 @@ fn category_text(category: &str) -> &'static str {
             "➕ /newfed &lt;name&gt;  —  Create a federation\n",
             "🔗 /joinfed &lt;fed_id&gt;  —  Join group to federation",
         ),
+        "cat_fun" => concat!(
+            "🎨 <b>Fun</b> 🎨\n",
+            "✿ ∘ ━━━━━━━━━┉┅╍\n\n",
+            "💬 /q  —  Quote a message as an image\n",
+            "💬 /q &lt;n&gt;  —  /q2, /q3 … quote n messages (/q2, /q3 …)",
+        ),
         _ => "Unknown category.",
     }
 }
@@ -234,9 +285,36 @@ pub async fn handle_category_callback(
         };
 
         if data == "help" {
-            let text = "📖 <b>Nico Robin Bot — Commands</b>\n\nChoose a category below to see its commands:";
+            let text = concat!(
+                "📖 <b>Nico Robin Bot — Commands</b>\n\n",
+                "🛡️ <b>Moderator Commands</b> — admin &amp; management tools\n",
+                "👤 <b>Non-Moderator Commands</b> — commands for everyone\n\n",
+                "Tap a category to see its commands:",
+            );
             let _ = bot
                 .send_or_edit(chat_id, text, Some(ParseMode::Html), Some(help_keyboard()))
+                .await;
+            return Ok(());
+        }
+
+        if data == "moderator" {
+            let text = concat!(
+                "🛡️ <b>Moderator Commands</b> 🛡️\n\n",
+                "Admin &amp; management tools. Tap a category to see its commands:",
+            );
+            let _ = bot
+                .send_or_edit(chat_id, text, Some(ParseMode::Html), Some(moderator_keyboard()))
+                .await;
+            return Ok(());
+        }
+
+        if data == "nonmoderator" {
+            let text = concat!(
+                "👤 <b>Non-Moderator Commands</b> 👤\n\n",
+                "Commands available to everyone. Tap a category to see its commands:",
+            );
+            let _ = bot
+                .send_or_edit(chat_id, text, Some(ParseMode::Html), Some(non_moderator_keyboard()))
                 .await;
             return Ok(());
         }
@@ -276,14 +354,19 @@ pub async fn handle_category_callback(
         let is_back = data == "back";
 
         let text = if is_back {
-            "📖 <b>Nico Robin Bot — Commands</b>\n\nChoose a category below to see its commands:"
+            concat!(
+                "📖 <b>Nico Robin Bot — Commands</b>\n\n",
+                "🛡️ <b>Moderator Commands</b> — admin &amp; management tools\n",
+                "👤 <b>Non-Moderator Commands</b> — commands for everyone\n\n",
+                "Tap a category to see its commands:",
+            )
         } else {
             category_text(&data)
         };
         let markup = if is_back {
             help_keyboard()
         } else {
-            category_back_keyboard()
+            back_keyboard_for(&data)
         };
 
         let payload = serde_json::json!({

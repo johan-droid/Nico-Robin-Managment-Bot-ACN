@@ -83,6 +83,23 @@ pub async fn is_telegram_admin(bot: &Bot, chat_id: i64, user_id: u64) -> bool {
     is_admin
 }
 
+/// Checks if a user is the group captain (creator / owner) or a developer.
+/// Only the group creator and privileged users (SUDO_USERS / CAPTAIN_ID /
+/// COMMANDER_IDS) pass; ordinary admins and members do not.
+pub async fn is_captain_or_developer(bot: &Bot, chat_id: i64, user_id: u64) -> bool {
+    if is_sudo_or_privileged(user_id) {
+        return true;
+    }
+    // In private chats there is no group owner — only the developer may act.
+    if chat_id > 0 {
+        return false;
+    }
+    match bot.get_chat_member(chat_id, user_id).await {
+        Ok(member) => member.status() == "creator",
+        Err(_) => false,
+    }
+}
+
 /// Extracts the target user ID from a reply, message entity (text_mention), or command arguments.
 pub fn extract_target_user(msg: &Message) -> Option<(i64, String)> {
     if let Some(reply_to) = msg.reply_to_message() {

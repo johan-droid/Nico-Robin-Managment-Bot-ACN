@@ -329,6 +329,26 @@ impl Bot {
         }
     }
 
+    pub async fn send_sticker(
+        &self,
+        chat_id: i64,
+        filename: &str,
+        data: Vec<u8>,
+    ) -> Result<crate::telegram::update::Message, String> {
+        let form = reqwest::multipart::Form::new()
+            .text("chat_id", chat_id.to_string())
+            .part(
+                "sticker",
+                reqwest::multipart::Part::bytes(data)
+                    .file_name(filename.to_string())
+                    .mime_str("image/webp")
+                    .map_err(|e| e.to_string())?,
+            );
+
+        let res = self.api_post_multipart("sendSticker", form).await?;
+        serde_json::from_value(res).map_err(|e| e.to_string())
+    }
+
     pub async fn send_photo_file(
         &self,
         chat_id: i64,
@@ -338,13 +358,18 @@ impl Bot {
         parse_mode: Option<crate::telegram::ParseMode>,
         reply_markup: Option<crate::telegram::update::InlineKeyboardMarkup>,
     ) -> Result<crate::telegram::update::Message, String> {
+        let mime = if filename.to_lowercase().ends_with(".png") {
+            "image/png"
+        } else {
+            "image/jpeg"
+        };
         let mut form = reqwest::multipart::Form::new()
             .text("chat_id", chat_id.to_string())
             .part(
                 "photo",
                 reqwest::multipart::Part::bytes(data)
                     .file_name(filename.to_string())
-                    .mime_str("image/jpeg")
+                    .mime_str(mime)
                     .map_err(|e| e.to_string())?,
             );
 

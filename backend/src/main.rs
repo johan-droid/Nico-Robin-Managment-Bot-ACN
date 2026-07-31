@@ -81,7 +81,12 @@ async fn main() {
 
     let mut cfg = Config::new();
     cfg.url = Some(database_url.clone());
-    cfg.pool = Some(deadpool_postgres::PoolConfig::new(5));
+    let pool_size = env::var("DATABASE_POOL_SIZE")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .unwrap_or(10);
+    cfg.pool = Some(deadpool_postgres::PoolConfig::new(pool_size));
+    info!(pool_size = %pool_size, "Creating database connection pool");
     let pool = cfg.create_pool(Some(Runtime::Tokio1), connector)
         .expect("Failed to create database connection pool");
 
@@ -102,10 +107,23 @@ async fn main() {
             data BYTEA NOT NULL,
             mime_type TEXT NOT NULL DEFAULT 'image/jpeg',
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-         );"
+         );
+         CREATE TABLE IF NOT EXISTS message_history (
+            id BIGSERIAL PRIMARY KEY,
+            chat_id BIGINT NOT NULL,
+            message_id BIGINT NOT NULL,
+            user_id BIGINT NOT NULL,
+            user_name TEXT NOT NULL DEFAULT '',
+            text TEXT NOT NULL DEFAULT '',
+            date BIGINT NOT NULL DEFAULT 0,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            UNIQUE (chat_id, message_id)
+         );
+         CREATE INDEX IF NOT EXISTS idx_message_history_chat_id ON message_history (chat_id);
+         CREATE INDEX IF NOT EXISTS idx_message_history_chat_date ON message_history (chat_id, date DESC);"
     ).await;
     if let Err(e) = create_table_res {
-        error!(error = %e, "Failed to create username_cache or bot_assets table");
+        error!(error = %e, "Failed to create username_cache, bot_assets or message_history table");
     }
     // Return client to pool
     drop(db_client);
@@ -225,9 +243,13 @@ async fn webhook_handler(
         }
     };
 
-    if let Err(e) = process_update(state, update).await {
-        error!(error = %e, "Webhook update processing failed");
-    }
+    // Process the update in the background and return 200 immediately so
+    // Telegram never waits on (or retries) our slow DB/API work.
+    tokio::spawn(async move {
+        if let Err(e) = process_update(state, update).await {
+            error!(error = %e, "Webhook update processing failed");
+        }
+    });
 
     Response::builder()
         .status(StatusCode::OK)
@@ -274,28 +296,27 @@ async fn process_update(state: NativeState, update: Update) -> Result<(), String
                         };
                         perf::LatencyTrace::record("chat_state_lookup", t_lock.stop());
 
+                        // Fast in-memory security pre-check (flood + rate limit).
+                        // The per-chat lock is held ONLY for this quick check, then
+                        // released so slow DB/Telegram work never serializes a chat.
                         let t_cache = perf::Timer::start("chat_state_lock");
                         let mut chat_guard = per_chat.lock().await;
                         let (ref mut tracker, ref mut limiter) = &mut *chat_guard;
+                        let security_decision =
+                            handlers::security_precheck(&bot, &db_client, &msg, tracker, limiter).await;
+                        drop(chat_guard);
                         perf::LatencyTrace::record("chat_state_lock", t_cache.stop());
 
-                        let t_flood = perf::Timer::start("flood_settings_fetch");
-                        let flood_settings = tracker.get_or_fetch_flood_settings(&db_client, chat_id).await;
-                        perf::LatencyTrace::record("flood_settings_fetch", t_flood.stop());
-
-                        let swear_words_cache = &mut None;
+                        match security_decision {
+                            handlers::SecurityDecision::FloodBlocked
+                            | handlers::SecurityDecision::RateLimited => {
+                                return Ok(());
+                            }
+                            handlers::SecurityDecision::Proceed => {}
+                        }
 
                         tracing::info!(chat_id = %chat_id, "Routing message to handler");
-                        let res = handlers::handle_message(
-                            bot,
-                            msg,
-                            &db_client,
-                            tracker,
-                            limiter,
-                            flood_settings,
-                            swear_words_cache,
-                        )
-                        .await;
+                        let res = handlers::handle_message(bot, msg, &db_client).await;
 
                         if is_settings_change {
                             nico_robin_bot::db::feature_cache::invalidate_group(chat_id);
