@@ -2,7 +2,10 @@ use tokio_postgres::Client;
 
 pub async fn get_asset(client: &Client, key: &str) -> Result<Option<(Vec<u8>, String)>, String> {
     let rows = client
-        .query("SELECT data, mime_type FROM bot_assets WHERE key = $1", &[&key])
+        .query(
+            "SELECT data, mime_type FROM bot_assets WHERE key = $1",
+            &[&key],
+        )
         .await
         .map_err(|e| e.to_string())?;
 
@@ -15,7 +18,12 @@ pub async fn get_asset(client: &Client, key: &str) -> Result<Option<(Vec<u8>, St
     }
 }
 
-pub async fn set_asset(client: &Client, key: &str, data: &[u8], mime_type: &str) -> Result<(), String> {
+pub async fn set_asset(
+    client: &Client,
+    key: &str,
+    data: &[u8],
+    mime_type: &str,
+) -> Result<(), String> {
     client
         .execute(
             "INSERT INTO bot_assets (key, data, mime_type) VALUES ($1, $2, $3)

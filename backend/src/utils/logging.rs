@@ -13,18 +13,18 @@ impl<S> Layer<S> for TaskLocalLogLayer
 where
     S: Subscriber,
 {
-    fn on_event(
-        &self,
-        event: &tracing::Event<'_>,
-        _ctx: Context<'_, S>,
-    ) {
+    fn on_event(&self, event: &tracing::Event<'_>, _ctx: Context<'_, S>) {
         let _ = LOG_BUFFER.try_with(|buf| {
             let metadata = event.metadata();
             let mut msg = format!("[{}] ", metadata.level());
-            
+
             struct VisitMessage<'a>(&'a mut String);
             impl<'a> tracing::field::Visit for VisitMessage<'a> {
-                fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
+                fn record_debug(
+                    &mut self,
+                    field: &tracing::field::Field,
+                    value: &dyn std::fmt::Debug,
+                ) {
                     if field.name() == "message" {
                         use std::fmt::Write;
                         let _ = write!(self.0, "{:?}", value);
@@ -41,7 +41,7 @@ where
                     }
                 }
             }
-            
+
             event.record(&mut VisitMessage(&mut msg));
             buf.borrow_mut().push(msg);
         });

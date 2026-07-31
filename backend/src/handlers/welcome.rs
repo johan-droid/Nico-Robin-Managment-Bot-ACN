@@ -234,11 +234,7 @@ pub async fn handle_new_member(
 }
 
 /// Handles a member leaving the group — sends farewell message.
-pub async fn handle_left_member(
-    bot: &Bot,
-    msg: &Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_left_member(bot: &Bot, msg: &Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
     if let Some(ref left_user) = msg.left_chat_member {
         match crate::db::welcome::get_welcome_settings(client, chat_id).await {

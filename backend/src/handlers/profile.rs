@@ -1,6 +1,6 @@
 use crate::telegram::api::Bot;
-use crate::telegram::ParseMode;
 use crate::telegram::update::Message;
+use crate::telegram::ParseMode;
 use tokio_postgres::Client;
 
 use crate::auth::extract_target_user;
@@ -122,7 +122,9 @@ pub async fn handle_profile(bot: Bot, msg: Message, client: &Client) -> Result<(
 
     let is_group = msg.chat.is_group() || msg.chat.is_supergroup();
     let member = if is_group {
-        bot.get_chat_member(msg.chat.id, target_id as u64).await.ok()
+        bot.get_chat_member(msg.chat.id, target_id as u64)
+            .await
+            .ok()
     } else {
         None
     };
@@ -214,10 +216,19 @@ mod tests {
 
         // The card must contain the key fields.
         assert!(card.contains("*Name:* John Doe"), "missing name:\n{card}");
-        assert!(card.contains("*Username:* @johndoe"), "missing username:\n{card}");
-        assert!(card.contains("*User ID:* `123456789`"), "missing id:\n{card}");
+        assert!(
+            card.contains("*Username:* @johndoe"),
+            "missing username:\n{card}"
+        );
+        assert!(
+            card.contains("*User ID:* `123456789`"),
+            "missing id:\n{card}"
+        );
         assert!(card.contains("*Role:* 👑 Owner"), "missing role:\n{card}");
-        assert!(card.contains("*Group:* ACN Test Group"), "missing group:\n{card}");
+        assert!(
+            card.contains("*Group:* ACN Test Group"),
+            "missing group:\n{card}"
+        );
 
         // The empty-bio placeholder must be valid MarkdownV2: the italic span
         // must NOT contain an unescaped `.` or `!` (they break parsing).
@@ -244,7 +255,10 @@ mod tests {
         );
         // User-controlled dots must be escaped for MarkdownV2.
         assert!(card.contains("A\\.B\\!C"), "name not escaped:\n{card}");
-        assert!(card.contains("Bio with \\. and \\! chars\\."), "bio not escaped:\n{card}");
+        assert!(
+            card.contains("Bio with \\. and \\! chars\\."),
+            "bio not escaped:\n{card}"
+        );
     }
 
     #[test]
@@ -316,7 +330,9 @@ pub async fn handle_delete_data(bot: Bot, msg: Message, client: &Client) -> Resu
     match crate::db::profiles::delete_profile(client, target_id).await {
         Ok(true) => {
             if target_id == caller_id {
-                let _ = bot.send_message(msg.chat.id, "Your data has been deleted.").await;
+                let _ = bot
+                    .send_message(msg.chat.id, "Your data has been deleted.")
+                    .await;
             } else {
                 let _ = bot
                     .send_message(msg.chat.id, "The user's data has been deleted.")
@@ -324,7 +340,9 @@ pub async fn handle_delete_data(bot: Bot, msg: Message, client: &Client) -> Resu
             }
         }
         Ok(false) => {
-            let _ = bot.send_message(msg.chat.id, "No data found to delete.").await;
+            let _ = bot
+                .send_message(msg.chat.id, "No data found to delete.")
+                .await;
         }
         Err(e) => {
             let _ = bot

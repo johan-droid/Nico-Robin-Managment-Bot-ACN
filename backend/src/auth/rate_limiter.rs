@@ -94,7 +94,7 @@ impl RateLimiter {
             ts_vec.retain(|ts| now.duration_since(*ts) < max_age);
             !ts_vec.is_empty()
         });
-        self.global_bucket.retain(|ts| now.duration_since(*ts) < max_age);
+        self.global_bucket
+            .retain(|ts| now.duration_since(*ts) < max_age);
     }
 }
-

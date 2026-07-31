@@ -10,10 +10,7 @@ async fn send_text(bot: &Bot, chat_id: i64, text: &str) {
 
 pub async fn handle_setrules(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
-    let rules = text
-        .strip_prefix("/setrules")
-        .unwrap_or("")
-        .trim();
+    let rules = text.strip_prefix("/setrules").unwrap_or("").trim();
     if rules.is_empty() {
         send_text(
             &bot,
@@ -47,8 +44,12 @@ pub async fn handle_rules(bot: Bot, msg: Message, client: &Client) -> Result<(),
                 .await;
         }
         Ok(None) => {
-            send_text(&bot, msg.chat.id, "No rules have been set for this group yet.")
-                .await
+            send_text(
+                &bot,
+                msg.chat.id,
+                "No rules have been set for this group yet.",
+            )
+            .await
         }
         Err(e) => send_text(&bot, msg.chat.id, &format!("Error: {}", escape_md_v2(&e))).await,
     }

@@ -1,6 +1,6 @@
-pub mod logging;
-pub mod error;
 pub mod crash_reporter;
+pub mod error;
+pub mod logging;
 pub mod sentry_scrubber;
 
 /// Escapes characters that are special in Telegram MarkdownV2 format.

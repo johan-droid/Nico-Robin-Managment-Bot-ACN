@@ -13,7 +13,13 @@ pub async fn handle_report(bot: Bot, msg: Message, _client: &Client) -> Result<(
 
     let report_link = msg
         .reply_to_message()
-        .map(|r| format!("https://t.me/c/{}/{}", msg.chat.id.to_string().replace("-100", ""), r.id()))
+        .map(|r| {
+            format!(
+                "https://t.me/c/{}/{}",
+                msg.chat.id.to_string().replace("-100", ""),
+                r.id()
+            )
+        })
         .unwrap_or_default();
 
     let text = if report_link.is_empty() {

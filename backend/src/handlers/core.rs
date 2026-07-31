@@ -1,8 +1,6 @@
 use crate::telegram::api::Bot;
+use crate::telegram::update::{CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message};
 use crate::telegram::ParseMode;
-use crate::telegram::update::{
-    InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery, Message,
-};
 use tokio_postgres::Client;
 
 fn _btn(text: &str, cb: &str) -> InlineKeyboardButton {
@@ -23,7 +21,9 @@ fn _url_btn(text: &str, url: &str) -> InlineKeyboardButton {
 
 fn start_keyboard() -> InlineKeyboardMarkup {
     let bot_username = std::env::var("BOT_USERNAME")
-        .unwrap_or_else(|_| std::env::var("BOT_NAME").unwrap_or_else(|_| "nico_robin_bot".to_string()))
+        .unwrap_or_else(|_| {
+            std::env::var("BOT_NAME").unwrap_or_else(|_| "nico_robin_bot".to_string())
+        })
         .replace(' ', "_")
         .to_lowercase();
     let bot_name = std::env::var("BOT_NAME").unwrap_or_else(|_| "Nico Robin".to_string());
@@ -33,10 +33,7 @@ fn start_keyboard() -> InlineKeyboardMarkup {
                 &format!("➕ Add {} to your group", bot_name),
                 &format!("https://t.me/{}?startgroup=true", bot_username),
             )],
-            vec![
-                _btn("❓ Help", "help"),
-                _btn("ℹ️ About", "about"),
-            ],
+            vec![_btn("❓ Help", "help"), _btn("ℹ️ About", "about")],
         ],
     }
 }
@@ -73,7 +70,9 @@ fn category_keyboard(categories: &[(&str, &str)]) -> InlineKeyboardMarkup {
         .map(|chunk| chunk.iter().map(|(label, cb)| _btn(label, cb)).collect())
         .collect();
     rows.push(vec![_btn("🔙 Back", "back")]);
-    InlineKeyboardMarkup { inline_keyboard: rows }
+    InlineKeyboardMarkup {
+        inline_keyboard: rows,
+    }
 }
 
 fn moderator_keyboard() -> InlineKeyboardMarkup {
@@ -86,9 +85,7 @@ fn non_moderator_keyboard() -> InlineKeyboardMarkup {
 
 fn category_back_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
-        inline_keyboard: vec![
-            vec![_btn("🔙 Back", "back")],
-        ],
+        inline_keyboard: vec![vec![_btn("🔙 Back", "back")]],
     }
 }
 
@@ -153,7 +150,7 @@ pub async fn handle_start(bot: Bot, msg: Message, client: &Client) -> Result<(),
             Some(crate::telegram::ParseMode::Html),
             Some(keyboard),
         )
-            .await?;
+        .await?;
         return Ok(());
     }
 
@@ -177,7 +174,12 @@ pub async fn handle_help(bot: Bot, msg: Message) -> Result<(), String> {
         "Tap a category to see its commands:",
     );
     let _ = bot
-        .send_or_edit(msg.chat.id, text, Some(ParseMode::Html), Some(help_keyboard()))
+        .send_or_edit(
+            msg.chat.id,
+            text,
+            Some(ParseMode::Html),
+            Some(help_keyboard()),
+        )
         .await;
     Ok(())
 }
@@ -394,7 +396,12 @@ pub async fn handle_category_callback(
                 "Admin &amp; management tools. Tap a category to see its commands:",
             );
             let _ = bot
-                .send_or_edit(chat_id, text, Some(ParseMode::Html), Some(moderator_keyboard()))
+                .send_or_edit(
+                    chat_id,
+                    text,
+                    Some(ParseMode::Html),
+                    Some(moderator_keyboard()),
+                )
                 .await;
             return Ok(());
         }
@@ -405,7 +412,12 @@ pub async fn handle_category_callback(
                 "Commands available to everyone. Tap a category to see its commands:",
             );
             let _ = bot
-                .send_or_edit(chat_id, text, Some(ParseMode::Html), Some(non_moderator_keyboard()))
+                .send_or_edit(
+                    chat_id,
+                    text,
+                    Some(ParseMode::Html),
+                    Some(non_moderator_keyboard()),
+                )
                 .await;
             return Ok(());
         }
@@ -437,7 +449,12 @@ pub async fn handle_category_callback(
                 bot_name,
             );
             let _ = bot
-                .send_or_edit(chat_id, &text, Some(ParseMode::Html), Some(category_back_keyboard()))
+                .send_or_edit(
+                    chat_id,
+                    &text,
+                    Some(ParseMode::Html),
+                    Some(category_back_keyboard()),
+                )
                 .await;
             return Ok(());
         }

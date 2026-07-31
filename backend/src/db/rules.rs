@@ -1,7 +1,12 @@
 use tokio_postgres::Client;
 
 /// Sets the rules for a group (upsert).
-pub async fn set_rules(client: &Client, group_id: i64, rules: &str, updated_by: i64) -> Result<(), String> {
+pub async fn set_rules(
+    client: &Client,
+    group_id: i64,
+    rules: &str,
+    updated_by: i64,
+) -> Result<(), String> {
     let rules_enc = crate::crypto::try_encrypt(rules);
     client
         .execute(

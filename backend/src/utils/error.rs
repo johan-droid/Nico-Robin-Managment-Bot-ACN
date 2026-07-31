@@ -1,7 +1,7 @@
+use chrono::Utc;
 use std::fmt;
 use std::fs;
 use std::path::Path;
-use chrono::Utc;
 
 #[derive(Debug)]
 pub enum BotError {
@@ -58,12 +58,16 @@ pub fn report_failure(err: &BotError, trace_id: u64, component: &str, operation:
     }
 
     let timestamp = Utc::now().to_rfc3339();
-    let filename = format!("failure_{}_{}.md", Utc::now().format("%Y%m%d_%H%M%S"), trace_id);
+    let filename = format!(
+        "failure_{}_{}.md",
+        Utc::now().format("%Y%m%d_%H%M%S"),
+        trace_id
+    );
     let filepath = dir.join(filename);
 
-    let logs = crate::utils::logging::LOG_BUFFER.try_with(|buf| {
-        buf.borrow().join("\n")
-    }).unwrap_or_else(|_| "No trace logs recorded".to_string());
+    let logs = crate::utils::logging::LOG_BUFFER
+        .try_with(|buf| buf.borrow().join("\n"))
+        .unwrap_or_else(|_| "No trace logs recorded".to_string());
 
     let sanitized_err = sanitize_secrets(&err.to_string());
     let sanitized_logs = sanitize_secrets(&logs);

@@ -22,9 +22,15 @@ pub async fn get_welcome_settings(
     .map_err(|e| e.to_string())?;
 
     Ok(row.map(|r| WelcomeSettings {
-        welcome_message: r.get::<_, Option<String>>(0).map(|v| crate::crypto::try_decrypt(&v)),
-        farewell_message: r.get::<_, Option<String>>(1).map(|v| crate::crypto::try_decrypt(&v)),
-        welcome_dm_message: r.get::<_, Option<String>>(2).map(|v| crate::crypto::try_decrypt(&v)),
+        welcome_message: r
+            .get::<_, Option<String>>(0)
+            .map(|v| crate::crypto::try_decrypt(&v)),
+        farewell_message: r
+            .get::<_, Option<String>>(1)
+            .map(|v| crate::crypto::try_decrypt(&v)),
+        welcome_dm_message: r
+            .get::<_, Option<String>>(2)
+            .map(|v| crate::crypto::try_decrypt(&v)),
         clean_welcome: r.get(3),
     }))
 }

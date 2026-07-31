@@ -29,7 +29,12 @@ pub async fn handle_purge(bot: Bot, msg: Message, client: &Client) -> Result<(),
         let n: usize = match arg.parse::<usize>() {
             Ok(v) => v.min(100),
             Err(_) => {
-                send_text(&bot, chat_id, "Usage: /purge <count> or reply to a message to purge from there.").await;
+                send_text(
+                    &bot,
+                    chat_id,
+                    "Usage: /purge <count> or reply to a message to purge from there.",
+                )
+                .await;
                 return Ok(());
             }
         };
@@ -40,7 +45,12 @@ pub async fn handle_purge(bot: Bot, msg: Message, client: &Client) -> Result<(),
             .map(|m| m.message_id)
             .collect()
     } else {
-        send_text(&bot, chat_id, "Usage: /purge <count> or reply to a message to purge from there.").await;
+        send_text(
+            &bot,
+            chat_id,
+            "Usage: /purge <count> or reply to a message to purge from there.",
+        )
+        .await;
         return Ok(());
     };
 
@@ -75,7 +85,14 @@ pub async fn handle_purge(bot: Bot, msg: Message, client: &Client) -> Result<(),
             )
             .await;
         }
-        Err(e) => send_text(&bot, chat_id, &format!("Failed to purge: {}", escape_md_v2(&e))).await,
+        Err(e) => {
+            send_text(
+                &bot,
+                chat_id,
+                &format!("Failed to purge: {}", escape_md_v2(&e)),
+            )
+            .await
+        }
     }
     Ok(())
 }

@@ -1,6 +1,6 @@
 use crate::telegram::api::Bot;
-use crate::telegram::ParseMode;
 use crate::telegram::update::Message;
+use crate::telegram::ParseMode;
 use tokio_postgres::Client;
 
 use crate::utils::escape_md_v2;
@@ -8,7 +8,10 @@ use crate::utils::escape_md_v2;
 const FEATURE_CATEGORIES: &[(&str, &[&str])] = &[
     (
         "moderation",
-        &["ban", "unban", "kick", "mute", "unmute", "warn", "slowmode", "purge", "tmute", "tban", "kickme", "pin", "unpin", "del", "staff"],
+        &[
+            "ban", "unban", "kick", "mute", "unmute", "warn", "slowmode", "purge", "tmute", "tban",
+            "kickme", "pin", "unpin", "del", "staff",
+        ],
     ),
     ("notes", &["save", "get", "notes", "clear"]),
     ("filters", &["filter", "stop", "filters"]),
@@ -17,7 +20,10 @@ const FEATURE_CATEGORIES: &[(&str, &[&str])] = &[
     ("rules", &["setrules", "rules", "clearrules"]),
     ("locks", &["lock", "unlock", "locks"]),
     ("profile", &["profile", "setbio"]),
-    ("federation", &["newfed", "joinfed", "gban", "ungban", "gbans"]),
+    (
+        "federation",
+        &["newfed", "joinfed", "gban", "ungban", "gbans"],
+    ),
 ];
 
 pub async fn handle_features_list(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {

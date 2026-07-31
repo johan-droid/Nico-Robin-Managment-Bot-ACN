@@ -1,4 +1,6 @@
-pub fn sentry_before_send(mut event: sentry::protocol::Event<'static>) -> Option<sentry::protocol::Event<'static>> {
+pub fn sentry_before_send(
+    mut event: sentry::protocol::Event<'static>,
+) -> Option<sentry::protocol::Event<'static>> {
     use crate::utils::error::sanitize_secrets;
 
     // Sanitize event message
