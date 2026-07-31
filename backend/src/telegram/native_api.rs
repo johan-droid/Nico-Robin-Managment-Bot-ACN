@@ -16,7 +16,7 @@ static SHARED_CLIENT: std::sync::LazyLock<Arc<Client>> = std::sync::LazyLock::ne
     Arc::new(
         Client::builder()
             .connect_timeout(std::time::Duration::from_secs(10))
-            .timeout(std::time::Duration::from_secs(25))
+            .timeout(std::time::Duration::from_secs(60))
             .pool_max_idle_per_host(20)
             .tcp_keepalive(std::time::Duration::from_secs(30))
             .build()
