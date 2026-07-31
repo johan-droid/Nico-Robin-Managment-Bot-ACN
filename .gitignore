@@ -80,6 +80,14 @@ __pycache__/
 # Pytest
 .pytest_cache/
 
+# Cloudflare / Wrangler
+.wrangler/
+wrangler.toml
+
+# Runtime artifacts
+backend/Images/
+backend/diagnostics/
+
 # Gradle
 .gradle/
 
