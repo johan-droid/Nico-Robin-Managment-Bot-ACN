@@ -209,6 +209,7 @@ async fn main() {
 enum ConnectMode {
     Tls(tokio_postgres_rustls::MakeRustlsConnect),
     NoTls,
+    #[allow(dead_code)]
     Error(String),
 }
 

@@ -29,3 +29,5 @@ venv/
 .coverage
 htmlcov/
 *.egg-info/
+quote_*.webp
+quote_*.png

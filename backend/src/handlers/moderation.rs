@@ -715,8 +715,8 @@ pub async fn handle_pin(bot: Bot, msg: Message, settings: &Settings) -> Result<(
 pub async fn handle_unpin(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
     let args = text
-        .splitn(2, ' ')
-        .nth(1)
+        .split_once(' ')
+        .map(|x| x.1)
         .unwrap_or("")
         .trim()
         .to_lowercase();

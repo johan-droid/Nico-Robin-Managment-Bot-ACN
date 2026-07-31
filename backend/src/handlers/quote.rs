@@ -1,10 +1,11 @@
+#![allow(clippy::manual_is_multiple_of)]
+#![allow(clippy::too_many_arguments)]
 use crate::db::message_history::HistoryMessage;
 use crate::telegram::api::Bot;
 use crate::telegram::update::Message;
 use ab_glyph::{point, Font, FontRef, PxScale, ScaleFont};
 use image::{ImageEncoder, Rgba, RgbaImage};
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 const FONT_DATA: &[u8] = include_bytes!("../../assets/DejaVuSans.ttf");
@@ -580,11 +581,11 @@ mod tests {
             },
         ];
         let bytes = render_quote(&msgs).unwrap();
-        std::fs::write("/tmp/opencode/quote_test.png", &bytes).unwrap();
+        std::fs::write("quote_test.png", &bytes).unwrap();
         assert!(bytes.len() > 1000);
 
         let sticker = render_quote_sticker(&msgs).unwrap();
-        std::fs::write("/tmp/opencode/quote_test.webp", &sticker).unwrap();
+        std::fs::write("quote_test.webp", &sticker).unwrap();
         assert_eq!(&sticker[..4], b"RIFF", "sticker must be a valid webp");
         assert_eq!(&sticker[8..12], b"WEBP");
     }
@@ -615,7 +616,7 @@ mod tests {
             },
         ];
         let sticker = render_quote_sticker(&msgs).unwrap();
-        std::fs::write("/tmp/opencode/quote_emoji.webp", &sticker).unwrap();
+        std::fs::write("quote_emoji.webp", &sticker).unwrap();
         assert_eq!(&sticker[..4], b"RIFF", "sticker must be a valid webp");
         assert_eq!(&sticker[8..12], b"WEBP");
         assert!(sticker.len() > 1000);

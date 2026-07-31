@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 pub mod core;
 pub mod features;
 pub mod federation;

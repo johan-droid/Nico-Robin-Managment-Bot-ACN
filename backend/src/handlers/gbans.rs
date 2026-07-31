@@ -145,7 +145,6 @@ pub async fn handle_ungban(bot: Bot, msg: Message, client: &Client) -> Result<()
     let target_text = text
         .strip_prefix("/ungban")
         .unwrap_or("")
-        .trim()
         .split_whitespace()
         .next()
         .unwrap_or("")

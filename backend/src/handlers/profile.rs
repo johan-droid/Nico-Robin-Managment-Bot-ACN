@@ -195,76 +195,7 @@ pub async fn handle_profile(bot: Bot, msg: Message, client: &Client) -> Result<(
 
 /// Removes MarkdownV2 formatting markers so the card can be shown as plain text.
 fn strip_md_v2(text: &str) -> String {
-    text.replace('*', "").replace('`', "").replace('_', "")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn profile_card_renders_valid_markdown() {
-        let card = build_profile_card(
-            "John Doe",
-            Some("johndoe"),
-            123456789,
-            Some("creator"),
-            true,
-            "",
-            Some("ACN Test Group"),
-        );
-
-        // The card must contain the key fields.
-        assert!(card.contains("*Name:* John Doe"), "missing name:\n{card}");
-        assert!(
-            card.contains("*Username:* @johndoe"),
-            "missing username:\n{card}"
-        );
-        assert!(
-            card.contains("*User ID:* `123456789`"),
-            "missing id:\n{card}"
-        );
-        assert!(card.contains("*Role:* 👑 Owner"), "missing role:\n{card}");
-        assert!(
-            card.contains("*Group:* ACN Test Group"),
-            "missing group:\n{card}"
-        );
-
-        // The empty-bio placeholder must be valid MarkdownV2: the italic span
-        // must NOT contain an unescaped `.` or `!` (they break parsing).
-        assert!(
-            !card.contains("add one._"),
-            "unescaped '.' inside italic span:\n{card}"
-        );
-        assert!(
-            card.contains("_No bio set yet_ — use /setbio to add one"),
-            "missing safe placeholder:\n{card}"
-        );
-    }
-
-    #[test]
-    fn profile_card_escapes_user_content() {
-        let card = build_profile_card(
-            "A.B!C",
-            Some("user_name"),
-            42,
-            None,
-            false,
-            "Bio with . and ! chars.",
-            None,
-        );
-        // User-controlled dots must be escaped for MarkdownV2.
-        assert!(card.contains("A\\.B\\!C"), "name not escaped:\n{card}");
-        assert!(
-            card.contains("Bio with \\. and \\! chars\\."),
-            "bio not escaped:\n{card}"
-        );
-    }
-
-    #[test]
-    fn strip_md_v2_removes_markers() {
-        assert_eq!(strip_md_v2("*Name:* `123` _text_"), "Name: 123 text");
-    }
+    text.replace(['*', '`', '_'], "")
 }
 
 pub async fn handle_setbio(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
@@ -354,4 +285,73 @@ pub async fn handle_delete_data(bot: Bot, msg: Message, client: &Client) -> Resu
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn profile_card_renders_valid_markdown() {
+        let card = build_profile_card(
+            "John Doe",
+            Some("johndoe"),
+            123456789,
+            Some("creator"),
+            true,
+            "",
+            Some("ACN Test Group"),
+        );
+
+        // The card must contain the key fields.
+        assert!(card.contains("*Name:* John Doe"), "missing name:\n{card}");
+        assert!(
+            card.contains("*Username:* @johndoe"),
+            "missing username:\n{card}"
+        );
+        assert!(
+            card.contains("*User ID:* `123456789`"),
+            "missing id:\n{card}"
+        );
+        assert!(card.contains("*Role:* 👑 Owner"), "missing role:\n{card}");
+        assert!(
+            card.contains("*Group:* ACN Test Group"),
+            "missing group:\n{card}"
+        );
+
+        // The empty-bio placeholder must be valid MarkdownV2: the italic span
+        // must NOT contain an unescaped `.` or `!` (they break parsing).
+        assert!(
+            !card.contains("add one._"),
+            "unescaped '.' inside italic span:\n{card}"
+        );
+        assert!(
+            card.contains("_No bio set yet_ — use /setbio to add one"),
+            "missing safe placeholder:\n{card}"
+        );
+    }
+
+    #[test]
+    fn profile_card_escapes_user_content() {
+        let card = build_profile_card(
+            "A.B!C",
+            Some("user_name"),
+            42,
+            None,
+            false,
+            "Bio with . and ! chars.",
+            None,
+        );
+        // User-controlled dots must be escaped for MarkdownV2.
+        assert!(card.contains("A\\.B\\!C"), "name not escaped:\n{card}");
+        assert!(
+            card.contains("Bio with \\. and \\! chars\\."),
+            "bio not escaped:\n{card}"
+        );
+    }
+
+    #[test]
+    fn strip_md_v2_removes_markers() {
+        assert_eq!(strip_md_v2("*Name:* `123` _text_"), "Name: 123 text");
+    }
 }
