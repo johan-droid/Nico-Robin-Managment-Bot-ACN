@@ -581,11 +581,11 @@ mod tests {
             },
         ];
         let bytes = render_quote(&msgs).unwrap();
-        std::fs::write("/tmp/opencode/quote_test.png", &bytes).unwrap();
+        std::fs::write("quote_test.png", &bytes).unwrap();
         assert!(bytes.len() > 1000);
 
         let sticker = render_quote_sticker(&msgs).unwrap();
-        std::fs::write("/tmp/opencode/quote_test.webp", &sticker).unwrap();
+        std::fs::write("quote_test.webp", &sticker).unwrap();
         assert_eq!(&sticker[..4], b"RIFF", "sticker must be a valid webp");
         assert_eq!(&sticker[8..12], b"WEBP");
     }
@@ -616,7 +616,7 @@ mod tests {
             },
         ];
         let sticker = render_quote_sticker(&msgs).unwrap();
-        std::fs::write("/tmp/opencode/quote_emoji.webp", &sticker).unwrap();
+        std::fs::write("quote_emoji.webp", &sticker).unwrap();
         assert_eq!(&sticker[..4], b"RIFF", "sticker must be a valid webp");
         assert_eq!(&sticker[8..12], b"WEBP");
         assert!(sticker.len() > 1000);
