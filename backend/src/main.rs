@@ -108,6 +108,11 @@ async fn main() {
     
     // Bypass tokio-postgres IPv6 bug by manually resolving to IPv4
     let mut parsed_url = url::Url::parse(&database_url).expect("Invalid DATABASE_URL");
+    
+    // Remove channel_binding from connection URL as Neon PgBouncer pooler does not support it
+    let pairs: Vec<_> = parsed_url.query_pairs().into_owned().filter(|(k, _)| k != "channel_binding").collect();
+    parsed_url.query_pairs_mut().clear().extend_pairs(pairs.into_iter());
+
     let original_host = parsed_url.host_str().expect("DATABASE_URL must have a host").to_string();
     let mut ipv4_addr = None;
     if let Ok(addrs) = tokio::net::lookup_host((original_host.as_str(), parsed_url.port().unwrap_or(5432))).await {
