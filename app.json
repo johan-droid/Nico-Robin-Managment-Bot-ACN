@@ -1,0 +1,37 @@
+{
+  "name": "Nico Robin Bot",
+  "description": "A Telegram Bot built in Rust",
+  "repository": "https://github.com/johan-droid/Nico-Robin-Managment-Bot-ACN",
+  "buildpacks": [
+    {
+      "url": "https://github.com/emk/heroku-buildpack-rust.git"
+    }
+  ],
+  "env": {
+    "BOT_TOKEN": {
+      "description": "Your Telegram Bot Token",
+      "required": true
+    },
+    "DATABASE_URL": {
+      "description": "Neon Postgres connection URL",
+      "required": true
+    },
+    "SUDO_USERS": {
+      "description": "Comma separated list of Telegram User IDs for sudo privileges",
+      "required": true
+    },
+    "WEBHOOK_SECRET_PATH": {
+      "description": "Random path for webhook (e.g. /my-random-webhook-path-123)",
+      "required": true
+    },
+    "BOT_MODE": {
+      "description": "Mode of operation: webhook or polling",
+      "value": "webhook"
+    },
+    "PROJECT_PATH": {
+      "description": "Path to the Rust project (required for Rust buildpack)",
+      "value": "backend"
+    }
+  },
+  "stack": "container"
+}
