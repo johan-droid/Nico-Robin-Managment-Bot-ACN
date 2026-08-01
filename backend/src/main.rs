@@ -157,37 +157,10 @@ async fn main() {
     let db_client = pool.get().await.expect("Failed to connect to database");
     info!("Connected to database");
 
-    let create_table_res = db_client.batch_execute(
-        "CREATE TABLE IF NOT EXISTS username_cache (
-            username TEXT PRIMARY KEY,
-            user_id BIGINT NOT NULL,
-            first_name TEXT NOT NULL,
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-         );
-         CREATE INDEX IF NOT EXISTS idx_username_cache_user_id ON username_cache(user_id);
-         CREATE TABLE IF NOT EXISTS bot_assets (
-            key TEXT PRIMARY KEY,
-            data BYTEA NOT NULL,
-            mime_type TEXT NOT NULL DEFAULT 'image/jpeg',
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-         );
-         CREATE TABLE IF NOT EXISTS message_history (
-            id BIGSERIAL PRIMARY KEY,
-            chat_id BIGINT NOT NULL,
-            message_id BIGINT NOT NULL,
-            user_id BIGINT NOT NULL,
-            user_name TEXT NOT NULL DEFAULT '',
-            text TEXT NOT NULL DEFAULT '',
-            date BIGINT NOT NULL DEFAULT 0,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            UNIQUE (chat_id, message_id)
-         );
-         CREATE INDEX IF NOT EXISTS idx_message_history_chat_id ON message_history (chat_id);
-         CREATE INDEX IF NOT EXISTS idx_message_history_chat_date ON message_history (chat_id, date DESC);"
-    ).await;
-    if let Err(e) = create_table_res {
-        error!(error = %e, "Failed to create username_cache, bot_assets or message_history table");
-    }
+    // All schema DDL is now applied by the `migrate` binary via files in
+    // `migrations/` (run by entrypoint.sh before the bot starts). No inline
+    // CREATE TABLE is executed here anymore.
+
     // Return client to pool
     drop(db_client);
 

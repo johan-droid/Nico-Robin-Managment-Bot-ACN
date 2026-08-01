@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM rust:1.88-slim-bookworm AS builder
 WORKDIR /app
 COPY backend/ .
@@ -7,7 +8,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN cargo build --release --bin nico_robin_bot --bin migrate
+RUN --mount=type=cache,target=/usr/local/cargo/registry \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/app/target \
+    cargo build --release --bin nico_robin_bot --bin migrate
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app

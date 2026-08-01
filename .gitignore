@@ -88,6 +88,10 @@ wrangler.toml
 backend/Images/
 backend/diagnostics/
 
+# Compiled test binaries
+backend/test_db
+backend/test_url
+
 # Gradle
 .gradle/
 
