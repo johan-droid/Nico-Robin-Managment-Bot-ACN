@@ -1,10 +1,9 @@
 services:
-  - type: web
+  - type: worker
     name: nico-robin-bot
     runtime: image
     plan: free
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /health
     envVars:
       - key: BOT_TOKEN
         sync: false
