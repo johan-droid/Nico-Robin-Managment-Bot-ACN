@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     openssl \
     && rm -rf /var/lib/apt/lists/* \
-    && echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
+    && printf "precedence ::1/128 50\nprecedence ::/0 40\nprecedence 2002::/16 30\nprecedence ::/96 20\nprecedence ::ffff:0:0/96 100\n" > /etc/gai.conf
 
 RUN groupadd -r appuser && useradd -r -g appuser -u 1000 -m appuser
 
