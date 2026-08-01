@@ -31,7 +31,7 @@ fn start_keyboard() -> InlineKeyboardMarkup {
         inline_keyboard: vec![
             vec![_url_btn(
                 &format!("➕ Add {} to your group", bot_name),
-                &format!("https://t.me/{}?startgroup=true", bot_username),
+                &format!("https://t.me/{}?startgroup", bot_username),
             )],
             vec![_btn("❓ Help", "help"), _btn("ℹ️ About", "about")],
         ],
