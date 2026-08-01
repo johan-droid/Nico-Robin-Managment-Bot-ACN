@@ -30,6 +30,25 @@ struct NativeState {
     chat_states: Arc<std::sync::Mutex<HashMap<i64, PerChatState>>>,
 }
 
+#[derive(Clone)]
+struct CustomTlsConnect {
+    inner: tokio_postgres_rustls::MakeRustlsConnect,
+    domain: String,
+}
+
+impl<S> tokio_postgres::tls::MakeTlsConnect<S> for CustomTlsConnect
+where
+    tokio_postgres_rustls::MakeRustlsConnect: tokio_postgres::tls::MakeTlsConnect<S>,
+{
+    type Stream = <tokio_postgres_rustls::MakeRustlsConnect as tokio_postgres::tls::MakeTlsConnect<S>>::Stream;
+    type TlsConnect = <tokio_postgres_rustls::MakeRustlsConnect as tokio_postgres::tls::MakeTlsConnect<S>>::TlsConnect;
+    type Error = <tokio_postgres_rustls::MakeRustlsConnect as tokio_postgres::tls::MakeTlsConnect<S>>::Error;
+
+    fn make_tls_connect(&mut self, _domain: &str) -> Result<Self::TlsConnect, Self::Error> {
+        self.inner.make_tls_connect(&self.domain)
+    }
+}
+
 #[tokio::main]
 async fn main() {
     dotenvy::from_filename(".env.local").ok();
@@ -86,6 +105,23 @@ async fn main() {
     }
 
     info!("Connecting to database with connection pool");
+    
+    // Bypass tokio-postgres IPv6 bug by manually resolving to IPv4
+    let mut parsed_url = url::Url::parse(&database_url).expect("Invalid DATABASE_URL");
+    let original_host = parsed_url.host_str().expect("DATABASE_URL must have a host").to_string();
+    let mut ipv4_addr = None;
+    if let Ok(addrs) = tokio::net::lookup_host((original_host.as_str(), parsed_url.port().unwrap_or(5432))).await {
+        for addr in addrs {
+            if addr.is_ipv4() {
+                ipv4_addr = Some(addr.ip().to_string());
+                break;
+            }
+        }
+    }
+    let ipv4_str = ipv4_addr.expect("No IPv4 address found for DB host");
+    parsed_url.set_host(Some(&ipv4_str)).unwrap();
+    let ipv4_database_url = parsed_url.to_string();
+
     rustls::crypto::ring::default_provider()
         .install_default()
         .ok();
@@ -94,10 +130,14 @@ async fn main() {
     let rustls_config = rustls::ClientConfig::builder()
         .with_root_certificates(root_store)
         .with_no_client_auth();
-    let connector = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
+        
+    let connector = CustomTlsConnect {
+        inner: tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config),
+        domain: original_host,
+    };
 
     let mut cfg = Config::new();
-    cfg.url = Some(database_url.clone());
+    cfg.url = Some(ipv4_database_url);
     let pool_size = env::var("DATABASE_POOL_SIZE")
         .ok()
         .and_then(|v| v.parse::<usize>().ok())

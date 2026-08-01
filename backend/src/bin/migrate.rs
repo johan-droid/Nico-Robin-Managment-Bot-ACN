@@ -1,6 +1,25 @@
 use std::env;
 use std::fs;
 
+#[derive(Clone)]
+struct CustomTlsConnect {
+    inner: tokio_postgres_rustls::MakeRustlsConnect,
+    domain: String,
+}
+
+impl<S> tokio_postgres::tls::MakeTlsConnect<S> for CustomTlsConnect
+where
+    tokio_postgres_rustls::MakeRustlsConnect: tokio_postgres::tls::MakeTlsConnect<S>,
+{
+    type Stream = <tokio_postgres_rustls::MakeRustlsConnect as tokio_postgres::tls::MakeTlsConnect<S>>::Stream;
+    type TlsConnect = <tokio_postgres_rustls::MakeRustlsConnect as tokio_postgres::tls::MakeTlsConnect<S>>::TlsConnect;
+    type Error = <tokio_postgres_rustls::MakeRustlsConnect as tokio_postgres::tls::MakeTlsConnect<S>>::Error;
+
+    fn make_tls_connect(&mut self, _domain: &str) -> Result<Self::TlsConnect, Self::Error> {
+        self.inner.make_tls_connect(&self.domain)
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::from_filename(".env.local").ok();
@@ -10,6 +29,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let reset = args.iter().any(|a| a == "--reset");
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set in env");
+    
+    // Bypass tokio-postgres IPv6 bug on Render by forcing IPv4 resolution manually
+    let mut parsed_url = url::Url::parse(&database_url).expect("Invalid DATABASE_URL");
+    let original_host = parsed_url.host_str().expect("DATABASE_URL must have a host").to_string();
+    
+    println!("Resolving database host {} to IPv4...", original_host);
+    let mut ipv4_addr = None;
+    if let Ok(addrs) = tokio::net::lookup_host((original_host.as_str(), parsed_url.port().unwrap_or(5432))).await {
+        for addr in addrs {
+            if addr.is_ipv4() {
+                ipv4_addr = Some(addr.ip().to_string());
+                break;
+            }
+        }
+    }
+    
+    let ipv4_str = ipv4_addr.expect("No IPv4 address found for DB host");
+    println!("Resolved to IPv4: {}", ipv4_str);
+    parsed_url.set_host(Some(&ipv4_str)).unwrap();
+    let ipv4_database_url = parsed_url.to_string();
+
     println!("Connecting to database for migrations...");
 
     rustls::crypto::ring::default_provider()
@@ -20,9 +60,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rustls_config = rustls::ClientConfig::builder()
         .with_root_certificates(root_store)
         .with_no_client_auth();
-    let connector = tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config);
+        
+    let connector = CustomTlsConnect {
+        inner: tokio_postgres_rustls::MakeRustlsConnect::new(rustls_config),
+        domain: original_host,
+    };
 
-    let (client, connection) = tokio_postgres::connect(&database_url, connector).await?;
+    let (client, connection) = tokio_postgres::connect(&ipv4_database_url, connector).await?;
 
     tokio::spawn(async move {
         if let Err(e) = connection.await {
