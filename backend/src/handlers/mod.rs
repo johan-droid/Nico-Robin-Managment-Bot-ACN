@@ -1037,7 +1037,7 @@ async fn require_feature_fast(
     }
     let enabled = is_feature_enabled_cached(client, msg.chat.id, feature)
         .await
-        .unwrap_or(false);
+        .unwrap_or(true);
     if enabled {
         Ok(true)
     } else {
@@ -1065,7 +1065,13 @@ pub async fn is_feature_enabled_cached(
     result
 }
 
-async fn deny_telegram_admin(_bot: &Bot, msg: &Message) -> Result<(), String> {
-    tracing::debug!(chat_id = %msg.chat.id, "Non-admin tried to use admin command, blocked silently");
+async fn deny_telegram_admin(bot: &Bot, msg: &Message) -> Result<(), String> {
+    tracing::debug!(chat_id = %msg.chat.id, "Non-admin tried to use admin command, blocked");
+    let _ = bot
+        .send_message(
+            msg.chat.id,
+            "⚠️ Permission denied: This command requires group administrator privileges.",
+        )
+        .await;
     Ok(())
 }
