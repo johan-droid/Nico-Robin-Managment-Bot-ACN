@@ -28,4 +28,3 @@ pub enum ParseMode {
     MarkdownV2,
     Html,
 }
-
