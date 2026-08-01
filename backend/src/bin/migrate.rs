@@ -1,5 +1,7 @@
 use std::env;
 use std::fs;
+use std::io;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone)]
 struct CustomTlsConnect {
@@ -18,6 +20,24 @@ where
     fn make_tls_connect(&mut self, _domain: &str) -> Result<Self::TlsConnect, Self::Error> {
         self.inner.make_tls_connect(&self.domain)
     }
+}
+
+fn find_migrations_dir() -> Result<PathBuf, io::Error> {
+    if let Ok(dir) = env::var("MIGRATIONS_PATH") {
+        if !dir.trim().is_empty() {
+            return Ok(PathBuf::from(dir));
+        }
+    }
+    for candidate in ["migrations", "backend/migrations"] {
+        let path = Path::new(candidate);
+        if path.is_dir() {
+            return Ok(path.to_path_buf());
+        }
+    }
+    Err(io::Error::new(
+        io::ErrorKind::NotFound,
+        "migrations directory not found (looked for 'migrations' and 'backend/migrations')",
+    ))
 }
 
 #[tokio::main]
@@ -106,7 +126,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Applying migrations from migrations/ directory...");
 
-    let mut entries = fs::read_dir("migrations")?
+    let migrations_dir = find_migrations_dir()?;
+
+    let mut entries = fs::read_dir(&migrations_dir)?
         .filter_map(|res| res.ok())
         .map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|ext| ext == "sql"))
