@@ -2,6 +2,11 @@
   "name": "Nico Robin Bot",
   "description": "A Telegram Bot built in Rust",
   "repository": "https://github.com/johan-droid/Nico-Robin-Managment-Bot-ACN",
+  "buildpacks": [
+    {
+      "url": "https://github.com/emk/heroku-buildpack-rust.git"
+    }
+  ],
   "env": {
     "BOT_TOKEN": {
       "description": "Your Telegram Bot Token",
@@ -24,5 +29,5 @@
       "value": "webhook"
     }
   },
-  "stack": "container"
+  "stack": "heroku-24"
 }

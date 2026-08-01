@@ -1,2 +1,2 @@
-web: ./nico_robin_bot
-release: ./migrate
+web: ./backend/target/release/nico_robin_bot
+release: ./backend/target/release/migrate
