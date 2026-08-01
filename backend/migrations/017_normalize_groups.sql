@@ -1,0 +1,6 @@
+-- Drop the JSONB settings column and replace with structured columns
+ALTER TABLE groups
+DROP COLUMN IF EXISTS settings,
+ADD COLUMN IF NOT EXISTS language VARCHAR(10) NOT NULL DEFAULT 'en',
+ADD COLUMN IF NOT EXISTS timezone VARCHAR(50) NOT NULL DEFAULT 'UTC',
+ADD COLUMN IF NOT EXISTS prefix VARCHAR(10) NOT NULL DEFAULT '/';

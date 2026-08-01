@@ -15,3 +15,11 @@ pub mod rules;
 pub mod swears;
 pub mod warnings;
 pub mod welcome;
+
+pub mod moderation;
+pub mod economy;
+pub mod automation;
+pub mod games;
+pub mod ai;
+pub mod admin;
+pub mod logs;

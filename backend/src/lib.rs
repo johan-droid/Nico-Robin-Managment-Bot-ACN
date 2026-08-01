@@ -6,3 +6,4 @@ pub mod handlers;
 pub mod perf;
 pub mod telegram;
 pub mod utils;
+pub mod tasks;
