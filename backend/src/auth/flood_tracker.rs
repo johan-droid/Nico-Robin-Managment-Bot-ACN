@@ -44,6 +44,9 @@ impl FloodTracker {
         client: &tokio_postgres::Client,
         chat_id: i64,
     ) -> Option<(i32, String, i32)> {
+        if chat_id > 0 {
+            return None;
+        }
         if self.flood_settings_cache.is_none() {
             let fs = crate::db::flood::get_flood_settings(client, chat_id)
                 .await

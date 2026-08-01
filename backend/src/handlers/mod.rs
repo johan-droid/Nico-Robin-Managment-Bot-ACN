@@ -1052,6 +1052,9 @@ pub async fn is_feature_enabled_cached(
     chat_id: i64,
     feature: &str,
 ) -> Result<bool, String> {
+    if chat_id > 0 {
+        return Ok(true);
+    }
     if let Some(cached) = crate::db::feature_cache::get_cached(chat_id, feature) {
         return Ok(cached);
     }

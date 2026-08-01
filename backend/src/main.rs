@@ -157,9 +157,10 @@ async fn main() {
     let mut cfg = Config::new();
     cfg.url = Some(ipv4_database_url);
     let pool_size = env::var("DATABASE_POOL_SIZE")
+        .or_else(|_| env::var("DB_POOL_SIZE"))
         .ok()
         .and_then(|v| v.parse::<usize>().ok())
-        .unwrap_or(10);
+        .unwrap_or(20);
     cfg.pool = Some(deadpool_postgres::PoolConfig::new(pool_size));
     info!(pool_size = %pool_size, "Creating database connection pool");
     let pool = cfg
@@ -211,6 +212,13 @@ async fn main() {
         bot: telegram::api::Bot::new(bot_token),
         chat_states: Arc::new(std::sync::Mutex::new(HashMap::new())),
     };
+
+    if let Ok(me) = state.bot.get_me().await {
+        if let Some(ref un) = me.username {
+            telegram::set_bot_username(un);
+            info!(bot_username = %un, "Fetched and cached bot username from Telegram");
+        }
+    }
 
     // Always serve the HTTP listener (health + webhook) so Render's port
     // scan succeeds even in long-polling mode, which would otherwise leave
@@ -294,7 +302,7 @@ async fn run_polling(state: NativeState) {
             }
             Err(e) => {
                 debug!(error = %e, "Long-poll timeout (no updates) — retrying");
-                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
             }
         }
     }

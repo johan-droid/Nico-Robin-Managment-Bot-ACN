@@ -1,23 +1,33 @@
+# Multi-stage lightweight production Dockerfile for backend directory
 FROM rust:1.88-slim-bookworm AS builder
 WORKDIR /app
 
 COPY . .
-RUN cargo build --release --bin nico_robin_bot --bin migrate
-RUN strip target/release/nico_robin_bot target/release/migrate
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN cargo build --release --bin nico_robin_bot --bin migrate && \
+    strip target/release/nico_robin_bot target/release/migrate
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
+    openssl \
     curl \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && printf "precedence ::1/128 50\nprecedence ::/0 40\nprecedence 2002::/16 30\nprecedence ::/96 20\nprecedence ::ffff:0:0/96 100\n" > /etc/gai.conf
 
 RUN groupadd -r appuser && useradd -r -g appuser -u 1000 -m appuser
 
 COPY --from=builder /app/target/release/nico_robin_bot /app/
 COPY --from=builder /app/target/release/migrate /app/
 COPY --from=builder /app/migrations/ /app/migrations/
+COPY --from=builder /app/assets/ /app/assets/
+COPY --from=builder /app/Images/ /app/Images/
 
 RUN chmod +x /app/nico_robin_bot /app/migrate && chown -R appuser:appuser /app
 

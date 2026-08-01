@@ -16,12 +16,14 @@ backend/target/
 logs/
 
 *.tmp
+*.temp
 *.swp
 *.swo
 data/
 
 .vscode/
 .idea/
+.claude/
 
 .DS_Store
 Thumbs.db
@@ -30,9 +32,11 @@ Dockerfile.bak
 docker-compose.yml
 
 cloudflared/
-.claude/
 memory.md
-"*.pdf"
-"*.pdf"
-wrangler.toml
 update_memory.sh
+COMMANDS_AND_AUDIT.md
+*.pdf
+
+backend/test_*
+backend/.wrangler/
+backend/diagnostics/

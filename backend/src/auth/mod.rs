@@ -51,6 +51,11 @@ pub async fn is_telegram_admin(bot: &Bot, chat_id: i64, user_id: u64) -> bool {
         return true;
     }
 
+    // In private chats (chat_id > 0), the user is always authorized.
+    if chat_id > 0 {
+        return true;
+    }
+
     let key = (chat_id, user_id);
     let now = Instant::now();
 

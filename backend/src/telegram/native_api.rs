@@ -33,6 +33,11 @@ impl Bot {
         }
     }
 
+    pub async fn get_me(&self) -> Result<crate::telegram::update::User, String> {
+        let res = self.api_post("getMe", serde_json::json!({})).await?;
+        serde_json::from_value(res).map_err(|e| format!("Failed to parse getMe: {}", e))
+    }
+
     pub async fn api_post(&self, method: &str, payload: Value) -> Result<Value, String> {
         let url = format!("https://api.telegram.org/bot{}/{}", self.token, method);
         let mut retries = 0;

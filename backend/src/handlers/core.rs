@@ -19,19 +19,30 @@ fn _url_btn(text: &str, url: &str) -> InlineKeyboardButton {
     }
 }
 
-fn start_keyboard() -> InlineKeyboardMarkup {
-    let bot_username = std::env::var("BOT_USERNAME")
+fn get_bot_username() -> String {
+    if let Some(un) = crate::telegram::get_bot_username() {
+        if !un.is_empty() {
+            return un;
+        }
+    }
+    std::env::var("BOT_USERNAME")
         .unwrap_or_else(|_| {
             std::env::var("BOT_NAME").unwrap_or_else(|_| "nico_robin_bot".to_string())
         })
+        .trim()
+        .trim_start_matches('@')
         .replace(' ', "_")
-        .to_lowercase();
+        .to_lowercase()
+}
+
+fn start_keyboard() -> InlineKeyboardMarkup {
+    let bot_username = get_bot_username();
     let bot_name = std::env::var("BOT_NAME").unwrap_or_else(|_| "Nico Robin".to_string());
     InlineKeyboardMarkup {
         inline_keyboard: vec![
             vec![_url_btn(
                 &format!("➕ Add {} to your group", bot_name),
-                &format!("https://t.me/{}?startgroup", bot_username),
+                &format!("https://t.me/{}?startgroup=true", bot_username),
             )],
             vec![_btn("❓ Help", "help"), _btn("ℹ️ About", "about")],
         ],

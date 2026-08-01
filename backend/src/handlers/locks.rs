@@ -31,17 +31,52 @@ fn parse_lock_type(arg: &str) -> Option<&'static str> {
         .find(|t| *t == arg.to_lowercase())
 }
 
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
+
+static LOCKS_CACHE: std::sync::LazyLock<Mutex<HashMap<i64, (Arc<Vec<String>>, Instant)>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+
+const LOCKS_CACHE_TTL_SECS: u64 = 30;
+
+pub fn invalidate_locks_cache(group_id: i64) {
+    if let Ok(mut cache) = LOCKS_CACHE.lock() {
+        cache.remove(&group_id);
+    }
+}
+
 /// Returns the first lock type that a message violates (if any).
 pub async fn detect_lock_violation(
     client: &Client,
     msg: &Message,
 ) -> Result<Option<String>, String> {
-    let locks = crate::db::locks::list_locks(client, msg.chat.id).await?;
-    let locked: Vec<String> = locks
-        .iter()
-        .filter(|(_, enabled)| *enabled)
-        .map(|(t, _)| t.clone())
-        .collect();
+    let locked = {
+        let mut cached: Option<Arc<Vec<String>>> = None;
+        if let Ok(cache) = LOCKS_CACHE.lock() {
+            if let Some((list, ts)) = cache.get(&msg.chat.id) {
+                if ts.elapsed() < Duration::from_secs(LOCKS_CACHE_TTL_SECS) {
+                    cached = Some(Arc::clone(list));
+                }
+            }
+        }
+        match cached {
+            Some(list) => list,
+            None => {
+                let locks = crate::db::locks::list_locks(client, msg.chat.id).await?;
+                let list: Vec<String> = locks
+                    .into_iter()
+                    .filter(|(_, enabled)| *enabled)
+                    .map(|(t, _)| t)
+                    .collect();
+                let arc_list = Arc::new(list);
+                if let Ok(mut cache) = LOCKS_CACHE.lock() {
+                    cache.insert(msg.chat.id, (Arc::clone(&arc_list), Instant::now()));
+                }
+                arc_list
+            }
+        }
+    };
     if locked.is_empty() {
         return Ok(None);
     }
@@ -130,7 +165,10 @@ pub async fn handle_lock(bot: Bot, msg: Message, client: &Client) -> Result<(), 
     };
     let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
     match crate::db::locks::lock_group(client, msg.chat.id, lock, user_id).await {
-        Ok(_) => send_text(&bot, msg.chat.id, &format!("Locked {} 🔒", lock)).await,
+        Ok(_) => {
+            invalidate_locks_cache(msg.chat.id);
+            send_text(&bot, msg.chat.id, &format!("Locked {} 🔒", lock)).await;
+        }
         Err(e) => send_text(&bot, msg.chat.id, &format!("Error: {}", escape_md_v2(&e))).await,
     }
     Ok(())
@@ -169,7 +207,10 @@ pub async fn handle_unlock(bot: Bot, msg: Message, client: &Client) -> Result<()
     };
     let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
     match crate::db::locks::unlock_group(client, msg.chat.id, lock, user_id).await {
-        Ok(_) => send_text(&bot, msg.chat.id, &format!("Unlocked {} 🔓", lock)).await,
+        Ok(_) => {
+            invalidate_locks_cache(msg.chat.id);
+            send_text(&bot, msg.chat.id, &format!("Unlocked {} 🔓", lock)).await;
+        }
         Err(e) => send_text(&bot, msg.chat.id, &format!("Error: {}", escape_md_v2(&e))).await,
     }
     Ok(())

@@ -1,33 +1,34 @@
-# Rust / Build
+# ── Rust & Build Artifacts ──
 /target/
 **/*.rs.bk
-Cargo.lock
 
-# Environment
+# ── Environment & Secrets ──
 .env
-*.env.local
+.env.local
+.env.*
+*.env
 
-# IDE
+# ── Test Binaries & Temporary Scripts ──
+test_*
+*.test
+
+# ── Runtime Output & Generated Assets ──
+quote_*.webp
+quote_*.png
+output_*.png
+.wrangler/
+diagnostics/
+
+# ── IDEs & OS Files ──
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db
 *.swp
 *.swo
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Python (legacy)
-__pycache__/
-*.py[cod]
-*.pyc
-.venv/
-venv/
-.ruff_cache/
-.mypy_cache/
-.pytest_cache/
-.coverage
-htmlcov/
-*.egg-info/
-quote_*.webp
-quote_*.png
+# ── Logs & Temp Files ──
+*.log
+logs/
+*.tmp
+*.temp
