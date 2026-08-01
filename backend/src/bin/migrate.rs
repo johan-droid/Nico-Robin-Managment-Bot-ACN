@@ -12,6 +12,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set in env");
     println!("Connecting to database for migrations...");
 
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .ok();
     let mut root_store = rustls::RootCertStore::empty();
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
     let rustls_config = rustls::ClientConfig::builder()
