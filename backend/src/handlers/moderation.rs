@@ -834,10 +834,21 @@ pub async fn handle_tmute(
     let now = chrono::Utc::now().timestamp();
     let until = now + seconds;
     let permissions = ChatPermissions::empty();
-    match bot.restrict_chat_member_until(msg.chat.id, target_id as u64, permissions, until).await {
+    match bot
+        .restrict_chat_member_until(msg.chat.id, target_id as u64, permissions, until)
+        .await
+    {
         Ok(_) => {
             let user_id = msg.from().map(|u| u.id).unwrap_or(0) as i64;
-            let _ = crate::db::moderation::add_temp_mute(client, msg.chat.id, target_id, "Temp Mute", user_id, until).await;
+            let _ = crate::db::moderation::add_temp_mute(
+                client,
+                msg.chat.id,
+                target_id,
+                "Temp Mute",
+                user_id,
+                until,
+            )
+            .await;
             let human = format_duration(seconds);
             send_text(
                 &bot,
@@ -926,10 +937,21 @@ pub async fn handle_tban(
 
     let now = chrono::Utc::now().timestamp();
     let until = now + seconds;
-    match bot.ban_chat_member_until(msg.chat.id, target_id as u64, until).await {
+    match bot
+        .ban_chat_member_until(msg.chat.id, target_id as u64, until)
+        .await
+    {
         Ok(_) => {
             let user_id = msg.from().map(|u| u.id).unwrap_or(0) as i64;
-            let _ = crate::db::moderation::add_temp_ban(client, msg.chat.id, target_id, "Temp Ban", user_id, until).await;
+            let _ = crate::db::moderation::add_temp_ban(
+                client,
+                msg.chat.id,
+                target_id,
+                "Temp Ban",
+                user_id,
+                until,
+            )
+            .await;
             let human = format_duration(seconds);
             send_text(
                 &bot,
