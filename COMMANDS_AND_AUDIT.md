@@ -1,8 +1,8 @@
-# 🤖 Nico Robin Bot — Command Reference & Audit Report
+# 🤖 Nico Robin Bot — Comprehensive Command Reference & Usage Guide
 
 > **Project:** Nico Robin Management Bot (ACN)  
 > **Stack:** Rust · Axum · Tokio · PostgreSQL (Neon) · Telegram Bot API  
-> **Last Updated:** 2026-07-31
+> **Last Updated:** 2026-08-01  
 
 ---
 
@@ -16,368 +16,168 @@
 6. [Welcome & Farewell Commands](#-welcome--farewell-commands)
 7. [Security Commands](#-security-commands)
 8. [Moderation Commands](#-moderation-commands)
-9. [Feature Toggle Commands](#-feature-toggle-commands)
-10. [Federation Commands](#-federation-commands)
-11. [Full Audit Report](#-full-audit-report)
-12. [How to Run](#-how-to-run)
+9. [Lock Commands](#-lock-commands)
+10. [Rules Commands](#-rules-commands)
+11. [Feature Toggle Commands](#-feature-toggle-commands)
+12. [Federation Commands](#-federation-commands)
+13. [Fun Commands](#-fun-commands)
 
 ---
 
 ## 🔑 Permission Levels
 
-| Level | Who | Description |
-|-------|-----|-------------|
-| 🌍 **Everyone** | Any chat member | No restrictions — open to all |
-| 🛡️ **Admin** | Group admins & bot sudo users | Requires Telegram admin rights in the group |
-| 👑 **Sudo** | IDs listed in `SUDO_USERS` env var | Bot-level super admins; bypass all checks |
-
-> **Target Resolution:** Most admin commands accept a reply to a message **or** `@username` as the target. The bot will attempt to resolve the username to a user ID automatically.
+| Level | Symbol | Who | Description |
+|-------|--------|-----|-------------|
+| **Everyone** | 🌍 | Any chat member | Open access — no special permissions required. |
+| **Admin** | 🛡️ | Group admins & Sudo users | Requires Telegram admin privileges in the current chat. |
+| **Sudo / Captain** | 👑 | Bot Owners & Group Creator | Bot super-administrators and group owners. |
 
 ---
 
 ## 🏠 Core Commands
 
-> **File:** `backend/src/handlers/core.rs`
-
-| Command | Syntax | Permission | Description |
-|---------|--------|------------|-------------|
-| `/start` | `/start` | 🌍 Everyone | Sends a welcome greeting with bot introduction |
-| `/help` | `/help` | 🌍 Everyone | Displays a categorised, formatted list of all available commands |
-
-**Implementation Notes:**
-- `/help` generates its output dynamically from a static `sections` array — no DB query needed.
-- Both commands use `ParseMode::MarkdownV2` with `escape_md_v2()` for safe formatting.
-
-**Work Progress:** ✅ Complete
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/start` | `/start` | **Greeting** | 🌍 Everyone | **Explanation**: Initializes bot interaction, registers user state, and displays the main interactive home card.<br>**How to use**: Send `/start` in a private message (DM) to open the main menu with action buttons (`➕ Add to group`, `❓ Help`, `ℹ️ About`). |
+| `/help` | `/help` | **Reference** | 🌍 Everyone | **Explanation**: Opens the interactive command guide catalog structured into moderator and member categories.<br>**How to use**: Send `/help` in any chat, then select a category button (`🛡️ Moderator Commands` or `👤 Non-Moderator Commands`) to view commands. |
 
 ---
 
 ## 👤 Profile Commands
 
-> **File:** `backend/src/handlers/profile.rs`
-
-| Command | Syntax | Permission | Description |
-|---------|--------|------------|-------------|
-| `/profile` | `/profile` or `/profile @user` | 🌍 Everyone | Shows a rich profile card with the user's profile picture, username, group role, ID and bio for yourself or a target user |
-| `/setbio` | `/setbio <text>` | 🌍 Everyone | Sets your own bio (stored in DB under your user ID) |
-| `/exportmydata` | `/exportmydata` | 🌍 Everyone | Exports your stored profile data as a pretty-printed JSON block |
-| `/deletemydata` | `/deletemydata` | 🌍 Everyone | Permanently deletes all your stored profile data from the DB |
-
-**Implementation Notes:**
-- `/profile` falls back to the sender if no target is specified, and resolves replies / `@username` targets via admins + the username cache.
-- The profile card includes the user's **profile picture** (sent as a photo with the card as caption), **username**, **group role** (Owner / Admin / Member / Banned / Restricted), user ID and stored bio.
-- `/exportmydata` calls `get_or_create_profile()`, so it always returns data (creates one if missing).
-- `/deletemydata` returns a clear "No data found" if the profile doesn't exist.
-
-**Work Progress:** ✅ Complete
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/profile` | `/profile [@user]` or reply | **Card** | 🌍 Everyone | **Explanation**: Fetches and renders a complete profile card showing profile photo, full name, username, Telegram ID, group role, join date, and custom bio.<br>**How to use**: Send `/profile` for yourself, OR reply to any member's message with `/profile`, OR type `/profile @username` / `/profile 123456789`. |
+| `/setbio` | `/setbio <text>` | **Biography** | 🌍 Everyone | **Explanation**: Stores a custom personal biography in the database linked to your account, displayed on your profile card.<br>**How to use**: Send `/setbio Hello! I am a software engineer and group co-host.` to update your bio. |
+| `/exportmydata` | `/exportmydata` | **Export** | 🌍 Everyone | **Explanation**: Generates and sends a complete JSON dump of all personal data stored about your account in the bot database.<br>**How to use**: Send `/exportmydata` in DM with the bot to receive your JSON data file. |
+| `/deletemydata` | `/deletemydata` | **Erasure** | 👑 Captain/Dev | **Explanation**: Permanently wipes and deletes all database records associated with your account from the bot database.<br>**How to use**: Send `/deletemydata` in DM with the bot to erase all saved profile data. |
+| `/staff` | `/staff` | **Roster** | 🌍 Everyone | **Explanation**: Scans the group administration hierarchy and lists all group owners, co-founders, and active admins.<br>**How to use**: Send `/staff` in any group chat to display the staff roster. |
 
 ---
 
 ## 📝 Notes Commands
 
-> **File:** `backend/src/handlers/notes.rs`
-
-| Command | Syntax | Permission | Description |
-|---------|--------|------------|-------------|
-| `/save` | `/save <name> <content>` | 🛡️ Admin | Saves a named note scoped to the chat |
-| `/get` | `/get <name>` | 🌍 Everyone | Retrieves a saved note by name and posts its content |
-| `/notes` | `/notes` | 🌍 Everyone | Lists all note names saved in the current chat |
-| `/clear` | `/clear <name>` | 🛡️ Admin | Deletes a note by name; responds with "not found" if absent |
-
-**Implementation Notes:**
-- Notes are scoped per `chat_id` — isolated between groups.
-- `/save` uses `splitn(3, ' ')` so content can contain spaces.
-- `/get` returns the raw stored content without escaping — supports rich text.
-
-**Work Progress:** ✅ Complete
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/save` | `/save <keyword> <content>` or reply | **Store** | 🛡️ Admin | **Explanation**: Saves text, links, or media under a specific keyword trigger scoped to the current group.<br>**How to use**: Direct: Send `/save rules Please follow guidelines.`; Reply: Reply to an important message with `/save faq` to save it under keyword `faq`. |
+| `/get` | `/get <keyword>` or `#keyword` | **Retrieve** | 🌍 Everyone | **Explanation**: Looks up and posts the saved content associated with a note keyword.<br>**How to use**: Send `/get rules` OR simply type `#rules` anywhere in the group text. |
+| `/notes` | `/notes` | **Catalog** | 🌍 Everyone | **Explanation**: Lists all saved note keywords stored in the current group database.<br>**How to use**: Send `/notes` in the group chat to view all available note keywords. |
+| `/clear` | `/clear <keyword>` | **Remove** | 🛡️ Admin | **Explanation**: Deletes a specific saved note from the group database by its keyword.<br>**How to use**: Send `/clear rules` to delete the note saved under `rules`. |
 
 ---
 
 ## 🔍 Filter Commands
 
-> **File:** `backend/src/handlers/filters.rs`
-
-| Command | Syntax | Permission | Description |
-|---------|--------|------------|-------------|
-| `/filter` | `/filter <trigger> <response>` | 🛡️ Admin | Adds an auto-reply rule: when `trigger` appears in a message, bot replies with `response` |
-| `/stop` | `/stop <trigger>` | 🛡️ Admin | Removes an active filter by its trigger text |
-| `/filters` | `/filters` | 🌍 Everyone | Lists all active filters for the current chat with their trigger → response pairs |
-
-**Implementation Notes:**
-- Triggers are matched against incoming message text in `handlers/mod.rs`.
-- Uses `splitn(3, ' ')` so responses can contain spaces.
-- Stored and queried via `crate::db::filters`.
-
-**Work Progress:** ✅ Complete
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/filter` | `/filter <trigger> <response>` | **Auto-reply** | 🛡️ Admin | **Explanation**: Creates an automated trigger-and-response rule. Whenever any member sends a message containing `<trigger>`, the bot responds with `<response>`.<br>**How to use**: Send `/filter website https://example.com` to auto-reply with the link whenever "website" is mentioned. |
+| `/stop` | `/stop <trigger>` | **Delete** | 🛡️ Admin | **Explanation**: Deletes an automated auto-reply filter trigger from the group.<br>**How to use**: Send `/stop website` to stop auto-replying when "website" is typed. |
+| `/filters` | `/filters` | **Overview** | 🌍 Everyone | **Explanation**: Lists all active trigger-and-response auto-reply rules configured in the group.<br>**How to use**: Send `/filters` to view all active auto-reply keywords and responses. |
 
 ---
 
 ## 👋 Welcome & Farewell Commands
 
-> **File:** `backend/src/handlers/welcome.rs`
-
-| Command | Syntax | Permission | Description |
-|---------|--------|------------|-------------|
-| `/setwelcome` | `/setwelcome <message>` | 🛡️ Admin | Sets the welcome message sent when a new member joins. Supports `{user}`, `{group}`, `{count}` variables |
-| `/resetwelcome` | `/resetwelcome` | 🛡️ Admin | Clears the welcome message (bot goes silent on new joins) |
-| `/welcome` | `/welcome` | 🛡️ Admin | Previews the current welcome message as-is |
-| `/setwelcomedm` | `/setwelcomedm <message>` | 🛡️ Admin | Sets a DM message sent privately to each new member. Supports `{user}`, `{group}` |
-| `/setfarewell` | `/setfarewell <message>` | 🛡️ Admin | Sets the farewell message when a member leaves. Supports `{user}`, `{group}` |
-| `/farewell` | `/farewell` | 🛡️ Admin | Previews the current farewell message |
-| `/cleanwelcome` | `/cleanwelcome` | 🛡️ Admin | Toggles auto-deletion of welcome messages after **60 seconds** |
-| `/welcometest` | `/welcometest` | 🛡️ Admin | Fires a test welcome with your own name, group name, and real member count |
-
-**Template Variables:**
-
-| Variable | Replaced With |
-|----------|--------------|
-| `{user}` | New member's first name |
-| `{group}` | Chat title |
-| `{count}` | Current member count (fetched live) |
-
-**Auto-Events (no command needed):**
-- `handle_new_member` — triggered automatically when `new_chat_members` appears in an update.
-- `handle_left_member` — triggered automatically when `left_chat_member` appears.
-
-**Work Progress:** ✅ Complete
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/setwelcome` | `/setwelcome <message>` | **Welcome** | 🛡️ Admin | **Explanation**: Sets the custom greeting posted when a new member joins (`{user}` = name, `{group}` = title, `{count}` = total members).<br>**How to use**: Send `/setwelcome Welcome {user} to {group}! You are member #{count}.` |
+| `/resetwelcome` | `/resetwelcome` | **Reset** | 🛡️ Admin | **Explanation**: Clears the custom welcome message and restores default bot greeting.<br>**How to use**: Send `/resetwelcome` in the group chat. |
+| `/welcome` | `/welcome` | **Preview** | 🛡️ Admin | **Explanation**: Renders a live preview of the active welcome greeting message.<br>**How to use**: Send `/welcome` in the group chat. |
+| `/setwelcomedm` | `/setwelcomedm <message>` | **Direct-message** | 🛡️ Admin | **Explanation**: Configures a private welcome message sent directly to a new member's DM upon joining.<br>**How to use**: Send `/setwelcomedm Thanks for joining {group}! Please read our rules.` |
+| `/setfarewell` | `/setfarewell <message>` | **Farewell** | 🛡️ Admin | **Explanation**: Sets the goodbye message posted when a member leaves (`{user}`, `{group}`).<br>**How to use**: Send `/setfarewell Goodbye {user}, hope to see you again in {group}!` |
+| `/farewell` | `/farewell` | **Preview** | 🛡️ Admin | **Explanation**: Displays a live preview of the configured farewell message.<br>**How to use**: Send `/farewell` in the group chat. |
+| `/cleanwelcome` | `/cleanwelcome` | **Auto-delete** | 🛡️ Admin | **Explanation**: Toggles automatic deletion of welcome messages after 60 seconds to prevent chat clutter.<br>**How to use**: Send `/cleanwelcome` to turn auto-cleaning ON or OFF. |
+| `/welcometest` | `/welcometest` | **Test** | 🛡️ Admin | **Explanation**: Simulates a join event using your username and member count to test formatting.<br>**How to use**: Send `/welcometest` in the group chat. |
 
 ---
 
 ## 🔒 Security Commands
 
-> **File:** `backend/src/handlers/security.rs`
-
-| Command | Syntax | Permission | Description |
-|---------|--------|------------|-------------|
-| `/setflood` | `/setflood <count>` | 🛡️ Admin | Sets max messages per user in a 10-second window. Use `0` to disable flood protection |
-| `/flood` | `/flood` | 🛡️ Admin | Displays current flood settings: limit, window (seconds), and action mode |
-| `/addswear` | `/addswear <word>` | 🛡️ Admin | Adds a word to the per-chat swear filter (case-insensitive, stored lowercase) |
-| `/delswear` | `/delswear <word>` | 🛡️ Admin | Removes a word from the swear filter |
-| `/report` | `/report` (reply to message) | 🌍 Everyone | Flags a message to the group's admins |
-
-**Flood Protection Modes:**
-
-| Mode | Behaviour |
-|------|-----------|
-| `warn` | Warns the user (default when limit > 0) |
-| `off` | Disables flood checking |
-
-**Implementation Notes:**
-- Flood and swear word lists are loaded into **in-memory cache** at startup and invalidated on write commands — avoiding per-message DB queries.
-- Cache lives in `NativeState` (Axum) / `ChatState` (Wasm).
-
-**Work Progress:** ✅ Complete
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/setflood` | `/setflood <count>` | **Limit** | 🛡️ Admin | **Explanation**: Sets maximum allowed messages per user in 10 seconds (`0` disables anti-flood). Exceeding triggers warning or mute.<br>**How to use**: Send `/setflood 5` to set a limit of 5 messages per 10 seconds. |
+| `/flood` | `/flood` | **Status** | 🛡️ Admin | **Explanation**: Displays current anti-flood security settings including limit and action mode.<br>**How to use**: Send `/flood` in the group chat. |
+| `/addswear` | `/addswear <word>` | **Block** | 🛡️ Admin | **Explanation**: Adds a word to the bad word blacklist. Matching messages are deleted and warned.<br>**How to use**: Send `/addswear badword` to block "badword". |
+| `/delswear` | `/delswear <word>` | **Unblock** | 🛡️ Admin | **Explanation**: Removes a word from the bad word blacklist.<br>**How to use**: Send `/delswear badword` to unblock "badword". |
+| `/report` | `/report` (reply) or `@admin` | **Flag** | 🌍 Everyone | **Explanation**: Flags an inappropriate message directly to all admins and logs it to the log channel.<br>**How to use**: Reply to any spam or offensive message with `/report`. |
 
 ---
 
 ## 🔨 Moderation Commands
 
-> **File:** `backend/src/handlers/moderation.rs`
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/ban` | `/ban @user [reason]` or reply | **Ban** | 🛡️ Admin | **Explanation**: Permanently bans a user from the group and deletes recent activity.<br>**How to use**: Reply to a message with `/ban Spamming` OR send `/ban @spammer Excessive ads`. |
+| `/unban` | `/unban @user` or reply | **Unban** | 🛡️ Admin | **Explanation**: Revokes a ban so the user can rejoin via invite link.<br>**How to use**: Send `/unban @user123` or reply to their message with `/unban`. |
+| `/kick` | `/kick @user [reason]` or reply | **Remove** | 🛡️ Admin | **Explanation**: Removes a user from the group without a permanent ban (they can rejoin via link).<br>**How to use**: Reply to a message with `/kick Please read the rules`. |
+| `/mute` | `/mute @user [reason]` or reply | **Mute** | 🛡️ Admin | **Explanation**: Restricts a user's permission to send text, media, or links in the group.<br>**How to use**: Reply to a message with `/mute Disruption in chat`. |
+| `/unmute` | `/unmute @user` or reply | **Unmute** | 🛡️ Admin | **Explanation**: Restores full chat messaging permissions to a muted user.<br>**How to use**: Send `/unmute @user123` or reply to their message with `/unmute`. |
+| `/warn` | `/warn @user [reason]` or reply | **Warning** | 🛡️ Admin | **Explanation**: Issues an official warning to a user. Upon reaching 3 warnings, the user is auto-banned.<br>**How to use**: Reply to a rule violation with `/warn Inappropriate language`. |
+| `/warns` | `/warns @user` or reply | **Inspection** | 🛡️ Admin | **Explanation**: Displays a user's total warning count and detailed reasons.<br>**How to use**: Reply to a user's message with `/warns` or send `/warns @user`. |
+| `/resetwarn` | `/resetwarn @user` or reply | **Clear** | 🛡️ Admin | **Explanation**: Clears all warning records for a user, resetting count back to 0.<br>**How to use**: Reply to a user's message with `/resetwarn` or send `/resetwarn @user`. |
+| `/slowmode` | `/slowmode <sec>` | **Delay** | 🛡️ Admin | **Explanation**: Sets required wait time (seconds) between messages for non-admin members (`0` disables).<br>**How to use**: Send `/slowmode 15` to require a 15-second wait between messages. |
+| `/del` | `/del` (reply) | **Delete** | 🛡️ Admin | **Explanation**: Immediately deletes the replied-to message and the `/del` command call.<br>**How to use**: Reply to any unwanted message with `/del`. |
+| `/purge` | `/purge <count>` or reply | **Clean** | 🛡️ Admin | **Explanation**: Bulk deletes messages. Replying deletes target message and everything after; number deletes last N.<br>**How to use**: Reply to start message with `/purge` OR send `/purge 20` for last 20. |
+| `/tmute` | `/tmute @user <duration>` | **Temporary-mute** | 🛡️ Admin | **Explanation**: Temporarily mutes a user for a duration (`30m` = 30 min, `2h` = 2 hrs, `1d` = 1 day).<br>**How to use**: Reply to a message with `/tmute 2h` to silence for 2 hours. |
+| `/tban` | `/tban @user <duration>` | **Temporary-ban** | 🛡️ Admin | **Explanation**: Temporarily bans a user for a duration (`1h`, `1d`, `1w`). Automatically unbans on expiration.<br>**How to use**: Send `/tban @user 1d` to ban for 1 day. |
+| `/kickme` | `/kickme` | **Self-remove** | 🌍 Everyone | **Explanation**: Removes yourself from the current group chat.<br>**How to use**: Send `/kickme` in the group chat. |
+| `/pin` | `/pin` (reply) | **Highlight** | 🛡️ Admin | **Explanation**: Pins the replied-to message to the group chat header banner.<br>**How to use**: Reply to an announcement message with `/pin`. |
+| `/unpin` | `/unpin` (reply) or `/unpin all` | **Unhighlight** | 🛡️ Admin | **Explanation**: Unpins a specific pinned message or clears all pinned messages.<br>**How to use**: Send `/unpin all` to clear all pinned messages. |
+| `/autowarnon` | `/autowarnon` | **Enable** | 🛡️ Admin | **Explanation**: Enables automatic warning issuance for repeat spam offenders.<br>**How to use**: Send `/autowarnon` in the group chat. |
+| `/autowarnoff` | `/autowarnoff` | **Disable** | 🛡️ Admin | **Explanation**: Disables automatic warning issuance.<br>**How to use**: Send `/autowarnoff` in the group chat. |
 
-| Command | Syntax | Permission | Description |
-|---------|--------|------------|-------------|
-| `/ban` | `/ban @user` or reply | 🛡️ Admin | Permanently bans a user from the chat |
-| `/unban` | `/unban @user` or reply | 🛡️ Admin | Lifts a ban — user can rejoin via invite |
-| `/kick` | `/kick @user` or reply | 🛡️ Admin | Removes a user from the chat without a permanent ban (can rejoin) |
-| `/mute` | `/mute @user` or reply | 🛡️ Admin | Restricts all chat permissions (`ChatPermissions::empty()`) |
-| `/unmute` | `/unmute @user` or reply | 🛡️ Admin | Restores all chat permissions (`ChatPermissions::all()`) |
-| `/warn` | `/warn @user [reason]` or reply | 🛡️ Admin | Issues a warning. Auto-bans when warn threshold is reached and resets the counter |
-| `/warns` | `/warns @user` or reply | 🛡️ Admin | Shows warning count and list of reasons for a user |
-| `/resetwarn` | `/resetwarn @user` or reply | 🛡️ Admin | Clears all warnings for a user |
-| `/slowmode` | `/slowmode <seconds>` | 🛡️ Admin | Sets chat slow mode delay. Use `0` to disable |
-| `/purge` | `/purge <count>` or reply | 🛡️ Admin | Deletes the replied-to message and everything after it, or the last N messages |
-| `/tmute` | `/tmute @user <duration>` | 🛡️ Admin | Temporarily mutes a user for a set time (e.g. 30m, 2h, 1d) |
-| `/tban` | `/tban @user <duration>` | 🛡️ Admin | Temporarily bans a user for a set time (e.g. 1h, 1d, 1w) |
-| `/del` | `/del` (reply to message) | 🛡️ Admin | Deletes the replied-to message and the `/del` command itself |
-| `/pin` | `/pin` (reply to message) | 🛡️ Admin | Pins the replied-to message and deletes the `/pin` command |
-| `/unpin` | `/unpin` or `/unpin all` | 🛡️ Admin | Unpins a specific message or clears all pinned messages |
-| `/autowarnon` | `/autowarnon` | 🛡️ Admin | Enables automatic warnings for repeat offenders |
-| `/autowarnoff` | `/autowarnoff` | 🛡️ Admin | Disables automatic warnings |
-| `/kickme` | `/kickme` | 🌍 Everyone | Removes yourself from the group |
+---
 
-**Warn Auto-Ban Logic:**
-```
-warn_count >= warn_threshold  →  auto-ban + reset warns
-```
-- `warn_threshold` is configured in `Settings` (loaded from env/config).
-- All actions are logged to `LOG_CHANNEL_ID` via `log_mod_action()`.
+## 🔐 Lock Commands
 
-**Work Progress:** ✅ Complete
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/lock` | `/lock <type>` | **Lock** | 🛡️ Admin | **Explanation**: Restricts specific content types (`photos`, `videos`, `stickers`, `gifs`, `documents`, `voice`, `audio`, `links`, `forward`, `bots`, `polls`, `video_notes`). Matching non-admin posts are auto-deleted.<br>**How to use**: Send `/lock links` to block links, or `/lock stickers` to block stickers. |
+| `/unlock` | `/unlock <type>` | **Unlock** | 🛡️ Admin | **Explanation**: Unlocks a previously restricted content type.<br>**How to use**: Send `/unlock links` to permit links again. |
+| `/locks` | `/locks` | **Audit** | 🌍 Everyone | **Explanation**: Displays all currently enforced content locks in the group.<br>**How to use**: Send `/locks` in the group chat. |
+
+---
+
+## 📜 Rules Commands
+
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/setrules` | `/setrules <text>` | **Rules** | 🛡️ Admin | **Explanation**: Saves the official group rules document in the database.<br>**How to use**: Send `/setrules 1. Be respectful\n2. No spam\n3. No self-promo`. |
+| `/rules` | `/rules` | **Display** | 🌍 Everyone | **Explanation**: Displays the official group rules document.<br>**How to use**: Send `/rules` in any group chat. |
+| `/clearrules` | `/clearrules` | **Erase** | 🛡️ Admin | **Explanation**: Deletes the saved group rules document.<br>**How to use**: Send `/clearrules` in the group chat. |
 
 ---
 
 ## ⚙️ Feature Toggle Commands
 
-> **File:** `backend/src/handlers/features.rs`
-
-| Command | Syntax | Permission | Description |
-|---------|--------|------------|-------------|
-| `/features` | `/features` | 🌍 Everyone | Lists all feature overrides in the current chat (ON/OFF) |
-| `/enable` | `/enable <feature>` | 🛡️ Admin | Enables a named feature for this chat |
-| `/disable` | `/disable <feature>` | 🛡️ Admin | Disables a named feature |
-| `/enablecategory` | `/enablecategory <category>` | 🛡️ Admin | Enables every feature in a category at once |
-| `/disablecategory` | `/disablecategory <category>` | 🛡️ Admin | Disables every feature in a category at once |
-| `/toggle` | `/toggle <feature>` | 🛡️ Admin | Reads current state and flips it |
-| `/featureinfo` | `/featureinfo` | 🌍 Everyone | Shows all feature categories and the features they contain |
-| `/myfeatures` | `/myfeatures` | 🌍 Everyone | Shows enabled/disabled/total counts for this chat |
-| `/resetfeatures` | `/resetfeatures` | 🛡️ Admin | Removes all feature overrides — restores all to default (enabled) |
-
-**Feature Categories:**
-
-| Category | Features |
-|----------|---------|
-| `moderation` | ban, unban, kick, mute, unmute, warn, slowmode, purge, tmute, tban, kickme, pin, unpin, del, staff |
-| `notes` | save, get, notes, clear |
-| `filters` | filter, stop, filters |
-| `welcome` | welcome, farewell |
-| `security` | flood, swear, report |
-| `rules` | setrules, rules, clearrules |
-| `locks` | lock, unlock, locks |
-| `profile` | profile, setbio |
-| `federation` | newfed, joinfed, gban, ungban, gbans |
-
-**Work Progress:** ✅ Complete
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/features` | `/features` | **List** | 🌍 Everyone | **Explanation**: Displays feature override status (ON/OFF) for the chat.<br>**How to use**: Send `/features` in the group chat. |
+| `/enable` | `/enable <feature>` | **Enable** | 🛡️ Admin | **Explanation**: Activates a specific feature module (`filters`, `notes`, `locks`, `welcome`, `security`, `moderation`, `rules`, `profile`, `federation`).<br>**How to use**: Send `/enable filters` to activate auto-replies. |
+| `/disable` | `/disable <feature>` | **Disable** | 🛡️ Admin | **Explanation**: Deactivates a feature module for the group.<br>**How to use**: Send `/disable locks` to turn off content locking. |
+| `/toggle` | `/toggle <feature>` | **Switch** | 🛡️ Admin | **Explanation**: Flips a feature state between enabled and disabled.<br>**How to use**: Send `/toggle welcome`. |
+| `/enablecategory` | `/enablecategory <cat>` | **Enable-category** | 🛡️ Admin | **Explanation**: Enables every feature inside a category at once.<br>**How to use**: Send `/enablecategory moderation`. |
+| `/disablecategory` | `/disablecategory <cat>` | **Disable-category** | 🛡️ Admin | **Explanation**: Disables every feature inside a category at once.<br>**How to use**: Send `/disablecategory fun`. |
+| `/featureinfo` | `/featureinfo` | **Guide** | 🌍 Everyone | **Explanation**: Displays category-to-feature mapping details.<br>**How to use**: Send `/featureinfo` in the group chat. |
+| `/myfeatures` | `/myfeatures` | **Summary** | 🌍 Everyone | **Explanation**: Displays summary counts of enabled vs disabled features.<br>**How to use**: Send `/myfeatures` in the group chat. |
+| `/resetfeatures` | `/resetfeatures` | **Restore** | 🛡️ Admin | **Explanation**: Resets all feature overrides to default (all enabled).<br>**How to use**: Send `/resetfeatures` in the group chat. |
 
 ---
 
 ## 🌐 Federation Commands
 
-> **File:** `backend/src/handlers/federation.rs`
-
-| Command | Syntax | Permission | Description |
-|---------|--------|------------|-------------|
-| `/newfed` | `/newfed <name>` | 🛡️ Admin | Creates a new federation with the given name; returns a unique 8-character federation ID |
-| `/joinfed` | `/joinfed <fed_id>` | 🛡️ Admin | Links the current group to an existing federation by its ID |
-| `/gban` | `/gban @user <reason>` | 🛡️ Admin | Bans a user from every group the bot manages |
-| `/ungban` | `/ungban @user` | 🛡️ Admin | Removes a user from the global ban list |
-| `/gbans` | `/gbans` | 🛡️ Admin | Lists all globally banned users |
-
-**Implementation Notes:**
-- Federation IDs are the first 8 characters of a UUID v4.
-- `join_federation` returns `false` (already a member) or `true` (newly joined).
-- Federation data is stored in `crate::db::federations`.
-
-**Work Progress:** ✅ Complete — *federation ban propagation across groups is not yet implemented*
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/newfed` | `/newfed <name>` | **Create** | 🛡️ Admin | **Explanation**: Initializes a new multi-group federation under `<name>` and generates an 8-character ID.<br>**How to use**: Send `/newfed Anime Alliance` to create a federation. |
+| `/joinfed` | `/joinfed <fed_id>` | **Connect** | 🛡️ Admin | **Explanation**: Connects the current group to an existing federation by its 8-character ID.<br>**How to use**: Send `/joinfed a1b2c3d4` to link your group. |
+| `/gban` | `/gban @user <reason>` | **Global-ban** | 👑 Sudo | **Explanation**: Bans a user globally across all groups managed by the bot.<br>**How to use**: Send `/gban @spammer Raid bot`. |
+| `/ungban` | `/ungban @user` | **Global-unban** | 👑 Sudo | **Explanation**: Removes a user from the global ban list.<br>**How to use**: Send `/ungban @user123`. |
+| `/gbans` | `/gbans` | **Global-list** | 👑 Sudo | **Explanation**: Displays all users on the global ban list.<br>**How to use**: Send `/gbans` in the chat. |
 
 ---
 
-## 📊 Full Audit Report
+## 🎨 Fun Commands
 
-### Architecture Overview
-
-```
-Telegram Webhook
-       │
-       ▼
-  Axum Router (main.rs)
-       │
-       ▼
-  handle_message (handlers/mod.rs)
-       │
-  ┌────┴────┐
-  ▼         ▼
-Flood     Command
-Check      Rate Limit
-  │         │
-  └────┬────┘
-       ▼
-  Feature Check
-       │
-       ▼
-  Command Handler
-  (core / profile / notes / filters /
-   welcome / security / moderation /
-   features / federation)
-       │
-       ▼
-  DB (PostgreSQL via Neon)
-```
-
-### Module Status
-
-| Module | File | Status | Notes |
-|--------|------|--------|-------|
-| Telegram API client | `telegram/api.rs` | ✅ Complete | Custom lightweight client; no aiogram/teloxide |
-| Update parsing | `telegram/update.rs` | ✅ Complete | Manual deserialization |
-| Auth & permission check | `auth/mod.rs` | ✅ Complete | Admin check via `getChatMember` API |
-| Rate limiter | `auth/rate_limiter.rs` | ✅ Complete | Constants hard-coded; no env dependency |
-| State management | `main.rs` / `lib.rs` | ✅ Complete | `NativeState` (Axum) + `ChatState` (Wasm DO) |
-| In-memory cache | `main.rs` | ✅ Complete | Flood settings + swear words cached per chat |
-| Handler dispatch | `handlers/mod.rs` | ✅ Complete | Single `handle_message` gate with flood → rate limit → feature → command pipeline |
-| Core commands | `handlers/core.rs` | ✅ Complete | `/start`, `/help` |
-| Profile commands | `handlers/profile.rs` | ✅ Complete | `/profile`, `/setbio`, `/exportmydata`, `/deletemydata` |
-| Notes | `handlers/notes.rs` | ✅ Complete | `/save`, `/get`, `/notes`, `/clear` |
-| Filters | `handlers/filters.rs` | ✅ Complete | `/filter`, `/stop`, `/filters` |
-| Welcome/Farewell | `handlers/welcome.rs` | ✅ Complete | All 8 commands + auto-events |
-| Security | `handlers/security.rs` | ✅ Complete | `/setflood`, `/flood`, `/addswear`, `/delswear` |
-| Moderation | `handlers/moderation.rs` | ✅ Complete | 18 admin commands + `/kickme` with logging |
-| Feature toggles | `handlers/features.rs` | ✅ Complete | All 9 commands |
-| Federation | `handlers/federation.rs` | 🟡 Partial | Create/join done; cross-fed ban propagation missing |
-| DB — profiles | `db/profiles.rs` | ✅ Complete | CRUD for user profiles |
-| DB — notes | `db/notes.rs` | ✅ Complete | Chat-scoped note storage |
-| DB — filters | `db/filters.rs` | ✅ Complete | Chat-scoped filter storage |
-| DB — warnings | `db/warnings.rs` | ✅ Complete | Warning add/get/reset |
-| DB — flood | `db/flood.rs` | ✅ Complete | Flood settings per chat |
-| DB — swears | `db/swears.rs` | ✅ Complete | Swear word list per chat |
-| DB — welcome | `db/welcome.rs` | ✅ Complete | Welcome/farewell settings |
-| DB — features | `db/features.rs` | ✅ Complete | Feature override storage |
-| DB — federations | `db/federations.rs` | 🟡 Partial | Create/join; no ban sync |
-| Utils | `utils/mod.rs` | ✅ Complete | `escape_md_v2`, `spawn_task` portable helper |
-| Config | `config/mod.rs` | ✅ Complete | Loaded from env at startup |
-| Env configuration | `.env.local` | ✅ Complete | Trimmed to only essential variables |
-| Rate limits | `auth/rate_limiter.rs` | ✅ Complete | Hard-coded constants |
-
-### Completed Improvements (This Session)
-
-- [x] Moved all rate limit values from env to compile-time constants
-- [x] Removed rate limit env vars from `.env.local`
-- [x] Implemented `NativeState` with `Mutex<HashMap>` for in-memory state
-- [x] Implemented `spawn_task` portable async helper (fixes Wasm panic)
-- [x] Swear words and flood settings cached in-memory (cache invalidated on write)
-- [x] Cleaned up unnecessary deployment config files
-- [x] Added `dotenvy` auto-load in `main.rs`
-
-### Outstanding Items
-
-- [ ] **Federation ban propagation** — bans in one group should apply to all groups in the same federation
-- [ ] **Unit tests** — no automated tests exist yet; add tests for auth, rate limiter, and DB modules
-- [ ] **Integration test** — verify each command end-to-end against a test bot
-- [ ] **Moderation log formatting** — `log_mod_action` sends plain text; upgrade to MarkdownV2 embeds
-- [ ] **`/warns` threshold source** — currently reads `WARN_THRESHOLD` env var directly inside handler; should use the `Settings` struct for consistency
-- [ ] **Binary file cleanup** — manually run: `rm "Nico Robi  Documentation v3.pdf"` from project root
-
----
-
-## 🚀 How to Run
-
-```bash
-# Navigate to the backend directory
-cd "backend"
-
-# Ensure .env.local is populated (see .env.local in the backend folder)
-# Build and run the bot binary
-cargo run --release --bin nico_robin_bot
-
-# To run the DB migrations separately:
-# cargo run --release --bin migrate
-```
-
-> The bot starts an Axum HTTP server on `PORT` (default `8000`) and listens for Telegram webhook POSTs.  
-> Make sure your `BOT_TOKEN` and `DATABASE_URL` are set in `.env.local`.
-
-### Required `.env.local` Variables
-
-| Variable | Purpose |
-|----------|---------|
-| `BOT_TOKEN` | Telegram bot API token |
-| `DATABASE_URL` | PostgreSQL connection string (Neon) |
-| `SUDO_USERS` | Comma-separated list of super-admin Telegram user IDs |
-| `ALLOWED_GROUP_IDS` | Comma-separated allowed chat IDs (or leave blank for all) |
-| `LOG_CHANNEL_ID` | Channel ID for moderation logs (`0` = disabled) |
-| `BOT_NAME` | Display name used in messages |
-| `ENVIRONMENT` | `local` or `production` |
-| `LOG_LEVEL` | `DEBUG`, `INFO`, `WARN`, `ERROR` |
-
----
-
-*Documentation generated by Antigravity — AI coding assistant.*
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/q` | `/q [n]` (reply) | **Quote** | 🌍 Everyone | **Explanation**: Renders a replied-to message (or last N messages) into a styled image quote card with avatar and text formatting.<br>**How to use**: Reply to a message with `/q` OR reply with `/q 2` / `/q 3`. |
