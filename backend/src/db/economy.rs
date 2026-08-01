@@ -1,0 +1,1 @@
+pub struct EconomyProfile; // Placeholder

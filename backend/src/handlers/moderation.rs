@@ -148,6 +148,7 @@ pub async fn handle_unban(
     tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /unban command");
     match bot.unban_chat_member(msg.chat.id, target_id as u64).await {
         Ok(_) => {
+            let _ = crate::db::moderation::remove_temp_ban(client, msg.chat.id, target_id).await;
             tracing::info!(target_id = %target_id, "Telegram unbanChatMember API call succeeded");
 
             // Get the invite link
@@ -838,6 +839,16 @@ pub async fn handle_tmute(
         .await
     {
         Ok(_) => {
+            let user_id = msg.from().map(|u| u.id).unwrap_or(0) as i64;
+            let _ = crate::db::moderation::add_temp_mute(
+                client,
+                msg.chat.id,
+                target_id,
+                "Temp Mute",
+                user_id,
+                until,
+            )
+            .await;
             let human = format_duration(seconds);
             send_text(
                 &bot,
@@ -931,6 +942,16 @@ pub async fn handle_tban(
         .await
     {
         Ok(_) => {
+            let user_id = msg.from().map(|u| u.id).unwrap_or(0) as i64;
+            let _ = crate::db::moderation::add_temp_ban(
+                client,
+                msg.chat.id,
+                target_id,
+                "Temp Ban",
+                user_id,
+                until,
+            )
+            .await;
             let human = format_duration(seconds);
             send_text(
                 &bot,

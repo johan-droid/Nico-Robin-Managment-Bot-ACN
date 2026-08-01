@@ -4,5 +4,6 @@ pub mod crypto;
 pub mod db;
 pub mod handlers;
 pub mod perf;
+pub mod tasks;
 pub mod telegram;
 pub mod utils;
