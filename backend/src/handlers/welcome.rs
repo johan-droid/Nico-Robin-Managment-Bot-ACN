@@ -18,7 +18,9 @@ pub async fn handle_setwelcome(bot: Bot, msg: Message, client: &Client) -> Resul
     let chat_id = msg.chat.id;
     match crate::db::welcome::set_welcome_message(client, chat_id, content).await {
         Ok(_) => {
-            let _ = bot.send_message(msg.chat.id, "Welcome message set.").await;
+            let _ = bot
+                .send_message(msg.chat.id, crate::handlers::flavor::welcome_set())
+                .await;
         }
         Err(e) => {
             let _ = bot

@@ -13,12 +13,7 @@ async fn send_text(bot: &Bot, chat_id: i64, text: &str) {
 pub async fn handle_gban(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let sender_id = msg.from().map(|u| u.id).unwrap_or(0);
     if !crate::auth::is_sudo_or_privileged(sender_id) {
-        send_text(
-            &bot,
-            msg.chat.id,
-            "This command is restricted to bot operators.",
-        )
-        .await;
+        send_text(&bot, msg.chat.id, &crate::handlers::flavor::sudo_denied()).await;
         return Ok(());
     }
 
@@ -47,7 +42,7 @@ pub async fn handle_gban(bot: Bot, msg: Message, client: &Client) -> Result<(), 
                 let username_hash = crate::crypto::try_crypto()
                     .map(|c| c.hash_text(&clean_uname))
                     .unwrap_or_default();
-                
+
                 let row_res = if username_hash.is_empty() {
                     client
                         .query_one(
@@ -146,12 +141,7 @@ pub async fn handle_gban(bot: Bot, msg: Message, client: &Client) -> Result<(), 
 pub async fn handle_ungban(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let sender_id = msg.from().map(|u| u.id).unwrap_or(0);
     if !crate::auth::is_sudo_or_privileged(sender_id) {
-        send_text(
-            &bot,
-            msg.chat.id,
-            "This command is restricted to bot operators.",
-        )
-        .await;
+        send_text(&bot, msg.chat.id, &crate::handlers::flavor::sudo_denied()).await;
         return Ok(());
     }
 
@@ -180,7 +170,7 @@ pub async fn handle_ungban(bot: Bot, msg: Message, client: &Client) -> Result<()
                 let username_hash = crate::crypto::try_crypto()
                     .map(|c| c.hash_text(&clean_uname))
                     .unwrap_or_default();
-                
+
                 let row_res = if username_hash.is_empty() {
                     client
                         .query_one(
@@ -250,12 +240,7 @@ pub async fn handle_ungban(bot: Bot, msg: Message, client: &Client) -> Result<()
 pub async fn handle_gbans_list(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let sender_id = msg.from().map(|u| u.id).unwrap_or(0);
     if !crate::auth::is_sudo_or_privileged(sender_id) {
-        send_text(
-            &bot,
-            msg.chat.id,
-            "This command is restricted to bot operators.",
-        )
-        .await;
+        send_text(&bot, msg.chat.id, &crate::handlers::flavor::sudo_denied()).await;
         return Ok(());
     }
 

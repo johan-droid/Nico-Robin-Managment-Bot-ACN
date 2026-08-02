@@ -24,7 +24,7 @@ async fn resolve_profile_target(
             let username_hash = crate::crypto::try_crypto()
                 .map(|c| c.hash_text(&clean_uname))
                 .unwrap_or_default();
-            
+
             let row_res = if username_hash.is_empty() {
                 client
                     .query_one(

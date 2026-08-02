@@ -28,7 +28,7 @@ async fn extract_target(
                 let username_hash = crate::crypto::try_crypto()
                     .map(|c| c.hash_text(&clean_uname))
                     .unwrap_or_default();
-                
+
                 let row_res = if username_hash.is_empty() {
                     client
                         .query_one(
@@ -109,7 +109,7 @@ pub async fn handle_ban(
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Banned {}", escape_md_v2(&target_name)),
+                &crate::handlers::flavor::ban_msg(&target_name),
             )
             .await;
             log_mod_action(
@@ -268,7 +268,7 @@ pub async fn handle_kick(
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Kicked {}", escape_md_v2(&target_name)),
+                &crate::handlers::flavor::kick_msg(&target_name),
             )
             .await;
             log_mod_action(
@@ -329,7 +329,7 @@ pub async fn handle_mute(
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Muted {}", escape_md_v2(&target_name)),
+                &crate::handlers::flavor::mute_msg(&target_name),
             )
             .await;
             log_mod_action(
@@ -491,10 +491,7 @@ pub async fn handle_warn(
         send_text(
             &bot,
             msg.chat.id,
-            &format!(
-                "{} auto-banned for exceeding warn threshold.",
-                escape_md_v2(&target_name)
-            ),
+            &crate::handlers::flavor::auto_ban_msg(&target_name, count, "exceeded warn threshold"),
         )
         .await;
         log_mod_action(
@@ -867,7 +864,7 @@ pub async fn handle_tmute(
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Muted {} for {}.", escape_md_v2(&target_name), human),
+                &crate::handlers::flavor::tmute_msg(&target_name, &human),
             )
             .await;
             let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
@@ -970,7 +967,7 @@ pub async fn handle_tban(
             send_text(
                 &bot,
                 msg.chat.id,
-                &format!("Banned {} for {}.", escape_md_v2(&target_name), human),
+                &crate::handlers::flavor::tban_msg(&target_name, &human),
             )
             .await;
             let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");

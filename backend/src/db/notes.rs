@@ -78,7 +78,7 @@ pub async fn get_note(
     let name_hash = crate::crypto::try_crypto()
         .map(|c| c.hash_text(&lower_name))
         .unwrap_or_default();
-    
+
     let row = if name_hash.is_empty() {
         let name_enc = crate::crypto::try_encrypt(&lower_name);
         client
@@ -111,7 +111,8 @@ pub async fn list_notes(client: &Client, group_id: i64) -> Result<Vec<String>, S
         .await
         .map_err(|e| e.to_string())?;
 
-    let mut names: Vec<String> = rows.into_iter()
+    let mut names: Vec<String> = rows
+        .into_iter()
         .map(|r| crate::crypto::try_decrypt(&r.get::<_, String>(0)))
         .collect();
     names.sort();
@@ -124,7 +125,7 @@ pub async fn delete_note(client: &Client, group_id: i64, name: &str) -> Result<b
     let name_hash = crate::crypto::try_crypto()
         .map(|c| c.hash_text(&lower_name))
         .unwrap_or_default();
-    
+
     let result = if name_hash.is_empty() {
         let name_enc = crate::crypto::try_encrypt(&lower_name);
         client
