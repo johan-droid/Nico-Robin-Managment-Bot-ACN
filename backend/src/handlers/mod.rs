@@ -3,6 +3,7 @@ pub mod core;
 pub mod features;
 pub mod federation;
 pub mod filters;
+pub mod flavor;
 pub mod gbans;
 pub mod locks;
 pub mod moderation;
@@ -209,7 +210,7 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                     .map(|c| c.hash_text(&lower_username))
                     .unwrap_or_default();
                 let name_enc = crate::crypto::try_encrypt(&from.first_name);
-                
+
                 if !username_hash.is_empty() {
                     let _ = client.execute(
                         "INSERT INTO username_cache (username, username_hash, user_id, first_name, updated_at) \
@@ -218,7 +219,7 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                         &[&username_enc, &username_hash, &user_id, &name_enc],
                     ).await;
                 }
-                
+
                 if let Ok(mut g) = USERNAME_CACHE_WRITE_GUARD.lock() {
                     g.insert(user_id, Instant::now());
                 }
@@ -253,7 +254,7 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                                         .map(|c| c.hash_text(&lower_username))
                                         .unwrap_or_default();
                                     let name_enc = crate::crypto::try_encrypt(username);
-                                    
+
                                     if !username_hash.is_empty() {
                                         let _ = client.execute(
                                             "INSERT INTO username_cache (username, username_hash, user_id, first_name, updated_at) \
@@ -952,7 +953,7 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                             {
                                 Ok(rows) => rows
                                     .into_iter()
-                                    .map(|r| r.get::<usize, String>(0))
+                                    .map(|r| crate::crypto::try_decrypt(&r.get::<usize, String>(0)))
                                     .collect::<Vec<_>>(),
                                 Err(_) => Vec::new(),
                             };
@@ -971,7 +972,7 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                 if let Some(swear) = swear_words.iter().find(|w| text_lower.contains(*w)) {
                     let _ = bot.delete_message(msg.chat.id, msg.id()).await;
                     let _ = bot
-                        .send_message(msg.chat.id, format!("Swear word detected: {}", swear))
+                        .send_message(msg.chat.id, crate::handlers::flavor::swear_detected(swear))
                         .await;
                     auto_warn_and_maybe_ban(
                         &bot,
@@ -1022,7 +1023,7 @@ async fn require_sudo_fast(bot: &Bot, msg: &Message) -> Result<bool, String> {
         Ok(true)
     } else {
         let _ = bot
-            .send_message(msg.chat.id, "This command is restricted to bot operators.")
+            .send_message(msg.chat.id, crate::handlers::flavor::sudo_denied())
             .await;
         Ok(false)
     }
@@ -1073,7 +1074,7 @@ pub async fn is_feature_enabled_cached(
     feature: &str,
 ) -> Result<bool, String> {
     if chat_id > 0 {
-        return Ok(true);
+        return Ok(false);
     }
     if let Some(cached) = crate::db::feature_cache::get_cached(chat_id, feature) {
         return Ok(cached);
@@ -1088,10 +1089,7 @@ pub async fn is_feature_enabled_cached(
 async fn deny_telegram_admin(bot: &Bot, msg: &Message) -> Result<(), String> {
     tracing::debug!(chat_id = %msg.chat.id, "Non-admin tried to use admin command, blocked");
     let _ = bot
-        .send_message(
-            msg.chat.id,
-            "⚠️ Permission denied: This command requires group administrator privileges.",
-        )
+        .send_message(msg.chat.id, crate::handlers::flavor::admin_denied())
         .await;
     Ok(())
 }

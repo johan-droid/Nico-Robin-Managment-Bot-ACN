@@ -51,9 +51,9 @@ pub async fn is_telegram_admin(bot: &Bot, chat_id: i64, user_id: u64) -> bool {
         return true;
     }
 
-    // In private chats (chat_id > 0), the user is always authorized.
+    // In private chats (chat_id > 0), they shouldn't get group admin bypass.
     if chat_id > 0 {
-        return true;
+        return false;
     }
 
     let key = (chat_id, user_id);

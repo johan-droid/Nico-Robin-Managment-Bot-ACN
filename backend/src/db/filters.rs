@@ -64,7 +64,13 @@ pub async fn add_filter(
             .execute(
                 r#"INSERT INTO filters (group_id, trigger_text, trigger_hash, response, created_by)
                VALUES ($1, $2, $3, $4, $5)"#,
-                &[&group_id, &trigger_enc, &trigger_hash, &response_enc, &created_by],
+                &[
+                    &group_id,
+                    &trigger_enc,
+                    &trigger_hash,
+                    &response_enc,
+                    &created_by,
+                ],
             )
             .await
             .map_err(|e| e.to_string())?;
@@ -73,12 +79,13 @@ pub async fn add_filter(
 }
 
 pub async fn list_filters(client: &Client, group_id: i64) -> Result<Vec<Filter>, String> {
-    let rows = client.query(
-        r#"SELECT trigger_text, response FROM filters WHERE group_id = $1"#,
-        &[&group_id]
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+    let rows = client
+        .query(
+            r#"SELECT trigger_text, response FROM filters WHERE group_id = $1"#,
+            &[&group_id],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
 
     let mut filters: Vec<Filter> = rows
         .into_iter()
