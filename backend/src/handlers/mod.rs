@@ -276,7 +276,7 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
         .chat
         .title()
         .map(|s| s.to_string())
-        .or_else(|| msg.chat.first_name().map(|s| s.to_string()))
+        .or_else(|| msg.from().map(|u| u.first_name.clone()))
         .unwrap_or_else(|| "Private Chat".to_string());
 
     let should_write = GROUP_WRITE_GUARD
