@@ -357,14 +357,14 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
         if let Some(correct_answer) = quiz_info {
             if !text.starts_with('/') {
                 if text.trim().eq_ignore_ascii_case(correct_answer.trim()) {
-                    let _ = crate::db::games::add_bounty(client, user_id as i64, 10).await;
+                    let _ = crate::db::games::add_bounty(client, user_id, 10).await;
                     let reply = "Correct! You gained 10 Bounty!".to_string();
                     let _ = bot.send_message(msg.chat.id, reply).await;
 
                     let mut guard = game::quiz::ACTIVE_QUIZZES.lock().await;
                     guard.remove(&msg.chat.id);
                 } else {
-                    let _ = crate::db::games::add_bounty(client, user_id as i64, -5).await;
+                    let _ = crate::db::games::add_bounty(client, user_id, -5).await;
                     let reply = "Wrong answer! You lost 5 Bounty...".to_string();
                     let _ = bot.send_message(msg.chat.id, reply).await;
                 }
