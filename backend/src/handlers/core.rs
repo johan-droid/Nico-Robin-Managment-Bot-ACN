@@ -71,6 +71,7 @@ fn help_keyboard() -> InlineKeyboardMarkup {
         inline_keyboard: vec![
             vec![_btn("🛡️ Moderator Commands", "moderator")],
             vec![_btn("👤 Non-Moderator Commands", "nonmoderator")],
+            vec![_btn("🎲 Game Commands", "cat_game")],
         ],
     }
 }
@@ -432,6 +433,20 @@ fn category_text(category: &str) -> &'static str {
             "💬 /q [n]  —  <b>[Quote]</b>\n",
             "   · Action: Renders a replied-to message (or last N messages) into a styled image quote card.\n",
             "   · How to use: Reply to a message with /q OR reply with /q 2 / /q 3.",
+        ),
+        "cat_game" => concat!(
+            "🎲 <b>Game Commands</b> 🎲\n",
+            "✿ ∘ ━━━━━━━━━┉┅╍\n\n",
+            "💰 /bounty  —  <b>[Personal]</b>\n",
+            "   · Action: View your personal pirate reputation.\n\n",
+            "📅 /daily  —  <b>[Daily Check-in]</b>\n",
+            "   · Action: Claim your daily +5 Bounty.\n\n",
+            "⚓ /crew  —  <b>[Team]</b>\n",
+            "   · Action: Manage your crew (create, join, invite, info, leave).\n\n",
+            "🌊 /voyage  —  <b>[Explore]</b>\n",
+            "   · Action: Risk your bounty on a random exploration (1 hr cooldown).\n\n",
+            "🧠 /quiz  —  <b>[Trivia]</b>\n",
+            "   · Action: Answer a Robin quiz for bounty rewards (+10 / -5).",
         ),
         _ => "Unknown category.",
     }
