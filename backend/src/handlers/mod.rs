@@ -16,6 +16,7 @@ pub mod rules;
 pub mod security;
 pub mod staff;
 pub mod welcome;
+pub mod game;
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -360,6 +361,11 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                 );
 
                 match cmd_name.as_str() {
+                    "bounty" => return game::bounty::handle_bounty(bot, msg, client).await,
+                    "daily" => return game::bounty::handle_daily(bot, msg, client).await,
+                    "voyage" => return game::voyage::handle_voyage(bot, msg, client).await,
+                    "quiz" => return game::quiz::handle_quiz(bot, msg, client).await,
+                    "crew" => return game::crew::handle_crew(bot, msg, client).await,
                     "start" => return core::handle_start(bot, msg, client).await,
                     "help" => return core::handle_help(bot, msg).await,
                     "ban" => {
