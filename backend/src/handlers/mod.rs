@@ -4,6 +4,7 @@ pub mod features;
 pub mod federation;
 pub mod filters;
 pub mod flavor;
+pub mod game;
 pub mod gbans;
 pub mod locks;
 pub mod moderation;
@@ -16,7 +17,6 @@ pub mod rules;
 pub mod security;
 pub mod staff;
 pub mod welcome;
-pub mod game;
 
 use std::collections::HashMap;
 use std::sync::Mutex;

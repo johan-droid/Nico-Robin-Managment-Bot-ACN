@@ -1,10 +1,10 @@
-use tokio_postgres::Client;
 use crate::telegram::api::Bot;
 use crate::telegram::update::Message;
 use std::collections::HashMap;
-use std::sync::LazyLock;
 use std::sync::Arc;
+use std::sync::LazyLock;
 use tokio::sync::Mutex;
+use tokio_postgres::Client;
 
 pub static ACTIVE_QUIZZES: LazyLock<Arc<Mutex<HashMap<i64, (String, u64)>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
@@ -22,11 +22,11 @@ pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), 
                 let mut guard = ACTIVE_QUIZZES.lock().await;
                 guard.insert(msg.chat.id, (answer, sent.message_id));
             }
-        },
+        }
         Ok(None) => {
             let text = "Fufufu... It seems I don't have any questions right now.";
             let _ = bot.send_message(msg.chat.id, text).await;
-        },
+        }
         Err(e) => {
             tracing::error!("Error fetching quiz: {}", e);
             let text = "Fufufu... The Robin Quiz feature is currently being studied by the scholars of Ohara.";
