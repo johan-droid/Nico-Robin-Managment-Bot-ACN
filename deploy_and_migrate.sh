@@ -18,13 +18,10 @@ fi
 
 echo "Running migrations against the cloud database..."
 
-# Go to backend migrations directory
-cd backend/migrations
+cd backend
 
-# Apply all migrations in order
-for file in $(ls *.sql | sort -n); do
-    echo "Applying $file..."
-    psql "$DATABASE_URL" -f "$file"
-done
+# Run the built-in Rust migration tool
+# This safely checks the _migrations table to ensure data is never overwritten or re-applied.
+cargo run --release --bin migrate
 
 echo "Cloud migration complete!"
