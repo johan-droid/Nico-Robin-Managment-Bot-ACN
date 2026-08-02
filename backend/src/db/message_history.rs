@@ -23,6 +23,8 @@ pub async fn record_message(
     text: &str,
     date: u64,
 ) -> Result<(), String> {
+    let name_enc = crate::crypto::try_encrypt(user_name);
+    let text_enc = crate::crypto::try_encrypt(text);
     client
         .execute(
             "INSERT INTO message_history (chat_id, message_id, user_id, user_name, text, date) \
@@ -32,8 +34,8 @@ pub async fn record_message(
                 &chat_id,
                 &(message_id as i64),
                 &(user_id as i64),
-                &user_name,
-                &text,
+                &name_enc,
+                &text_enc,
                 &(date as i64),
             ],
         )
@@ -63,8 +65,8 @@ pub async fn get_recent(
         .map(|r| HistoryMessage {
             message_id: r.get::<_, i64>(0) as u64,
             user_id: r.get::<_, i64>(1) as u64,
-            user_name: r.get::<_, String>(2),
-            text: r.get::<_, String>(3),
+            user_name: crate::crypto::try_decrypt(&r.get::<_, String>(2)),
+            text: crate::crypto::try_decrypt(&r.get::<_, String>(3)),
             date: r.get::<_, i64>(4) as u64,
         })
         .collect();
@@ -95,8 +97,8 @@ pub async fn get_recent_between(
         .map(|r| HistoryMessage {
             message_id: r.get::<_, i64>(0) as u64,
             user_id: r.get::<_, i64>(1) as u64,
-            user_name: r.get::<_, String>(2),
-            text: r.get::<_, String>(3),
+            user_name: crate::crypto::try_decrypt(&r.get::<_, String>(2)),
+            text: crate::crypto::try_decrypt(&r.get::<_, String>(3)),
             date: r.get::<_, i64>(4) as u64,
         })
         .collect())

@@ -44,13 +44,27 @@ pub async fn handle_gban(bot: Bot, msg: Message, client: &Client) -> Result<(), 
             Some(v) => v,
             None => {
                 let clean_uname = name.trim_start_matches('@').to_lowercase();
-                match client
-                    .query_one(
-                        "SELECT user_id, first_name FROM username_cache WHERE username = $1",
-                        &[&clean_uname],
-                    )
-                    .await
-                {
+                let username_hash = crate::crypto::try_crypto()
+                    .map(|c| c.hash_text(&clean_uname))
+                    .unwrap_or_default();
+                
+                let row_res = if username_hash.is_empty() {
+                    client
+                        .query_one(
+                            "SELECT user_id, first_name FROM username_cache WHERE username = $1",
+                            &[&clean_uname],
+                        )
+                        .await
+                } else {
+                    client
+                        .query_one(
+                            "SELECT user_id, first_name FROM username_cache WHERE username_hash = $1",
+                            &[&username_hash],
+                        )
+                        .await
+                };
+
+                match row_res {
                     Ok(row) => (
                         row.get::<_, i64>(0),
                         crate::crypto::try_decrypt(&row.get::<_, String>(1)),
@@ -163,13 +177,27 @@ pub async fn handle_ungban(bot: Bot, msg: Message, client: &Client) -> Result<()
             Some(v) => v,
             None => {
                 let clean_uname = name.trim_start_matches('@').to_lowercase();
-                match client
-                    .query_one(
-                        "SELECT user_id, first_name FROM username_cache WHERE username = $1",
-                        &[&clean_uname],
-                    )
-                    .await
-                {
+                let username_hash = crate::crypto::try_crypto()
+                    .map(|c| c.hash_text(&clean_uname))
+                    .unwrap_or_default();
+                
+                let row_res = if username_hash.is_empty() {
+                    client
+                        .query_one(
+                            "SELECT user_id, first_name FROM username_cache WHERE username = $1",
+                            &[&clean_uname],
+                        )
+                        .await
+                } else {
+                    client
+                        .query_one(
+                            "SELECT user_id, first_name FROM username_cache WHERE username_hash = $1",
+                            &[&username_hash],
+                        )
+                        .await
+                };
+
+                match row_res {
                     Ok(row) => (
                         row.get::<_, i64>(0),
                         crate::crypto::try_decrypt(&row.get::<_, String>(1)),

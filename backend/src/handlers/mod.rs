@@ -204,13 +204,21 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                 .unwrap_or(true);
             if should_write {
                 let lower_username = username.to_lowercase();
+                let username_enc = crate::crypto::try_encrypt(&lower_username);
+                let username_hash = crate::crypto::try_crypto()
+                    .map(|c| c.hash_text(&lower_username))
+                    .unwrap_or_default();
                 let name_enc = crate::crypto::try_encrypt(&from.first_name);
-                let _ = client.execute(
-                    "INSERT INTO username_cache (username, user_id, first_name, updated_at) \
-                     VALUES ($1, $2, $3, NOW()) \
-                     ON CONFLICT (username) DO UPDATE SET user_id = $2, first_name = $3, updated_at = NOW()",
-                    &[&lower_username, &user_id, &name_enc],
-                ).await;
+                
+                if !username_hash.is_empty() {
+                    let _ = client.execute(
+                        "INSERT INTO username_cache (username, username_hash, user_id, first_name, updated_at) \
+                         VALUES ($1, $2, $3, $4, NOW()) \
+                         ON CONFLICT (username_hash) DO UPDATE SET user_id = $3, first_name = $4, updated_at = NOW()",
+                        &[&username_enc, &username_hash, &user_id, &name_enc],
+                    ).await;
+                }
+                
                 if let Ok(mut g) = USERNAME_CACHE_WRITE_GUARD.lock() {
                     g.insert(user_id, Instant::now());
                 }
@@ -240,13 +248,20 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
 
                                     // Cache the resolved username
                                     let lower_username = username.to_lowercase();
+                                    let username_enc = crate::crypto::try_encrypt(&lower_username);
+                                    let username_hash = crate::crypto::try_crypto()
+                                        .map(|c| c.hash_text(&lower_username))
+                                        .unwrap_or_default();
                                     let name_enc = crate::crypto::try_encrypt(username);
-                                    let _ = client.execute(
-                                        "INSERT INTO username_cache (username, user_id, first_name, updated_at) \
-                                         VALUES ($1, $2, $3, NOW()) \
-                                         ON CONFLICT (username) DO UPDATE SET user_id = $2, first_name = $3, updated_at = NOW()",
-                                        &[&lower_username, &target_id, &name_enc],
-                                    ).await;
+                                    
+                                    if !username_hash.is_empty() {
+                                        let _ = client.execute(
+                                            "INSERT INTO username_cache (username, username_hash, user_id, first_name, updated_at) \
+                                             VALUES ($1, $2, $3, $4, NOW()) \
+                                             ON CONFLICT (username_hash) DO UPDATE SET user_id = $3, first_name = $4, updated_at = NOW()",
+                                            &[&username_enc, &username_hash, &target_id, &name_enc],
+                                        ).await;
+                                    }
 
                                     let mut mock_msg = msg.clone();
                                     mock_msg.text = Some(format!("/{} {}", command, target_id));
