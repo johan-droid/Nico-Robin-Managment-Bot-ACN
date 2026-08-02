@@ -271,19 +271,24 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
     }
 
     // --- Critical path: security checks ---
-    // Group tracking — skip if we upserted within the last 5 minutes
-    if let Some(title) = msg.chat.title() {
-        let should_write = GROUP_WRITE_GUARD
-            .lock()
-            .ok()
-            .and_then(|m| m.get(&msg.chat.id).copied())
-            .map(|ts| ts.elapsed() > std::time::Duration::from_secs(CACHE_WRITE_INTERVAL_SECS))
-            .unwrap_or(true);
-        if should_write {
-            let _ = crate::db::groups::ensure_group(client, msg.chat.id, title).await;
-            if let Ok(mut g) = GROUP_WRITE_GUARD.lock() {
-                g.insert(msg.chat.id, Instant::now());
-            }
+    // Group / Chat tracking — skip if we upserted within the last 5 minutes
+    let chat_title = msg
+        .chat
+        .title()
+        .map(|s| s.to_string())
+        .or_else(|| msg.chat.first_name().map(|s| s.to_string()))
+        .unwrap_or_else(|| "Private Chat".to_string());
+
+    let should_write = GROUP_WRITE_GUARD
+        .lock()
+        .ok()
+        .and_then(|m| m.get(&msg.chat.id).copied())
+        .map(|ts| ts.elapsed() > std::time::Duration::from_secs(CACHE_WRITE_INTERVAL_SECS))
+        .unwrap_or(true);
+    if should_write {
+        let _ = crate::db::groups::ensure_group(client, msg.chat.id, &chat_title).await;
+        if let Ok(mut g) = GROUP_WRITE_GUARD.lock() {
+            g.insert(msg.chat.id, Instant::now());
         }
     }
 

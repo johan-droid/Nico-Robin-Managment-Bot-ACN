@@ -8,6 +8,7 @@ pub async fn save_note(
     content: &str,
     created_by: i64,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let content_enc = crate::crypto::try_encrypt(content);
     client
         .execute(

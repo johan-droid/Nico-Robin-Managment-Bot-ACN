@@ -33,6 +33,7 @@ pub async fn enable_feature(
     feature_name: &str,
     toggled_by: i64,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     client.execute(
         r#"INSERT INTO feature_flags (group_id, feature_name, enabled, toggled_by)
            VALUES ($1, $2, TRUE, $3)
@@ -51,6 +52,7 @@ pub async fn disable_feature(
     feature_name: &str,
     toggled_by: i64,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     client.execute(
         r#"INSERT INTO feature_flags (group_id, feature_name, enabled, toggled_by)
            VALUES ($1, $2, FALSE, $3)

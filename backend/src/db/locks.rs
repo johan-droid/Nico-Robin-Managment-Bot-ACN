@@ -19,6 +19,7 @@ pub async fn lock_group(
     lock_type: &str,
     toggled_by: i64,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     client
         .execute(
             r#"INSERT INTO group_locks (group_id, lock_type, enabled, toggled_by, toggled_at)
@@ -38,6 +39,7 @@ pub async fn unlock_group(
     lock_type: &str,
     toggled_by: i64,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     client
         .execute(
             r#"INSERT INTO group_locks (group_id, lock_type, enabled, toggled_by, toggled_at)

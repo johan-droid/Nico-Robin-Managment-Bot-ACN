@@ -7,6 +7,7 @@ pub async fn set_rules(
     rules: &str,
     updated_by: i64,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let rules_enc = crate::crypto::try_encrypt(rules);
     client
         .execute(

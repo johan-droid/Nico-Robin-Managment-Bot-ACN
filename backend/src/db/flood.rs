@@ -28,6 +28,7 @@ pub async fn set_flood_settings(
     mode: &str,
     window: i32,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let mode_enc = crate::crypto::try_encrypt(mode);
     client
         .execute(

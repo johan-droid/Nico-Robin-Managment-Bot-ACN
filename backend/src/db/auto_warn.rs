@@ -12,6 +12,7 @@ pub async fn is_auto_warn_enabled(client: &Client, group_id: i64) -> Result<bool
 }
 
 pub async fn enable_auto_warn(client: &Client, group_id: i64) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     client
         .execute(
             "INSERT INTO auto_warn_settings (group_id, enabled) VALUES ($1, TRUE) ON CONFLICT (group_id) DO UPDATE SET enabled = TRUE, updated_at = NOW()",
@@ -23,6 +24,7 @@ pub async fn enable_auto_warn(client: &Client, group_id: i64) -> Result<(), Stri
 }
 
 pub async fn disable_auto_warn(client: &Client, group_id: i64) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     client
         .execute(
             "INSERT INTO auto_warn_settings (group_id, enabled) VALUES ($1, FALSE) ON CONFLICT (group_id) DO UPDATE SET enabled = FALSE, updated_at = NOW()",

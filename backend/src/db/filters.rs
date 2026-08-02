@@ -13,6 +13,7 @@ pub async fn add_filter(
     response: &str,
     created_by: i64,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let response_enc = crate::crypto::try_encrypt(response);
     client
         .execute(

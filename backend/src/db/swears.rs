@@ -1,6 +1,7 @@
 use tokio_postgres::Client;
 
 pub async fn add_swear(client: &Client, group_id: i64, word: &str) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let lower = word.to_lowercase();
     let word_enc = crate::crypto::try_encrypt(&lower);
     let word_hash = crate::crypto::try_crypto()
@@ -9,7 +10,7 @@ pub async fn add_swear(client: &Client, group_id: i64, word: &str) -> Result<(),
     client
         .execute(
             r#"INSERT INTO swear_words (group_id, word, word_hash) VALUES ($1, $2, $3)
-           ON CONFLICT (group_id, word_hash) DO NOTHING"#,
+           ON CONFLICT (group_id, word_hash) WHERE word_hash IS NOT NULL DO NOTHING"#,
             &[&group_id, &word_enc, &word_hash],
         )
         .await

@@ -41,6 +41,7 @@ pub async fn set_welcome_message(
     group_id: i64,
     message: &str,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let msg_enc = crate::crypto::try_encrypt(message);
     client
         .execute(
@@ -70,6 +71,7 @@ pub async fn set_farewell_message(
     group_id: i64,
     message: &str,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let msg_enc = crate::crypto::try_encrypt(message);
     client
         .execute(
@@ -88,6 +90,7 @@ pub async fn set_welcome_dm_message(
     group_id: i64,
     message: &str,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let msg_enc = crate::crypto::try_encrypt(message);
     client
         .execute(
@@ -102,10 +105,12 @@ pub async fn set_welcome_dm_message(
 
 /// Toggles clean welcome for a group.
 pub async fn toggle_clean_welcome(client: &Client, group_id: i64) -> Result<bool, String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let row = client
         .query_one(
-            r#"UPDATE welcome_settings SET clean_welcome = NOT clean_welcome, updated_at = NOW()
-           WHERE group_id = $1 RETURNING clean_welcome"#,
+            r#"INSERT INTO welcome_settings (group_id, clean_welcome) VALUES ($1, TRUE)
+           ON CONFLICT (group_id) DO UPDATE SET clean_welcome = NOT welcome_settings.clean_welcome, updated_at = NOW()
+           RETURNING clean_welcome"#,
             &[&group_id],
         )
         .await

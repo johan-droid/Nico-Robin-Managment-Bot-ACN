@@ -8,6 +8,7 @@ pub async fn add_mute(
     reason: &str,
     muted_by: i64,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     client.execute(
         "INSERT INTO mutes (group_id, user_id, reason, muted_by) VALUES ($1, $2, $3, $4) ON CONFLICT (group_id, user_id) DO UPDATE SET reason = $3, muted_by = $4, muted_at = NOW()",
         &[&group_id, &user_id, &reason, &muted_by],
@@ -34,6 +35,7 @@ pub async fn add_temp_mute(
     muted_by: i64,
     expires_at_ts: i64,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let expires_at = Utc
         .timestamp_opt(expires_at_ts, 0)
         .single()
@@ -64,6 +66,7 @@ pub async fn add_temp_ban(
     banned_by: i64,
     expires_at_ts: i64,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let expires_at = Utc
         .timestamp_opt(expires_at_ts, 0)
         .single()

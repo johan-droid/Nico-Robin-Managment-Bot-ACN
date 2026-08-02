@@ -8,6 +8,7 @@ pub async fn add_warning(
     reason: &str,
     warned_by: i64,
 ) -> Result<i32, String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let reason_enc = crate::crypto::try_encrypt(reason);
     let row = client
         .query_one(

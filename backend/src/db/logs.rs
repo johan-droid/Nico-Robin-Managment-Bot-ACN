@@ -8,6 +8,7 @@ pub async fn log_action(
     executor_id: i64,
     reason: Option<&str>,
 ) -> Result<(), String> {
+    let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     client.execute(
         "INSERT INTO audit_logs (group_id, action, target_id, executor_id, reason) VALUES ($1, $2, $3, $4, $5)",
         &[&group_id, &action, &target_id, &executor_id, &reason],
