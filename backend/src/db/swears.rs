@@ -7,10 +7,34 @@ pub async fn add_swear(client: &Client, group_id: i64, word: &str) -> Result<(),
     let word_hash = crate::crypto::try_crypto()
         .map(|c| c.hash_text(&lower))
         .unwrap_or_default();
+    // Check if the swear word already exists
+    let exists: bool = if word_hash.is_empty() {
+        client
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM swear_words WHERE group_id = $1 AND word = $2)",
+                &[&group_id, &word_enc],
+            )
+            .await
+            .map_err(|e| e.to_string())?
+            .get(0)
+    } else {
+        client
+            .query_one(
+                "SELECT EXISTS(SELECT 1 FROM swear_words WHERE group_id = $1 AND word_hash = $2)",
+                &[&group_id, &word_hash],
+            )
+            .await
+            .map_err(|e| e.to_string())?
+            .get(0)
+    };
+
+    if exists {
+        return Ok(());
+    }
+
     client
         .execute(
-            r#"INSERT INTO swear_words (group_id, word, word_hash) VALUES ($1, $2, $3)
-           ON CONFLICT (group_id, word_hash) WHERE word_hash IS NOT NULL DO NOTHING"#,
+            r#"INSERT INTO swear_words (group_id, word, word_hash) VALUES ($1, $2, $3)"#,
             &[&group_id, &word_enc, &word_hash],
         )
         .await
