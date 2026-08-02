@@ -4,6 +4,7 @@ pub mod features;
 pub mod federation;
 pub mod filters;
 pub mod flavor;
+pub mod game;
 pub mod gbans;
 pub mod locks;
 pub mod moderation;
@@ -16,7 +17,6 @@ pub mod rules;
 pub mod security;
 pub mod staff;
 pub mod welcome;
-pub mod game;
 
 use std::collections::HashMap;
 use std::sync::Mutex;
@@ -340,6 +340,37 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
 
     // For non-command messages, run filter auto-reply checks and security checks
     if let Some(text) = msg.text() {
+        // Quiz checking logic
+        let quiz_info = {
+            let guard = game::quiz::ACTIVE_QUIZZES.lock().await;
+            if let Some((correct_answer, msg_id)) = guard.get(&msg.chat.id) {
+                if msg.reply_to_message.as_ref().map(|m| m.message_id) == Some(*msg_id) {
+                    Some(correct_answer.clone())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        };
+
+        if let Some(correct_answer) = quiz_info {
+            if !text.starts_with('/') {
+                if text.trim().eq_ignore_ascii_case(correct_answer.trim()) {
+                    let _ = crate::db::games::add_bounty(client, user_id, 10).await;
+                    let reply = "Correct! You gained 10 Bounty!".to_string();
+                    let _ = bot.send_message(msg.chat.id, reply).await;
+
+                    let mut guard = game::quiz::ACTIVE_QUIZZES.lock().await;
+                    guard.remove(&msg.chat.id);
+                } else {
+                    let _ = crate::db::games::add_bounty(client, user_id, -5).await;
+                    let reply = "Wrong answer! You lost 5 Bounty...".to_string();
+                    let _ = bot.send_message(msg.chat.id, reply).await;
+                }
+            }
+        }
+
         if text.starts_with('/') {
             let mut parts = text.split_whitespace();
             if let Some(mut command) = parts.next() {
