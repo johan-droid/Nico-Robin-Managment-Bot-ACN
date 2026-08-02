@@ -694,63 +694,6 @@ pub async fn handle_del(bot: Bot, msg: Message, settings: &Settings) -> Result<(
     Ok(())
 }
 
-pub async fn handle_purge(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
-    let executor = msg.from().map(|u| u.first_name.as_str()).unwrap_or("Admin");
-
-    if let Some(reply) = msg.reply_to_message() {
-        let start_id = reply.id();
-        let end_id = msg.id();
-        
-        if start_id >= end_id {
-            send_text(&bot, msg.chat.id, "The replied message must be older than the purge command.").await;
-            return Ok(());
-        }
-
-        let mut ids_to_delete = Vec::new();
-        for id in start_id..=end_id {
-            ids_to_delete.push(id as u64);
-        }
-
-        if ids_to_delete.len() > 1000 {
-            send_text(&bot, msg.chat.id, "Too many messages to purge at once (limit 1000).").await;
-            return Ok(());
-        }
-
-        match bot.delete_messages(msg.chat.id, ids_to_delete.clone()).await {
-            Ok(_) => {
-                log_mod_action(
-                    &bot,
-                    settings,
-                    msg.chat.id,
-                    &format!(
-                        "Purged {} messages in {} (by {})",
-                        ids_to_delete.len(),
-                        escape_md_v2(msg.chat.title().unwrap_or("group")),
-                        escape_md_v2(executor)
-                    ),
-                )
-                .await;
-            }
-            Err(e) => {
-                send_text(
-                    &bot,
-                    msg.chat.id,
-                    &format!("Failed to purge messages: {}", escape_md_v2(&e)),
-                )
-                .await;
-            }
-        }
-    } else {
-        send_text(
-            &bot,
-            msg.chat.id,
-            "Reply to the message you want to purge from (it will delete from that message down to your command).",
-        )
-        .await;
-    }
-    Ok(())
-}
-
 pub async fn handle_pin(bot: Bot, msg: Message, settings: &Settings) -> Result<(), String> {
     if let Some(reply) = msg.reply_to_message() {
         match bot.pin_chat_message(msg.chat.id, reply.id()).await {
