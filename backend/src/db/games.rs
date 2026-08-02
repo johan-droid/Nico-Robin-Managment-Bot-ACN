@@ -82,8 +82,8 @@ pub async fn claim_daily_bounty(client: &Client, user_id: i64) -> Result<Result<
 }
 
 pub async fn perform_voyage(client: &Client, user_id: i64) -> Result<Result<(i64, i64), String>, String> {
-    let check_stmt = client.prepare("SELECT last_voyage, bounty FROM one_piece_bounties WHERE user_id = $1").await.unwrap();
-    let row_opt = client.query_opt(&check_stmt, &[&user_id]).await.unwrap();
+    let check_stmt = client.prepare("SELECT last_voyage, bounty FROM one_piece_bounties WHERE user_id = $1").await.map_err(|e| e.to_string())?;
+    let row_opt = client.query_opt(&check_stmt, &[&user_id]).await.map_err(|e| e.to_string())?;
 
     if let Some(row) = row_opt {
         let last_voyage: Option<std::time::SystemTime> = row.try_get(0).unwrap_or(None);
@@ -143,7 +143,7 @@ pub async fn create_crew(client: &Client, captain_id: i64, name: &str) -> Result
         Ok(row) => {
             let crew_id: i32 = row.get(0);
 
-            let member_stmt = client.prepare("INSERT INTO pirate_crew_members (crew_id, user_id) VALUES ($1, $2)").await.unwrap();
+            let member_stmt = client.prepare("INSERT INTO pirate_crew_members (crew_id, user_id) VALUES ($1, $2)").await.map_err(|e| e.to_string())?;
             let _ = client.execute(&member_stmt, &[&crew_id, &captain_id]).await;
 
             Ok(crew_id)
@@ -220,9 +220,9 @@ pub async fn invite_to_crew(client: &Client, crew_id: i32, user_id: i64, inviter
 pub async fn join_crew(client: &Client, user_id: i64, crew_id: i32) -> Result<(), String> {
     let check_stmt = client
         .prepare("SELECT 1 FROM pirate_crew_invites WHERE crew_id = $1 AND user_id = $2")
-        .await.unwrap();
+        .await.map_err(|e| e.to_string())?;
 
-    let row_opt = client.query_opt(&check_stmt, &[&crew_id, &user_id]).await.unwrap();
+    let row_opt = client.query_opt(&check_stmt, &[&crew_id, &user_id]).await.map_err(|e| e.to_string())?;
     if row_opt.is_none() {
         return Err("You don't have an invitation to this crew!".to_string());
     }
@@ -233,14 +233,14 @@ pub async fn join_crew(client: &Client, user_id: i64, crew_id: i32) -> Result<()
 
     let stmt = client
         .prepare("INSERT INTO pirate_crew_members (crew_id, user_id) VALUES ($1, $2)")
-        .await.unwrap();
+        .await.map_err(|e| e.to_string())?;
 
-    client.execute(&stmt, &[&crew_id, &user_id]).await.unwrap();
+    client.execute(&stmt, &[&crew_id, &user_id]).await.map_err(|e| e.to_string())?;
 
     let del_stmt = client
         .prepare("DELETE FROM pirate_crew_invites WHERE user_id = $1")
-        .await.unwrap();
-    client.execute(&del_stmt, &[&user_id]).await.unwrap();
+        .await.map_err(|e| e.to_string())?;
+    client.execute(&del_stmt, &[&user_id]).await.map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -254,8 +254,8 @@ pub async fn leave_crew(client: &Client, user_id: i64) -> Result<(), String> {
 
         let stmt = client
             .prepare("DELETE FROM pirate_crew_members WHERE crew_id = $1 AND user_id = $2")
-            .await.unwrap();
-        client.execute(&stmt, &[&crew_id, &user_id]).await.unwrap();
+            .await.map_err(|e| e.to_string())?;
+        client.execute(&stmt, &[&crew_id, &user_id]).await.map_err(|e| e.to_string())?;
         Ok(())
     } else {
         Err("You are not in a crew!".to_string())
