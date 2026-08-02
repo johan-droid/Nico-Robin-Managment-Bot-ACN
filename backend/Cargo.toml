@@ -61,3 +61,4 @@ sentry = { version = "0.48.5", default-features = false, features = ["backtrace"
 image = { version = "0.25", default-features = false, features = ["png", "webp"] }
 ab_glyph = "0.2"
 subtle = "2.5"
+rand = "0.10.2"
