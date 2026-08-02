@@ -489,6 +489,15 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                         }
                         return moderation::handle_del(bot, msg, Settings::global()).await;
                     }
+                    "purge" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        if !require_feature_fast(client, &msg, "moderation", bot.clone()).await? {
+                            return Ok(());
+                        }
+                        return moderation::handle_purge(bot, msg, Settings::global()).await;
+                    }
                     "pin" => {
                         if !require_admin_fast(&bot, &msg, is_admin).await? {
                             return Ok(());
