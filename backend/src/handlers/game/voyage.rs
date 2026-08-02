@@ -10,9 +10,9 @@ pub async fn handle_voyage(bot: Bot, msg: Message, client: &Client) -> Result<()
     }
 
     match perform_voyage(client, user_id as i64).await {
-        Ok(Ok((change, new_bounty))) => {
+        Ok(Ok((change, new_bounty, msg_text))) => {
             let sign = if change > 0 { "+" } else { "" };
-            let text = format!("The seas are unpredictable...\n\nYour voyage result: *{}{}* Berries\n\nYour new bounty is *{}* Berries.", sign, change, new_bounty);
+            let text = format!("The seas are unpredictable...\n\n{}\n\nYour voyage result: *{}{}* Berries\n\nYour new bounty is *{}* Berries.", msg_text, sign, change, new_bounty);
             let _ = bot.send_message(msg.chat.id, crate::utils::escape_md_v2(&text))
                 .await;
         },

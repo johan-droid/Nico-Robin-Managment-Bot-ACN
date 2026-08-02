@@ -37,6 +37,44 @@ pub async fn add_bounty(client: &Client, user_id: i64, amount: i64) -> Result<i6
     Ok(row.get::<_, i64>(0))
 }
 
+pub async fn get_leaderboard(client: &Client, limit: i64) -> Result<Vec<(i64, i64)>, String> {
+    let stmt = client
+        .prepare("SELECT user_id, bounty FROM one_piece_bounties ORDER BY bounty DESC LIMIT $1")
+        .await
+        .map_err(|e| format!("Failed to prepare query: {}", e))?;
+
+    let rows = client.query(&stmt, &[&limit]).await.map_err(|e| e.to_string())?;
+
+    let mut lb = Vec::new();
+    for row in rows {
+        lb.push((row.get(0), row.get(1)));
+    }
+    Ok(lb)
+}
+
+pub async fn get_crew_leaderboard(client: &Client, limit: i64) -> Result<Vec<(String, i64)>, String> {
+    let stmt = client
+        .prepare("
+            SELECT c.name, COALESCE(SUM(b.bounty), 0) as crew_bounty
+            FROM pirate_crews c
+            LEFT JOIN pirate_crew_members m ON c.id = m.crew_id
+            LEFT JOIN one_piece_bounties b ON m.user_id = b.user_id
+            GROUP BY c.id, c.name
+            ORDER BY crew_bounty DESC
+            LIMIT $1
+        ")
+        .await
+        .map_err(|e| format!("Failed to prepare query: {}", e))?;
+
+    let rows = client.query(&stmt, &[&limit]).await.map_err(|e| e.to_string())?;
+
+    let mut lb = Vec::new();
+    for row in rows {
+        lb.push((row.get(0), row.get(1)));
+    }
+    Ok(lb)
+}
+
 pub async fn claim_daily_bounty(client: &Client, user_id: i64) -> Result<Result<i64, String>, String> {
     let stmt = client
         .prepare("
@@ -81,9 +119,9 @@ pub async fn claim_daily_bounty(client: &Client, user_id: i64) -> Result<Result<
     Ok(Ok(bounty))
 }
 
-pub async fn perform_voyage(client: &Client, user_id: i64) -> Result<Result<(i64, i64), String>, String> {
-    let check_stmt = client.prepare("SELECT last_voyage, bounty FROM one_piece_bounties WHERE user_id = $1").await.map_err(|e| e.to_string())?;
-    let row_opt = client.query_opt(&check_stmt, &[&user_id]).await.map_err(|e| e.to_string())?;
+pub async fn perform_voyage(client: &Client, user_id: i64) -> Result<Result<(i64, i64, String), String>, String> {
+    let check_stmt = client.prepare("SELECT last_voyage, bounty FROM one_piece_bounties WHERE user_id = $1").await.map_err(|e| format!("DB Error: {}", e))?;
+    let row_opt = client.query_opt(&check_stmt, &[&user_id]).await.map_err(|e| format!("DB Error: {}", e))?;
 
     if let Some(row) = row_opt {
         let last_voyage: Option<std::time::SystemTime> = row.try_get(0).unwrap_or(None);
@@ -95,13 +133,12 @@ pub async fn perform_voyage(client: &Client, user_id: i64) -> Result<Result<(i64
         }
     }
 
-    // Instead of using rand (which causes Send bound issues), use system time for randomness
     let roll = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or(std::time::Duration::from_secs(0))
         .subsec_nanos() % 100;
 
-    let (change, _) = match roll {
+    let (change, msg) = match roll {
         0..=15 => (20, "You found hidden treasure!"),
         16..=40 => (12, "You discovered an abandoned island."),
         41..=60 => (8, "You rescued a stranded pirate."),
@@ -130,7 +167,7 @@ pub async fn perform_voyage(client: &Client, user_id: i64) -> Result<Result<(i64
 
     let new_bounty = row.get::<_, i64>(0);
 
-    Ok(Ok((change, new_bounty)))
+    Ok(Ok((change, new_bounty, msg.to_string())))
 }
 
 pub async fn create_crew(client: &Client, captain_id: i64, name: &str) -> Result<i32, String> {
@@ -144,7 +181,7 @@ pub async fn create_crew(client: &Client, captain_id: i64, name: &str) -> Result
             let crew_id: i32 = row.get(0);
 
             let member_stmt = client.prepare("INSERT INTO pirate_crew_members (crew_id, user_id) VALUES ($1, $2)").await.map_err(|e| e.to_string())?;
-            let _ = client.execute(&member_stmt, &[&crew_id, &captain_id]).await;
+            let _ = client.execute(&member_stmt, &[&crew_id, &captain_id]).await.map_err(|e| e.to_string())?;
 
             Ok(crew_id)
         },
@@ -259,5 +296,45 @@ pub async fn leave_crew(client: &Client, user_id: i64) -> Result<(), String> {
         Ok(())
     } else {
         Err("You are not in a crew!".to_string())
+    }
+}
+
+pub async fn disband_crew(client: &Client, user_id: i64) -> Result<(), String> {
+    let crew = get_crew_by_member(client, user_id).await?;
+    if let Some((crew_id, _, captain_id)) = crew {
+        if captain_id != user_id {
+            return Err("Only the captain can disband the crew!".to_string());
+        }
+
+        let stmt = client
+            .prepare("DELETE FROM pirate_crews WHERE id = $1")
+            .await.map_err(|e| e.to_string())?;
+        client.execute(&stmt, &[&crew_id]).await.map_err(|e| e.to_string())?;
+        Ok(())
+    } else {
+        Err("You are not in a crew!".to_string())
+    }
+}
+
+pub async fn add_quiz_question(client: &Client, question: &str, answer: &str) -> Result<(), String> {
+    let stmt = client
+        .prepare("INSERT INTO quiz_questions (category, question, answer, options) VALUES ('one_piece', $1, $2, '[]')")
+        .await.map_err(|e| e.to_string())?;
+
+    client.execute(&stmt, &[&question, &answer]).await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub async fn get_random_quiz(client: &Client) -> Result<Option<(i32, String, String)>, String> {
+    let stmt = client
+        .prepare("SELECT id, question, answer FROM quiz_questions ORDER BY RANDOM() LIMIT 1")
+        .await.map_err(|e| e.to_string())?;
+
+    let row_opt = client.query_opt(&stmt, &[]).await.map_err(|e| e.to_string())?;
+
+    if let Some(row) = row_opt {
+        Ok(Some((row.get(0), row.get(1), row.get(2))))
+    } else {
+        Ok(None)
     }
 }
