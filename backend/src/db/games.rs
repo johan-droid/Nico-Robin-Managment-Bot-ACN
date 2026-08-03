@@ -127,7 +127,7 @@ pub async fn claim_daily_bounty(
                     THEN NOW()
                     ELSE one_piece_bounties.last_daily_checkin
                 END
-            RETURNING bounty, EXTRACT(EPOCH FROM (NOW() - one_piece_bounties.last_daily_checkin)) AS elapsed
+            RETURNING bounty, EXTRACT(EPOCH FROM (NOW() - one_piece_bounties.last_daily_checkin))::FLOAT8 AS elapsed
         ")
         .await
         .map_err(|e| format!("Failed to prepare query: {}", e))?;
