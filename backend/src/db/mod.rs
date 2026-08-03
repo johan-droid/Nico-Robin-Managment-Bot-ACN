@@ -23,3 +23,4 @@ pub mod economy;
 pub mod games;
 pub mod logs;
 pub mod moderation;
+pub mod nim;

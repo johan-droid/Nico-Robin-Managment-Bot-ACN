@@ -39,9 +39,25 @@ pub async fn add_bounty(client: &Client, user_id: i64, amount: i64) -> Result<i6
     Ok(row.get::<_, i64>(0))
 }
 
-pub async fn get_leaderboard(client: &Client, limit: i64) -> Result<Vec<(i64, i64)>, String> {
+pub async fn get_leaderboard(
+    client: &Client,
+    limit: i64,
+) -> Result<Vec<(i64, i64, String)>, String> {
     let stmt = client
-        .prepare("SELECT user_id, bounty FROM one_piece_bounties ORDER BY bounty DESC LIMIT $1")
+        .prepare(
+            "
+            SELECT b.user_id, b.bounty,
+                   COALESCE(
+                       (SELECT first_name FROM username_cache
+                        WHERE user_id = b.user_id ORDER BY updated_at DESC LIMIT 1),
+                       'Pirate #' || b.user_id::text
+                   ) AS name
+            FROM one_piece_bounties b
+            WHERE b.bounty > 0
+            ORDER BY b.bounty DESC, b.user_id ASC
+            LIMIT $1
+        ",
+        )
         .await
         .map_err(|e| format!("Failed to prepare query: {}", e))?;
 
@@ -52,7 +68,7 @@ pub async fn get_leaderboard(client: &Client, limit: i64) -> Result<Vec<(i64, i6
 
     let mut lb = Vec::new();
     for row in rows {
-        lb.push((row.get(0), row.get(1)));
+        lb.push((row.get(0), row.get(1), row.get(2)));
     }
     Ok(lb)
 }
@@ -69,7 +85,8 @@ pub async fn get_crew_leaderboard(
             LEFT JOIN pirate_crew_members m ON c.id = m.crew_id
             LEFT JOIN one_piece_bounties b ON m.user_id = b.user_id
             GROUP BY c.id, c.name
-            ORDER BY crew_bounty DESC
+            HAVING COALESCE(SUM(b.bounty), 0) > 0
+            ORDER BY crew_bounty DESC, c.name ASC
             LIMIT $1
         ",
         )
@@ -373,6 +390,50 @@ pub async fn leave_crew(client: &Client, user_id: i64) -> Result<(), String> {
     }
 }
 
+pub async fn get_pending_invites(
+    client: &Client,
+    user_id: i64,
+) -> Result<Vec<(i32, String)>, String> {
+    let stmt = client
+        .prepare(
+            "
+            SELECT i.crew_id, c.name
+            FROM pirate_crew_invites i
+            JOIN pirate_crews c ON c.id = i.crew_id
+            WHERE i.user_id = $1
+            ORDER BY c.name ASC
+        ",
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let rows = client
+        .query(&stmt, &[&user_id])
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let mut invites = Vec::new();
+    for row in rows {
+        invites.push((row.get(0), row.get(1)));
+    }
+    Ok(invites)
+}
+
+pub async fn reject_crew_invite(client: &Client, user_id: i64, crew_id: i32) -> Result<(), String> {
+    let stmt = client
+        .prepare("DELETE FROM pirate_crew_invites WHERE crew_id = $1 AND user_id = $2")
+        .await
+        .map_err(|e| e.to_string())?;
+    let deleted = client
+        .execute(&stmt, &[&crew_id, &user_id])
+        .await
+        .map_err(|e| e.to_string())?;
+    if deleted == 0 {
+        return Err("You don't have an invitation from this crew!".to_string());
+    }
+    Ok(())
+}
+
 pub async fn disband_crew(client: &Client, user_id: i64) -> Result<(), String> {
     let crew = get_crew_by_member(client, user_id).await?;
     if let Some((crew_id, _, captain_id)) = crew {
@@ -394,35 +455,60 @@ pub async fn disband_crew(client: &Client, user_id: i64) -> Result<(), String> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct QuizQuestion {
+    pub id: i32,
+    pub question: String,
+    pub answer: String,
+    pub options: Vec<String>,
+}
+
 pub async fn add_quiz_question(
     client: &Client,
     question: &str,
     answer: &str,
-) -> Result<(), String> {
+    options: &[String],
+) -> Result<i32, String> {
+    let options_json = serde_json::to_value(options).map_err(|e| e.to_string())?;
     let stmt = client
-        .prepare("INSERT INTO quiz_questions (category, question, answer, options) VALUES ('one_piece', $1, $2, '[]')")
-        .await.map_err(|e| e.to_string())?;
-
-    client
-        .execute(&stmt, &[&question, &answer])
+        .prepare("INSERT INTO quiz_questions (category, question, answer, options) VALUES ('one_piece', $1, $2, $3) RETURNING id")
         .await
         .map_err(|e| e.to_string())?;
-    Ok(())
+
+    let row = client
+        .query_one(&stmt, &[&question, &answer, &options_json])
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(row.get(0))
 }
 
-pub async fn get_random_quiz(client: &Client) -> Result<Option<(i32, String, String)>, String> {
+pub async fn get_random_quiz(client: &Client) -> Result<Option<QuizQuestion>, String> {
+    get_random_quiz_excluding(client, &[]).await
+}
+
+pub async fn get_random_quiz_excluding(
+    client: &Client,
+    excluded: &[i32],
+) -> Result<Option<QuizQuestion>, String> {
     let stmt = client
-        .prepare("SELECT id, question, answer FROM quiz_questions ORDER BY RANDOM() LIMIT 1")
+        .prepare("SELECT id, question, answer, options FROM quiz_questions WHERE NOT (id = ANY($1)) ORDER BY RANDOM() LIMIT 1")
         .await
         .map_err(|e| e.to_string())?;
 
     let row_opt = client
-        .query_opt(&stmt, &[])
+        .query_opt(&stmt, &[&excluded])
         .await
         .map_err(|e| e.to_string())?;
 
     if let Some(row) = row_opt {
-        Ok(Some((row.get(0), row.get(1), row.get(2))))
+        let options: serde_json::Value = row.try_get(3).unwrap_or(serde_json::Value::Null);
+        let options: Vec<String> = serde_json::from_value(options).unwrap_or_default();
+        Ok(Some(QuizQuestion {
+            id: row.get(0),
+            question: row.get(1),
+            answer: row.get(2),
+            options,
+        }))
     } else {
         Ok(None)
     }

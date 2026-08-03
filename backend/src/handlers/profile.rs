@@ -71,6 +71,7 @@ fn format_status(status: &str) -> &'static str {
 }
 
 /// Builds the custom profile card shown under the profile picture.
+#[allow(clippy::too_many_arguments)]
 fn build_profile_card(
     name: &str,
     username: Option<&str>,
@@ -79,6 +80,7 @@ fn build_profile_card(
     is_group: bool,
     bio: &str,
     group_title: Option<&str>,
+    bounty: i64,
 ) -> String {
     let mut card = String::from(
         "🌺 *NICO ROBIN — PROFILE* 🌺\n\
@@ -91,6 +93,7 @@ fn build_profile_card(
         None => card.push_str("📛 *Username:* None\n"),
     }
     card.push_str(&format!("🆔 *User ID:* `{}`\n", user_id));
+    card.push_str(&format!("💰 *Bounty:* {} Berries\n", bounty));
 
     if is_group {
         match status {
@@ -156,6 +159,11 @@ pub async fn handle_profile(bot: Bot, msg: Message, client: &Client) -> Result<(
         .map(|p| p.bio)
         .unwrap_or_default();
 
+    // Bounty from the game system.
+    let bounty = crate::db::games::get_bounty(client, target_id)
+        .await
+        .unwrap_or(0);
+
     let group_title = if is_group { msg.chat.title() } else { None };
 
     let card = build_profile_card(
@@ -166,6 +174,7 @@ pub async fn handle_profile(bot: Bot, msg: Message, client: &Client) -> Result<(
         is_group,
         &bio,
         group_title,
+        bounty,
     );
 
     // Prefer sending the profile picture with the card as its caption.
@@ -315,6 +324,7 @@ mod tests {
             true,
             "",
             Some("ACN Test Group"),
+            250,
         );
 
         // The card must contain the key fields.
@@ -326,6 +336,10 @@ mod tests {
         assert!(
             card.contains("*User ID:* `123456789`"),
             "missing id:\n{card}"
+        );
+        assert!(
+            card.contains("*Bounty:* 250 Berries"),
+            "missing bounty:\n{card}"
         );
         assert!(card.contains("*Role:* 👑 Owner"), "missing role:\n{card}");
         assert!(
@@ -355,6 +369,7 @@ mod tests {
             false,
             "Bio with . and ! chars.",
             None,
+            0,
         );
         // User-controlled dots must be escaped for MarkdownV2.
         assert!(card.contains("A\\.B\\!C"), "name not escaped:\n{card}");

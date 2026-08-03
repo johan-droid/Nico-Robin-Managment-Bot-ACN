@@ -340,34 +340,13 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
 
     // For non-command messages, run filter auto-reply checks and security checks
     if let Some(text) = msg.text() {
-        // Quiz checking logic
-        let quiz_info = {
-            let guard = game::quiz::ACTIVE_QUIZZES.lock().await;
-            if let Some((correct_answer, msg_id)) = guard.get(&msg.chat.id) {
-                if msg.reply_to_message.as_ref().map(|m| m.message_id) == Some(*msg_id) {
-                    Some(correct_answer.clone())
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        };
-
-        if let Some(correct_answer) = quiz_info {
-            if !text.starts_with('/') {
-                if text.trim().eq_ignore_ascii_case(correct_answer.trim()) {
-                    let _ = crate::db::games::add_bounty(client, user_id, 10).await;
-                    let reply = "Correct! You gained 10 Bounty!".to_string();
-                    let _ = bot.send_message(msg.chat.id, reply).await;
-
-                    let mut guard = game::quiz::ACTIVE_QUIZZES.lock().await;
-                    guard.remove(&msg.chat.id);
-                } else {
-                    let _ = crate::db::games::add_bounty(client, user_id, -5).await;
-                    let reply = "Wrong answer! You lost 5 Bounty...".to_string();
-                    let _ = bot.send_message(msg.chat.id, reply).await;
-                }
+        // Quiz answer checking with strict timer + anti-cheat
+        if !text.starts_with('/') {
+            let reply_to = msg.reply_to_message.as_ref().map(|m| m.message_id);
+            if reply_to.is_some() {
+                let outcome =
+                    game::quiz::evaluate_answer(msg.chat.id, user_id, text, reply_to).await;
+                game::quiz::apply_quiz_result(&bot, client, msg.chat.id, user_id, outcome).await;
             }
         }
 
@@ -397,6 +376,10 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                     "voyage" => return game::voyage::handle_voyage(bot, msg, client).await,
                     "quiz" => return game::quiz::handle_quiz(bot, msg, client).await,
                     "crew" => return game::crew::handle_crew(bot, msg, client).await,
+                    "leaderboard" | "lb" => {
+                        return game::bounty::handle_leaderboard(bot, msg, client).await
+                    }
+                    "crewlb" => return game::crew::handle_crew_leaderboard(bot, msg, client).await,
                     "start" => return core::handle_start(bot, msg, client).await,
                     "help" => return core::handle_help(bot, msg).await,
                     "ban" => {

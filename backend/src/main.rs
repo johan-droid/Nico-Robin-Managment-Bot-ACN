@@ -220,9 +220,8 @@ async fn main() {
         }
     }
 
-    // Always serve the HTTP listener (health + webhook) so Render's port
-    // scan succeeds even in long-polling mode, which would otherwise leave
-    // no port open and cause the deploy to time out.
+    // Always serve the HTTP listener (health + webhook) even in long-polling
+    // mode so the process exposes a port for health checks.
     let server_handle = tokio::spawn(run_webhook_server(state.clone(), port));
 
     if bot_mode == "webhook"
@@ -390,6 +389,17 @@ async fn process_update(state: NativeState, update: Update) -> Result<(), String
                 perf::LatencyTrace::record("bot_clone", t_bot.stop());
 
                 if let Some(cq) = update.callback_query {
+                    let is_quiz_tap = cq
+                        .data
+                        .as_deref()
+                        .map(|d| d.starts_with("qz"))
+                        .unwrap_or(false);
+                    if is_quiz_tap {
+                        return nico_robin_bot::handlers::game::quiz::handle_quiz_callback(
+                            bot, cq, &db_client,
+                        )
+                        .await;
+                    }
                     return nico_robin_bot::handlers::core::handle_category_callback(
                         bot, cq, &db_client,
                     )

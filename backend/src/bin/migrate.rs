@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set in env");
 
-    // Bypass tokio-postgres IPv6 bug on Render by forcing IPv4 resolution manually
+    // Bypass a tokio-postgres IPv6 resolution bug by forcing IPv4 resolution manually
     let mut parsed_url = url::Url::parse(&database_url).expect("Invalid DATABASE_URL");
 
     // Remove channel_binding from connection URL as Neon PgBouncer pooler does not support it

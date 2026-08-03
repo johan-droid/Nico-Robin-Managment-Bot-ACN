@@ -20,6 +20,13 @@ pub fn escape_md_v2(text: &str) -> String {
     result
 }
 
+/// Escapes characters that are special in Telegram HTML parse mode.
+pub fn escape_html(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
 pub fn spawn_task<F>(future: F)
 where
     F: std::future::Future<Output = ()> + Send + 'static,
