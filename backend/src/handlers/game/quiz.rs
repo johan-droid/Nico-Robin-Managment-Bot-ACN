@@ -22,7 +22,17 @@ pub static ACTIVE_QUIZZES: LazyLock<Arc<Mutex<HashMap<i64, ActiveQuiz>>>> =
 static RECENT_QUIZ_IDS: LazyLock<Arc<Mutex<HashMap<i64, Vec<i32>>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
 
-const RECENT_LIMIT: usize = 5;
+const RECENT_LIMIT: usize = 50;
+
+static USER_QUIZ_COOLDOWN: LazyLock<Arc<Mutex<HashMap<i64, Instant>>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
+
+static CHAT_QUIZ_COOLDOWN: LazyLock<Arc<Mutex<HashMap<i64, Instant>>>> =
+    LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
+
+const USER_COOLDOWN_SECS: u64 = 3600; // 1 hour per user
+const CHAT_COOLDOWN_SECS: u64 = 300; // 5 mins per chat
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum QuizOutcome {
@@ -40,11 +50,46 @@ struct QuizData {
 
 pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
+    let user_id = msg.from().map(|u| u.id).unwrap_or(0) as i64;
+    if user_id == 0 {
+        return Ok(());
+    }
+
+    {
+        let guard = ACTIVE_QUIZZES.lock().await;
+        if guard.contains_key(&chat_id) {
+            let _ = bot.send_message(chat_id, "Fufufu... There is already an active Poneglyph in this chat. Decipher it first!").await;
+            return Ok(());
+        }
+    }
+
+    {
+        let mut user_guard = USER_QUIZ_COOLDOWN.lock().await;
+        if let Some(&last) = user_guard.get(&user_id) {
+            if last.elapsed() < Duration::from_secs(USER_COOLDOWN_SECS) {
+                let remaining = USER_COOLDOWN_SECS - last.elapsed().as_secs();
+                let _ = bot.send_message(chat_id, format!("Fufufu... You must wait {} minutes before reading another Poneglyph.", remaining / 60 + 1)).await;
+                return Ok(());
+            }
+        }
+
+        let mut chat_guard = CHAT_QUIZ_COOLDOWN.lock().await;
+        if let Some(&last) = chat_guard.get(&chat_id) {
+            if last.elapsed() < Duration::from_secs(CHAT_COOLDOWN_SECS) {
+                let remaining = CHAT_COOLDOWN_SECS - last.elapsed().as_secs();
+                let _ = bot.send_message(chat_id, format!("The ruins are quiet. A new Poneglyph may appear here in {} minutes.", remaining / 60 + 1)).await;
+                return Ok(());
+            }
+        }
+
+        user_guard.insert(user_id, Instant::now());
+        chat_guard.insert(chat_id, Instant::now());
+    }
     let quiz = next_quiz(client, chat_id).await;
 
     match quiz {
         Some(quiz) => {
-            let timeout_secs = Settings::global().quiz_timeout_secs.max(5);
+            let timeout_secs = Settings::global().quiz_timeout_secs.clamp(10, 20);
 
             let text = if quiz.options.is_empty() {
                 format!(
@@ -128,6 +173,13 @@ pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), 
             }
         }
         None => {
+
+            {
+                let mut user_guard = USER_QUIZ_COOLDOWN.lock().await;
+                user_guard.remove(&user_id);
+                let mut chat_guard = CHAT_QUIZ_COOLDOWN.lock().await;
+                chat_guard.remove(&chat_id);
+            }
             let text = "Fufufu... The archive is empty for now, dear pirate. Do try again later.";
             let _ = bot.send_message(msg.chat.id, text).await;
         }
