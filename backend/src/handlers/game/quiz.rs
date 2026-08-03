@@ -33,7 +33,6 @@ static CHAT_QUIZ_COOLDOWN: LazyLock<Arc<Mutex<HashMap<i64, Instant>>>> =
 const USER_COOLDOWN_SECS: u64 = 3600; // 1 hour per user
 const CHAT_COOLDOWN_SECS: u64 = 300; // 5 mins per chat
 
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum QuizOutcome {
     NoActiveQuiz,
@@ -68,7 +67,15 @@ pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), 
         if let Some(&last) = user_guard.get(&user_id) {
             if last.elapsed() < Duration::from_secs(USER_COOLDOWN_SECS) {
                 let remaining = USER_COOLDOWN_SECS - last.elapsed().as_secs();
-                let _ = bot.send_message(chat_id, format!("Fufufu... You must wait {} minutes before reading another Poneglyph.", remaining / 60 + 1)).await;
+                let _ = bot
+                    .send_message(
+                        chat_id,
+                        format!(
+                            "Fufufu... You must wait {} minutes before reading another Poneglyph.",
+                            remaining / 60 + 1
+                        ),
+                    )
+                    .await;
                 return Ok(());
             }
         }
@@ -77,7 +84,15 @@ pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), 
         if let Some(&last) = chat_guard.get(&chat_id) {
             if last.elapsed() < Duration::from_secs(CHAT_COOLDOWN_SECS) {
                 let remaining = CHAT_COOLDOWN_SECS - last.elapsed().as_secs();
-                let _ = bot.send_message(chat_id, format!("The ruins are quiet. A new Poneglyph may appear here in {} minutes.", remaining / 60 + 1)).await;
+                let _ = bot
+                    .send_message(
+                        chat_id,
+                        format!(
+                            "The ruins are quiet. A new Poneglyph may appear here in {} minutes.",
+                            remaining / 60 + 1
+                        ),
+                    )
+                    .await;
                 return Ok(());
             }
         }
@@ -173,7 +188,6 @@ pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), 
             }
         }
         None => {
-
             {
                 let mut user_guard = USER_QUIZ_COOLDOWN.lock().await;
                 user_guard.remove(&user_id);
