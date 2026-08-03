@@ -48,13 +48,28 @@ pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), 
 
             let text = if quiz.options.is_empty() {
                 format!(
-                    "🧠 <b>Poneglyph Quiz</b>\n\n{}\n\nFufufu... reply with your answer! One attempt per pirate. First correct answer earns +10 Bounty. Wrong answers cost -5 Bounty. You have <b>{} seconds</b>!",
+                    "🧠 <b>Poneglyph Quiz</b>\n\n\
+                     <b>Question:</b>\n{}\n\n\
+                     <b>Rules:</b>\n\
+                     • One attempt per pirate.\n\
+                     • First correct answer: <b>+10 Bounty</b>\n\
+                     • Wrong answer: <b>-5 Bounty</b>\n\n\
+                     ⏰ You have <b>{} seconds</b>. Reply to this message with your answer!",
                     quiz.question, timeout_secs
                 )
             } else {
                 format!(
-                    "🧠 <b>Poneglyph Quiz</b>\n\n{}\n\nFufufu... decipher the riddle left by the scholars of Ohara. Tap an option to answer! One attempt per pirate. First correct answer earns +10 Bounty. Wrong answers cost -5 Bounty. You have <b>{} seconds</b>!",
-                    quiz.question, timeout_secs
+                    "🧠 <b>Poneglyph Quiz</b>\n\n\
+                     <b>Question:</b>\n{}\n\n\
+                     <b>Options:</b>\n{}\n\n\
+                     <b>Rules:</b>\n\
+                     • One attempt per pirate.\n\
+                     • First correct answer: <b>+10 Bounty</b>\n\
+                     • Wrong answer: <b>-5 Bounty</b>\n\n\
+                     ⏰ You have <b>{} seconds</b>. Tap an option below to answer!",
+                    quiz.question,
+                    numbered_options(&quiz.options),
+                    timeout_secs
                 )
             };
 
@@ -102,7 +117,7 @@ pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), 
                             .send_message(
                                 chat_id,
                                 format!(
-                                    "⏳ Time's up, dear pirates... This Poneglyph remains unread.\nThe answer was: <b>{}</b>",
+                                    "⏳ Time's up, dear pirates... This Poneglyph remains unread.\n\nThe answer was: <b>{}</b>",
                                     ans
                                 ),
                             )
@@ -229,7 +244,7 @@ pub async fn apply_quiz_result(
         QuizOutcome::CorrectAnswer { answer } => {
             let _ = crate::db::games::add_bounty(client, user_id, 10).await;
             let reply = format!(
-                "Fufufu... beautifully deciphered. The truth has been revealed. +10 Bounty!\nThe answer was: <b>{}</b>",
+                "Fufufu... beautifully deciphered, dear pirate. The truth has been revealed.\n\n➕ <b>+10 Bounty</b>\n\nThe answer was: <b>{}</b>",
                 answer
             );
             let _ = bot
@@ -239,9 +254,8 @@ pub async fn apply_quiz_result(
         }
         QuizOutcome::WrongAnswer => {
             let _ = crate::db::games::add_bounty(client, user_id, -5).await;
-            let reply =
-                "Hmm... not quite, dear. The truth eludes you this time. -5 Bounty.\nThis Poneglyph will not grant you a second reading."
-                    .to_string();
+            let reply = "Hmm... not quite, dear. The truth eludes you this time.\n\n➖ <b>-5 Bounty</b>\n\nThis Poneglyph will not grant you a second reading."
+                .to_string();
             let _ = bot.send_message(chat_id, reply).await;
         }
         QuizOutcome::AlreadyAnswered => {
@@ -254,14 +268,32 @@ pub async fn apply_quiz_result(
     }
 }
 
+fn numbered_options(options: &[String]) -> String {
+    options
+        .iter()
+        .enumerate()
+        .map(|(i, opt)| format!("{} {}", num_emoji(i + 1), opt))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn num_emoji(n: usize) -> &'static str {
+    match n {
+        1 => "1️⃣",
+        2 => "2️⃣",
+        3 => "3️⃣",
+        4 => "4️⃣",
+        _ => "•",
+    }
+}
+
 fn quiz_keyboard(options: &[String]) -> InlineKeyboardMarkup {
-    let labels = ["🇦", "🇧", "🇨", "🇩"];
     let inline_keyboard = options
         .iter()
         .enumerate()
         .map(|(i, opt)| {
             vec![InlineKeyboardButton {
-                text: format!("{} {}", labels.get(i).copied().unwrap_or("•"), opt),
+                text: format!("{} {}", num_emoji(i + 1), opt),
                 callback_data: Some(format!("qz{}", i)),
                 url: None,
             }]
