@@ -80,6 +80,7 @@ pub async fn handle_crew(bot: Bot, msg: Message, client: &Client) -> Result<(), 
                     );
                     let _ = bot
                         .send_message(msg.chat.id, crate::utils::escape_md_v2(&text))
+                        .parse_mode(crate::telegram::ParseMode::MarkdownV2)
                         .await;
                 }
                 Ok(None) => {

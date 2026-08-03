@@ -15,12 +15,14 @@ pub async fn handle_voyage(bot: Bot, msg: Message, client: &Client) -> Result<()
             let text = format!("The seas are unpredictable...\n\n{}\n\nYour voyage result: *{}{}* Berries\n\nYour new bounty is *{}* Berries.", msg_text, sign, change, new_bounty);
             let _ = bot
                 .send_message(msg.chat.id, crate::utils::escape_md_v2(&text))
+                .parse_mode(crate::telegram::ParseMode::MarkdownV2)
                 .await;
         }
         Ok(Err(err_msg)) => {
             let text = format!("Fufufu... {}", err_msg);
             let _ = bot
                 .send_message(msg.chat.id, crate::utils::escape_md_v2(&text))
+                .parse_mode(crate::telegram::ParseMode::MarkdownV2)
                 .await;
         }
         Err(e) => {
