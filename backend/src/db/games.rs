@@ -159,29 +159,16 @@ pub async fn perform_voyage(
     client: &Client,
     user_id: i64,
 ) -> Result<Result<(i64, i64, String), String>, String> {
-    let check_stmt = client
-        .prepare("SELECT last_voyage, bounty FROM one_piece_bounties WHERE user_id = $1")
-        .await
-        .map_err(|e| format!("DB Error: {}", e))?;
-    let row_opt = client
-        .query_opt(&check_stmt, &[&user_id])
-        .await
-        .map_err(|e| format!("DB Error: {}", e))?;
-
-    if let Some(row) = row_opt {
-        let last_voyage: Option<std::time::SystemTime> = row.try_get(0).unwrap_or(None);
-        if let Some(lv) = last_voyage {
-            let elapsed = SystemTime::now()
-                .duration_since(lv)
-                .unwrap_or(std::time::Duration::from_secs(0))
-                .as_secs();
-            if elapsed < 3600 {
-                return Ok(Err(format!(
-                    "Your crew is resting. You can sail again in {} minutes.",
-                    (3600 - elapsed) / 60
-                )));
-            }
-        }
+    // Per-user, per-game-instance cooldown tracking.
+    let remaining = crate::db::game_cooldown::get_remaining_cooldown(client, user_id, "voyage")
+        .await?;
+    if remaining > 0 {
+        let hours = remaining / 3600;
+        let mins = (remaining % 3600) / 60;
+        return Ok(Err(format!(
+            "Your crew needs rest. Sail again in {}h {}m.",
+            hours, mins
+        )));
     }
 
     let roll = SystemTime::now()
@@ -220,6 +207,10 @@ pub async fn perform_voyage(
         .map_err(|e| format!("Failed to execute query: {}", e))?;
 
     let new_bounty = row.get::<_, i64>(0);
+
+    // Record the per-user cooldown and track the play for stats.
+    crate::db::game_cooldown::set_cooldown(client, user_id, "voyage").await?;
+    let _ = crate::db::game_stats::record_game_play(client, user_id, "voyage", change > 0).await;
 
     Ok(Ok((change, new_bounty, msg.to_string())))
 }

@@ -309,6 +309,7 @@ pub async fn apply_quiz_result(
     match outcome {
         QuizOutcome::CorrectAnswer { answer } => {
             let _ = crate::db::games::add_bounty(client, user_id, 10).await;
+            let _ = crate::db::game_stats::record_game_play(client, user_id, "quiz", true).await;
             let reply = format!(
                 "Fufufu... beautifully deciphered, dear pirate. The truth has been revealed.\n\n➕ <b>+10 Bounty</b>\n\nThe answer was: <b>{}</b>",
                 answer
@@ -320,6 +321,7 @@ pub async fn apply_quiz_result(
         }
         QuizOutcome::WrongAnswer => {
             let _ = crate::db::games::add_bounty(client, user_id, -5).await;
+            let _ = crate::db::game_stats::record_game_play(client, user_id, "quiz", false).await;
             let reply = "Hmm... not quite, dear. The truth eludes you this time.\n\n➖ <b>-5 Bounty</b>\n\nThis Poneglyph will not grant you a second reading."
                 .to_string();
             let _ = bot.send_message(chat_id, reply).await;

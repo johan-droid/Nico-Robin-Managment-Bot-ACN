@@ -181,3 +181,47 @@
 | Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
 |---------|--------|----------------|------------|--------------------------------------|
 | `/q` | `/q [n]` (reply) | **Quote** | 🌍 Everyone | **Explanation**: Renders a replied-to message (or last N messages) into a styled image quote card with avatar and text formatting.<br>**How to use**: Reply to a message with `/q` OR reply with `/q 2` / `/q 3`. |
+
+---
+
+## 🎮 Game Commands
+
+### 🌍 Non-Moderator
+
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/voyage` | `/voyage` | **Voyage** | 🌍 Everyone | **Explanation**: Sails the Grand Line for fortune or ruin. Outcome is rolled per user and the bounty is updated. A **per-user 1-hour cooldown** is enforced via the `game_cooldowns` table — other users are never affected.<br>**How to use**: Send `/voyage` to set sail. If on cooldown, the bot reports the remaining `h m`. |
+| `/daily` | `/daily` | **Daily** | 🌍 Everyone | **Explanation**: Claims +5 Berries once per 24 hours.<br>**How to use**: Send `/daily`. |
+| `/quiz` | `/quiz` | **Poneglyph Quiz** | 🌍 Everyone | **Explanation**: Deciphers a Poneglyph riddle. Correct = +10, wrong = -5. Outcomes are recorded in `game_stats`.<br>**How to use**: Send `/quiz` then reply (or tap an option) with your answer. |
+| `/cooldown` | `/cooldown [game]` | **Cooldowns** | 🌍 Everyone | **Explanation**: Lists all active per-user game cooldowns with remaining time.<br>**How to use**: Send `/cooldown` for all games, or `/cooldown voyage` for a specific one. |
+| `/mystats` | `/mystats` | **My Stats** | 🌍 Everyone | **Explanation**: Shows your bounty, total games played, wins, crew, and a per-game breakdown.<br>**How to use**: Send `/mystats`. |
+| `/toppirates` | `/toppirates` | **User Board** | 🌍 Everyone | **Explanation**: Top 10 pirates by bounty, each annotated with their crew affiliation.<br>**How to use**: Send `/toppirates`. |
+| `/crewboard` | `/crewboard` | **Crew Board** | 🌍 Everyone | **Explanation**: Top 10 crews by total bounty with member count, average bounty per member, captain name, and aggregate voyages.<br>**How to use**: Send `/crewboard`. |
+| `/crewstats` | `/crewstats` | **Crew Stats** | 🌍 Everyone | **Explanation**: Aggregate statistics and global rank for your own crew.<br>**How to use**: Send `/crewstats`. |
+
+### 🛡️ Moderator
+
+| Command | Syntax | Action Concept | Permission | Detailed Explanation & How to Use It |
+|---------|--------|----------------|------------|--------------------------------------|
+| `/resetcooldown` | `/resetcooldown [@user] [game]` | **Cooldown Reset** | 🛡️ Admin | **Explanation**: Removes the cooldown record for a user (default game: `voyage`).<br>**How to use**: Reply to a user with `/resetcooldown` or `/resetcooldown @username voyage`. |
+| `/gamestats` | `/gamestats [@user]` | **Game Audit** | 🛡️ Admin | **Explanation**: Detailed game history (plays, wins, win-rate per game type) for a user.<br>**How to use**: Reply to a user with `/gamestats` or send `/gamestats @username`. |
+| `/leaderboard reset` | `/leaderboard reset [confirm]` | **Ledger Wipe** | 🛡️ Admin | **Explanation**: Wipes every pirate bounty and restarts the game. Requires a `confirm` argument.<br>**How to use**: Send `/leaderboard reset`, then `/leaderboard reset confirm`. |
+
+---
+
+## ⚙️ Deployment & Migration Notes
+
+New tables introduced in `023_create_game_cooldowns_stats.sql`:
+
+- `game_cooldowns` — per-user, per-game-type cooldown tracking (`UNIQUE(user_id, game_type)`).
+- `game_stats` — per-user plays/wins metrics per game type.
+- `crew_stats` — crew-level aggregate metrics (populated alongside live leaderboard computation).
+- `command_history` — command execution log for per-command rate limiting and moderation audit.
+
+Deployment checklist:
+
+- [ ] Apply migration `023_create_game_cooldowns_stats.sql` (via `migrate` binary).
+- [ ] Verify `game_cooldowns`, `game_stats`, `crew_stats`, `command_history` exist after deploy.
+- [ ] Validate `/voyage` per-user cooldown isolation (3 concurrent voyages from different users).
+- [ ] Validate `/crewboard` math (sum, average, ranking) and `/toppirates` crew affiliation.
+- [ ] Stress test `/help` (5/min) and `/profile` (10/min) per-command rate limits.

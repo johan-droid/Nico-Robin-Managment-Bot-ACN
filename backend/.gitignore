@@ -7,6 +7,16 @@
 .env.local
 .env.*
 *.env
+!.env.example
+
+# ── Private Keys & Secrets ──
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+id_rsa
+id_ed25519
 
 # ── Test Binaries & Temporary Scripts ──
 test_*

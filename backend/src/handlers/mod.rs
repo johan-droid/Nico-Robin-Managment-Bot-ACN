@@ -370,18 +370,69 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                     msg.chat.id
                 );
 
+                // Persist command executions for anti-spam throttling + moderation audit.
+                let _ = crate::db::command_history::log_command(
+                    client,
+                    user_id,
+                    &cmd_name,
+                    None,
+                    None,
+                )
+                .await;
+
                 match cmd_name.as_str() {
                     "bounty" => return game::bounty::handle_bounty(bot, msg, client).await,
                     "daily" => return game::bounty::handle_daily(bot, msg, client).await,
                     "voyage" => return game::voyage::handle_voyage(bot, msg, client).await,
                     "quiz" => return game::quiz::handle_quiz(bot, msg, client).await,
                     "crew" => return game::crew::handle_crew(bot, msg, client).await,
+                    "crewboard" => return game::stats::handle_crewboard(bot, msg, client).await,
+                    "toppirates" => return game::stats::handle_toppirates(bot, msg, client).await,
+                    "mystats" => return game::stats::handle_mystats(bot, msg, client).await,
+                    "cooldown" => return game::stats::handle_cooldown(bot, msg, client).await,
+                    "crewstats" => return game::stats::handle_crewstats(bot, msg, client).await,
+                    "resetcooldown" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        return game::stats::handle_resetcooldown(bot, msg, client).await;
+                    }
+                    "gamestats" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        return game::stats::handle_gamestats(bot, msg, client).await;
+                    }
                     "leaderboard" | "lb" => {
-                        return game::bounty::handle_leaderboard(bot, msg, client).await
+                        if msg.text().is_some_and(|t| {
+                            t.split_whitespace()
+                                .nth(1)
+                                .is_some_and(|p| p.eq_ignore_ascii_case("reset"))
+                        }) {
+                            if !require_admin_fast(&bot, &msg, is_admin).await? {
+                                return Ok(());
+                            }
+                            return game::stats::handle_leaderboard_reset(bot, msg, client).await;
+                        }
+                        return game::bounty::handle_leaderboard(bot, msg, client).await;
                     }
                     "crewlb" => return game::crew::handle_crew_leaderboard(bot, msg, client).await,
                     "start" => return core::handle_start(bot, msg, client).await,
-                    "help" => return core::handle_help(bot, msg).await,
+                    "help" => {
+                        if !check_command_rate_limit(
+                            client,
+                            user_id,
+                            "help",
+                            5,
+                            &bot,
+                            msg.chat.id,
+                        )
+                        .await?
+                        {
+                            return Ok(());
+                        }
+                        return core::handle_help(bot, msg).await;
+                    }
                     "ban" => {
                         if !require_admin_fast(&bot, &msg, is_admin).await? {
                             return Ok(());
@@ -743,7 +794,21 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                         return welcome::handle_welcometest(bot, msg, client).await;
                     }
 
-                    "profile" => return profile::handle_profile(bot, msg, client).await,
+                    "profile" => {
+                        if !check_command_rate_limit(
+                            client,
+                            user_id,
+                            "profile",
+                            10,
+                            &bot,
+                            msg.chat.id,
+                        )
+                        .await?
+                        {
+                            return Ok(());
+                        }
+                        return profile::handle_profile(bot, msg, client).await;
+                    }
                     "setbio" => return profile::handle_setbio(bot, msg, client).await,
                     "exportmydata" => return profile::handle_export(bot, msg, client).await,
                     "deletemydata" => {
@@ -1014,6 +1079,44 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
 async fn unknown_command(_bot: Bot, msg: Message) -> Result<(), String> {
     tracing::debug!(command = %msg.text().unwrap_or(""), "Unknown command ignored");
     Ok(())
+}
+
+/// Per-command DB-backed rate limit (e.g. 5 /help per minute). On failure the
+/// command is allowed through so a DB hiccup never blocks a user.
+async fn check_command_rate_limit(
+    client: &Client,
+    user_id: i64,
+    command: &str,
+    max_per_minute: i32,
+    bot: &Bot,
+    chat_id: i64,
+) -> Result<bool, String> {
+    match crate::db::command_history::check_command_rate_limit(
+        client,
+        user_id,
+        command,
+        max_per_minute,
+    )
+    .await
+    {
+        Ok(true) => Ok(true),
+        Ok(false) => {
+            let _ = bot
+                .send_message(
+                    chat_id,
+                    format!(
+                        "You're sailing too fast, dear pirate. Slow down and try /{} again shortly.",
+                        command
+                    ),
+                )
+                .await;
+            Ok(false)
+        }
+        Err(e) => {
+            tracing::warn!("Rate limit check failed for /{}: {}", command, e);
+            Ok(true)
+        }
+    }
 }
 
 pub async fn log_mod_action(bot: &Bot, settings: &Settings, _chat_id: i64, text: &str) {
