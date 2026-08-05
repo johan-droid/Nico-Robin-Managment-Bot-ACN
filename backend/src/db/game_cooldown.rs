@@ -91,7 +91,12 @@ pub async fn try_consume_cooldown(
              SET last_played_at = NOW(), cooldown_seconds = $3
              WHERE user_id = $1 AND game_type = $2
                AND last_played_at <= NOW() - ($4 * interval '1 second')",
-            &[&user_id, &game_type, &cooldown_secs, &(cooldown_secs as f64)],
+            &[
+                &user_id,
+                &game_type,
+                &cooldown_secs,
+                &(cooldown_secs as f64),
+            ],
         )
         .await
         .map_err(|e| format!("Failed to consume cooldown: {}", e))?;
@@ -133,10 +138,7 @@ pub async fn reset_cooldown(
 }
 
 /// All active cooldowns for a user as `(game_type, remaining_secs)`, for `/cooldown`.
-pub async fn list_cooldowns(
-    client: &Client,
-    user_id: i64,
-) -> Result<Vec<(String, i32)>, String> {
+pub async fn list_cooldowns(client: &Client, user_id: i64) -> Result<Vec<(String, i32)>, String> {
     let stmt = client
         .prepare(
             "SELECT game_type,

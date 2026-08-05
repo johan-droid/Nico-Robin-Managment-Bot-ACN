@@ -291,7 +291,8 @@ async fn main() {
 
     // Periodically evict expired admin-cache entries so the map never grows
     // without bound (each user/chat pair is a key).
-    let pool_for_monitor = pool.clone();    tokio::spawn(async move {
+    let pool_for_monitor = pool.clone();
+    tokio::spawn(async move {
         let mut interval = tokio::time::interval(std::time::Duration::from_secs(900));
         loop {
             interval.tick().await;
@@ -468,8 +469,11 @@ async fn webhook_handler(
     // Telegram never waits on (or retries) our slow DB/API work.
     tokio::spawn(async move {
         let trace_id = perf::next_trace_id();
-        if let Err(e) =
-            nico_robin_bot::utils::crash_reporter::catch_handler_panic(trace_id, process_update(state, update)).await
+        if let Err(e) = nico_robin_bot::utils::crash_reporter::catch_handler_panic(
+            trace_id,
+            process_update(state, update),
+        )
+        .await
         {
             error!(error = %e, "Webhook update processing failed");
         }

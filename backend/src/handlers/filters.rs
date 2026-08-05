@@ -21,7 +21,10 @@ pub async fn handle_filter(bot: Bot, msg: Message, client: &Client) -> Result<()
     if trigger.len() > 100 {
         bot.send_message(
             msg.chat.id,
-            format!("Trigger too long. Max 100 characters (yours: {}).", trigger.len()),
+            format!(
+                "Trigger too long. Max 100 characters (yours: {}).",
+                trigger.len()
+            ),
         )
         .await?;
         return Ok(());

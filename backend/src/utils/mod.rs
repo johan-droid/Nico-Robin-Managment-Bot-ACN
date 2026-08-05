@@ -37,8 +37,7 @@ pub fn contains_word(haystack: &str, needle: &str) -> bool {
     let bytes = haystack.as_bytes();
     let needle_len = needle.len();
     for idx in haystack.match_indices(needle).map(|(i, _)| i) {
-        let before_ok =
-            idx == 0 || !bytes[idx - 1].is_ascii_alphanumeric() && bytes[idx - 1] < 128;
+        let before_ok = idx == 0 || !bytes[idx - 1].is_ascii_alphanumeric() && bytes[idx - 1] < 128;
         let after = idx + needle_len;
         let after_ok =
             after >= bytes.len() || !bytes[after].is_ascii_alphanumeric() && bytes[after] < 128;

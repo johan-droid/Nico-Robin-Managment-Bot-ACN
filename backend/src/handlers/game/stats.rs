@@ -1,11 +1,10 @@
 use crate::auth::{extract_target_user, resolve_username};
 use crate::db::game_cooldown::list_cooldowns;
-use crate::db::game_stats::{
-    get_game_stats, get_game_stats_breakdown, get_user_game_history,
-};
+use crate::db::game_stats::{get_game_stats, get_game_stats_breakdown, get_user_game_history};
 use crate::db::games::get_bounty;
 use crate::db::leaderboard::{
-    get_crew_leaderboard_detailed, get_crew_stats, get_user_leaderboard_detailed, reset_all_bounties,
+    get_crew_leaderboard_detailed, get_crew_stats, get_user_leaderboard_detailed,
+    reset_all_bounties,
 };
 use crate::telegram::api::Bot;
 use crate::telegram::update::Message;
@@ -69,7 +68,9 @@ pub async fn handle_mystats(bot: Bot, msg: Message, client: &Client) -> Result<(
         )
     );
 
-    let breakdown = get_game_stats_breakdown(client, user_id).await.unwrap_or_default();
+    let breakdown = get_game_stats_breakdown(client, user_id)
+        .await
+        .unwrap_or_default();
     if !breakdown.is_empty() {
         text.push_str("\n\n📜 <b>Game History</b>");
         for s in &breakdown {
@@ -101,8 +102,7 @@ pub async fn handle_crewboard(bot: Bot, msg: Message, client: &Client) -> Result
                 .await;
         }
         Ok(rankings) => {
-            let mut text =
-                String::from("🏴‍☠️ <b>CREW LEADERBOARD</b> 🏴‍☠️\n✿ ∘ ━━━━━━━━━┉┅╍\n");
+            let mut text = String::from("🏴‍☠️ <b>CREW LEADERBOARD</b> 🏴‍☠️\n✿ ∘ ━━━━━━━━━┉┅╍\n");
             for (i, crew) in rankings.iter().enumerate() {
                 text.push_str(&format!(
                     "\n{} <b>{}</b> (Capt. {})\n   💰 {} Berries | 👥 {} | ⚡ {} avg\n   🌊 Voyages: {}",
@@ -124,7 +124,10 @@ pub async fn handle_crewboard(bot: Bot, msg: Message, client: &Client) -> Result
         Err(e) => {
             tracing::error!("Error fetching crew leaderboard: {}", e);
             let _ = bot
-                .send_message(msg.chat.id, "I couldn't chart the crew leaderboard right now.")
+                .send_message(
+                    msg.chat.id,
+                    "I couldn't chart the crew leaderboard right now.",
+                )
                 .await;
         }
     }
@@ -143,8 +146,9 @@ pub async fn handle_toppirates(bot: Bot, msg: Message, client: &Client) -> Resul
                 .await;
         }
         Ok(rows) => {
-            let mut text =
-                String::from("WALL OF WANTED POSTERS 🍁\nThe World's Most Notorious 🏴‍☠\n✿ ∘ ━━━━━━━━━┉┅╍\n");
+            let mut text = String::from(
+                "WALL OF WANTED POSTERS 🍁\nThe World's Most Notorious 🏴‍☠\n✿ ∘ ━━━━━━━━━┉┅╍\n",
+            );
             for (i, row) in rows.iter().enumerate() {
                 let formatted_name = match i {
                     0 => format!("🌹{}", crate::utils::escape_html(&row.username)), // 1st place, rose
@@ -263,7 +267,10 @@ pub async fn handle_crewstats(bot: Bot, msg: Message, client: &Client) -> Result
         }
         Ok(None) => {
             let _ = bot
-                .send_message(msg.chat.id, "I could not find statistics for your crew yet.")
+                .send_message(
+                    msg.chat.id,
+                    "I could not find statistics for your crew yet.",
+                )
                 .await;
         }
         Err(e) => {
@@ -277,11 +284,7 @@ pub async fn handle_crewstats(bot: Bot, msg: Message, client: &Client) -> Result
 }
 
 /// 🔄 /resetcooldown [@user] [game] — admin removes a user's game cooldown.
-pub async fn handle_resetcooldown(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_resetcooldown(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let mut target_id = msg.from().map(|u| u.id).unwrap_or(0) as i64;
     let mut target_name = msg
         .from()
@@ -347,8 +350,8 @@ pub async fn handle_resetcooldown(
                 .await;
         }
         None => {
-            let removed = crate::db::game_cooldown::reset_cooldown(client, target_id, "voyage")
-                .await?;
+            let removed =
+                crate::db::game_cooldown::reset_cooldown(client, target_id, "voyage").await?;
             let _ = bot
                 .send_message(
                     msg.chat.id,
@@ -404,7 +407,9 @@ pub async fn handle_gamestats(bot: Bot, msg: Message, client: &Client) -> Result
     }
 
     let bounty = get_bounty(client, target_id).await.unwrap_or(0);
-    let history = get_user_game_history(client, target_id).await.unwrap_or_default();
+    let history = get_user_game_history(client, target_id)
+        .await
+        .unwrap_or_default();
 
     let mut text = format!(
         "📜 <b>Game Audit — {}</b>\n✿ ∘ ━━━━━━━━━┉┅╍\n\n💰 Bounty: <b>{}</b> Berries",

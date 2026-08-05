@@ -16,8 +16,7 @@ pub fn start_cleanup_task(pool: deadpool_postgres::Pool) {
             };
 
             // Delete expired temp_mutes
-            if let Ok(expired_mutes) =
-                crate::db::moderation::get_expired_temp_mutes(&client).await
+            if let Ok(expired_mutes) = crate::db::moderation::get_expired_temp_mutes(&client).await
             {
                 for (group_id, user_id) in expired_mutes {
                     let _ =
@@ -28,9 +27,7 @@ pub fn start_cleanup_task(pool: deadpool_postgres::Pool) {
             }
 
             // Delete expired temp_bans
-            if let Ok(expired_bans) =
-                crate::db::moderation::get_expired_temp_bans(&client).await
-            {
+            if let Ok(expired_bans) = crate::db::moderation::get_expired_temp_bans(&client).await {
                 for (group_id, user_id) in expired_bans {
                     let _ =
                         crate::db::moderation::remove_temp_ban(&client, group_id, user_id).await;

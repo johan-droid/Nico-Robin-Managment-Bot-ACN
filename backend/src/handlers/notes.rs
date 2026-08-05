@@ -20,7 +20,10 @@ pub async fn handle_save(bot: Bot, msg: Message, client: &Client) -> Result<(), 
     if name.len() > 100 {
         bot.send_message(
             msg.chat.id,
-            format!("Note name too long. Max 100 characters (yours: {}).", name.len()),
+            format!(
+                "Note name too long. Max 100 characters (yours: {}).",
+                name.len()
+            ),
         )
         .await?;
         return Ok(());

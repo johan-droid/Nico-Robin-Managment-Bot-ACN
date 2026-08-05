@@ -125,10 +125,7 @@ impl Bot {
             }
 
             let error_code = json["error_code"].as_i64().unwrap_or(0);
-            if error_code == 429
-                && retries < 2
-                && is_retryable(method)
-            {
+            if error_code == 429 && retries < 2 && is_retryable(method) {
                 // Honor Telegram's real backoff (can exceed 10s during a
                 // lockout); the previous hard 10s cap fought the API.
                 let retry_after = json["parameters"]["retry_after"]

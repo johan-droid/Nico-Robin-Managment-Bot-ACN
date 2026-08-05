@@ -138,40 +138,40 @@ pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), 
             let send_msg_result = builder.await;
 
             match send_msg_result {
-            Ok(sent) => {
-                let mut guard = ACTIVE_QUIZZES.lock().await;
-                guard.insert(
-                    chat_id,
-                    ActiveQuiz {
-                        message_id: sent.message_id,
-                        question_id,
-                        answer: quiz.answer,
-                        options: quiz.options,
-                        expires_at: Instant::now() + Duration::from_secs(timeout_secs),
-                        attempts: HashMap::new(),
-                    },
-                );
-                drop(guard);
+                Ok(sent) => {
+                    let mut guard = ACTIVE_QUIZZES.lock().await;
+                    guard.insert(
+                        chat_id,
+                        ActiveQuiz {
+                            message_id: sent.message_id,
+                            question_id,
+                            answer: quiz.answer,
+                            options: quiz.options,
+                            expires_at: Instant::now() + Duration::from_secs(timeout_secs),
+                            attempts: HashMap::new(),
+                        },
+                    );
+                    drop(guard);
 
-                let bot_clone = bot.clone();
-                tokio::spawn(async move {
-                    tokio::time::sleep(Duration::from_secs(timeout_secs)).await;
-                    let revealed = {
-                        let mut guard = ACTIVE_QUIZZES.lock().await;
-                        if let Some(quiz) = guard.get(&chat_id) {
-                            if quiz.expires_at <= Instant::now() {
-                                let ans = quiz.answer.clone();
-                                guard.remove(&chat_id);
-                                Some(ans)
+                    let bot_clone = bot.clone();
+                    tokio::spawn(async move {
+                        tokio::time::sleep(Duration::from_secs(timeout_secs)).await;
+                        let revealed = {
+                            let mut guard = ACTIVE_QUIZZES.lock().await;
+                            if let Some(quiz) = guard.get(&chat_id) {
+                                if quiz.expires_at <= Instant::now() {
+                                    let ans = quiz.answer.clone();
+                                    guard.remove(&chat_id);
+                                    Some(ans)
+                                } else {
+                                    None
+                                }
                             } else {
                                 None
                             }
-                        } else {
-                            None
-                        }
-                    };
-                    if let Some(ans) = revealed {
-                        let _ = bot_clone
+                        };
+                        if let Some(ans) = revealed {
+                            let _ = bot_clone
                             .send_message(
                                 chat_id,
                                 format!(
@@ -181,25 +181,25 @@ pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), 
                             )
                             .parse_mode(crate::telegram::ParseMode::Html)
                             .await;
-                    }
-                });
+                        }
+                    });
+                }
+                Err(e) => {
+                    tracing::error!(error = %e, chat_id = %chat_id, "Failed to send quiz message");
+                    // Roll back the cooldowns so the failed attempt doesn't lock
+                    // the user and chat out of the next quiz.
+                    let mut user_guard = USER_QUIZ_COOLDOWN.lock().await;
+                    user_guard.remove(&user_id);
+                    let mut chat_guard = CHAT_QUIZ_COOLDOWN.lock().await;
+                    chat_guard.remove(&chat_id);
+                    let _ = bot
+                        .send_message(
+                            chat_id,
+                            "Fufufu... the Poneglyph refused to appear. Please try again.",
+                        )
+                        .await;
+                }
             }
-            Err(e) => {
-                tracing::error!(error = %e, chat_id = %chat_id, "Failed to send quiz message");
-                // Roll back the cooldowns so the failed attempt doesn't lock
-                // the user and chat out of the next quiz.
-                let mut user_guard = USER_QUIZ_COOLDOWN.lock().await;
-                user_guard.remove(&user_id);
-                let mut chat_guard = CHAT_QUIZ_COOLDOWN.lock().await;
-                chat_guard.remove(&chat_id);
-                let _ = bot
-                    .send_message(
-                        chat_id,
-                        "Fufufu... the Poneglyph refused to appear. Please try again.",
-                    )
-                    .await;
-            }
-        }
         }
         None => {
             {
@@ -346,7 +346,11 @@ pub async fn apply_quiz_result(
             };
             let _ = crate::db::game_stats::record_game_play(client, user_id, "quiz", true).await;
             let _ = crate::db::quiz_tracker::record_quiz_attempt(
-                client, chat_id, question_id, user_id, true,
+                client,
+                chat_id,
+                question_id,
+                user_id,
+                true,
             )
             .await;
             let credit_line = if credited {
@@ -367,7 +371,11 @@ pub async fn apply_quiz_result(
             let _ = crate::db::games::add_bounty(client, user_id, -5).await;
             let _ = crate::db::game_stats::record_game_play(client, user_id, "quiz", false).await;
             let _ = crate::db::quiz_tracker::record_quiz_attempt(
-                client, chat_id, question_id, user_id, false,
+                client,
+                chat_id,
+                question_id,
+                user_id,
+                false,
             )
             .await;
             let reply = "Hmm... not quite, dear. The truth eludes you this time.\n\n➖ <b>-5 Bounty</b>\n\nThis Poneglyph will not grant you a second reading."
@@ -542,7 +550,10 @@ pub async fn handle_quizstats(bot: Bot, msg: Message, client: &Client) -> Result
         Err(e) => {
             tracing::error!("Failed to load quiz stats for user {}: {}", user_id, e);
             let _ = bot
-                .send_message(chat_id, "Fufufu... the archives are out of reach. Try again later.")
+                .send_message(
+                    chat_id,
+                    "Fufufu... the archives are out of reach. Try again later.",
+                )
                 .await;
         }
     }
@@ -550,11 +561,7 @@ pub async fn handle_quizstats(bot: Bot, msg: Message, client: &Client) -> Result
 }
 
 /// `/qleaderboard` — top quiz deciphers across all chats.
-pub async fn handle_qleaderboard(
-    bot: Bot,
-    msg: Message,
-    client: &Client,
-) -> Result<(), String> {
+pub async fn handle_qleaderboard(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let chat_id = msg.chat.id;
 
     let entries = match crate::db::quiz_tracker::get_quiz_leaderboard(client, 10).await {
@@ -562,7 +569,10 @@ pub async fn handle_qleaderboard(
         Err(e) => {
             tracing::error!("Failed to load quiz leaderboard: {}", e);
             let _ = bot
-                .send_message(chat_id, "Fufufu... the archives are out of reach. Try again later.")
+                .send_message(
+                    chat_id,
+                    "Fufufu... the archives are out of reach. Try again later.",
+                )
                 .await;
             return Ok(());
         }

@@ -132,21 +132,15 @@ pub async fn handle_addswear(
     if word.len() > 100 {
         bot.send_message(
             msg.chat.id,
-            format!(
-                "Word too long. Max 100 characters (yours: {}).",
-                word.len()
-            ),
+            format!("Word too long. Max 100 characters (yours: {}).", word.len()),
         )
         .await?;
         return Ok(());
     }
 
     if word.contains('%') || word.contains('_') {
-        bot.send_message(
-            msg.chat.id,
-            "Word contains invalid characters (% or _).",
-        )
-        .await?;
+        bot.send_message(msg.chat.id, "Word contains invalid characters (% or _).")
+            .await?;
         return Ok(());
     }
 

@@ -26,7 +26,7 @@ pub mod game_stats;
 pub mod games;
 pub mod leaderboard;
 pub mod logs;
+pub mod migration_backfill;
 pub mod moderation;
 pub mod nim;
 pub mod quiz_tracker;
-pub mod migration_backfill;

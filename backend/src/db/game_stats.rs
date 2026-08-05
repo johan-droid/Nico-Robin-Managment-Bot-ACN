@@ -60,7 +60,9 @@ pub async fn get_game_stats_breakdown(
     user_id: i64,
 ) -> Result<Vec<GameStats>, String> {
     let stmt = client
-        .prepare("SELECT game_type, plays, wins FROM game_stats WHERE user_id = $1 ORDER BY plays DESC")
+        .prepare(
+            "SELECT game_type, plays, wins FROM game_stats WHERE user_id = $1 ORDER BY plays DESC",
+        )
         .await
         .map_err(|e| e.to_string())?;
 

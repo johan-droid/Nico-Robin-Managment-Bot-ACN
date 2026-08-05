@@ -112,38 +112,36 @@ pub async fn execute_flood_action(
     let _ = bot.delete_message(msg.chat.id, msg.id()).await;
 
     match action.mode.to_lowercase().as_str() {
-        "ban" => {
-            match bot.ban_chat_member(msg.chat.id, action.user_id).await {
-                Ok(_) => {
-                    let _ = bot
-                        .send_message(
-                            msg.chat.id,
-                            format!("Banned {} for flooding.", escape_md_v2(user_name)),
-                        )
-                        .await;
-                    log_mod_action(
-                        bot,
-                        settings,
+        "ban" => match bot.ban_chat_member(msg.chat.id, action.user_id).await {
+            Ok(_) => {
+                let _ = bot
+                    .send_message(
                         msg.chat.id,
-                        &format!(
-                            "Auto-banned {} in {} for flooding",
-                            escape_md_v2(user_name),
-                            escape_md_v2(msg.chat.title().unwrap_or("group"))
-                        ),
+                        format!("Banned {} for flooding.", escape_md_v2(user_name)),
                     )
                     .await;
-                }
-                Err(e) => {
-                    tracing::error!(user_id = %action.user_id, error = %e, "Flood ban failed");
-                    let _ = bot
-                        .send_message(
-                            msg.chat.id,
-                            format!("Failed to ban {} for flooding.", escape_md_v2(user_name)),
-                        )
-                        .await;
-                }
+                log_mod_action(
+                    bot,
+                    settings,
+                    msg.chat.id,
+                    &format!(
+                        "Auto-banned {} in {} for flooding",
+                        escape_md_v2(user_name),
+                        escape_md_v2(msg.chat.title().unwrap_or("group"))
+                    ),
+                )
+                .await;
             }
-        }
+            Err(e) => {
+                tracing::error!(user_id = %action.user_id, error = %e, "Flood ban failed");
+                let _ = bot
+                    .send_message(
+                        msg.chat.id,
+                        format!("Failed to ban {} for flooding.", escape_md_v2(user_name)),
+                    )
+                    .await;
+            }
+        },
         "warn" => {
             let _ = bot
                 .send_message(

@@ -137,10 +137,7 @@ pub async fn get_user_leaderboard_detailed(
 }
 
 /// Aggregate stats + global rank for a single crew (`/crewstats`).
-pub async fn get_crew_stats(
-    client: &Client,
-    crew_id: i32,
-) -> Result<Option<CrewRanking>, String> {
+pub async fn get_crew_stats(client: &Client, crew_id: i32) -> Result<Option<CrewRanking>, String> {
     let stmt = client
         .prepare(
             "SELECT

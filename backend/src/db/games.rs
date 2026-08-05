@@ -164,8 +164,8 @@ pub async fn perform_voyage(
     // UPDATE takes a row lock, and concurrent `/voyage` calls serialize on it.
     // Exactly one caller wins the slot, so the bounty is never paid out twice
     // (double-spend) even when a user fires several commands at once.
-    let available = crate::db::game_cooldown::try_consume_cooldown(client, user_id, "voyage")
-        .await?;
+    let available =
+        crate::db::game_cooldown::try_consume_cooldown(client, user_id, "voyage").await?;
     if !available {
         let remaining = crate::db::game_cooldown::get_remaining_cooldown(client, user_id, "voyage")
             .await?
@@ -219,19 +219,13 @@ pub async fn create_crew(client: &Client, captain_id: i64, name: &str) -> Result
                 .prepare("INSERT INTO pirate_crew_members (crew_id, user_id) VALUES ($1, $2)")
                 .await
                 .map_err(|e| e.to_string())?;
-            match client
-                .execute(&member_stmt, &[&crew_id, &captain_id])
-                .await
-            {
+            match client.execute(&member_stmt, &[&crew_id, &captain_id]).await {
                 Ok(_) => Ok(crew_id),
                 Err(e) => {
                     // Roll back the just-created crew so we never leave an
                     // orphaned crew with no captain.
                     let _ = client
-                        .execute(
-                            "DELETE FROM pirate_crews WHERE id = $1",
-                            &[&crew_id],
-                        )
+                        .execute("DELETE FROM pirate_crews WHERE id = $1", &[&crew_id])
                         .await;
                     Err(format!("Failed to add captain to crew: {}", e))
                 }

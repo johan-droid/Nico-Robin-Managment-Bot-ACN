@@ -26,7 +26,10 @@ pub async fn backfill_legacy_hashes(client: &Client) -> Result<usize, String> {
     ] {
         let rows = client
             .query(
-                &format!("SELECT id, {} FROM {} WHERE {}_hash IS NULL", column, table, column),
+                &format!(
+                    "SELECT id, {} FROM {} WHERE {}_hash IS NULL",
+                    column, table, column
+                ),
                 &[],
             )
             .await

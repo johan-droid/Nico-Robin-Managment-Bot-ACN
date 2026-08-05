@@ -48,9 +48,9 @@ pub async fn handle_leaderboard(bot: Bot, msg: Message, client: &Client) -> Resu
 
                 let escaped_name = crate::utils::escape_html(name);
                 let formatted_name = match i {
-                    0 => format!("🌹{}", escaped_name), // 1st place: add rose
+                    0 => format!("🌹{}", escaped_name),      // 1st place: add rose
                     1 => format!("<b>{}</b>", escaped_name), // 2nd place: bold
-                    _ => escaped_name, // 3rd place and beyond: normal
+                    _ => escaped_name,                       // 3rd place and beyond: normal
                 };
 
                 text.push_str(&format!(
@@ -58,7 +58,9 @@ pub async fn handle_leaderboard(bot: Bot, msg: Message, client: &Client) -> Resu
                     medal, formatted_name, bounty
                 ));
             }
-            text.push_str("\n\n✿ ∘ ━━━━━━━━━━┉┅╍\nThe World Government has taken notice... Fufufu.");
+            text.push_str(
+                "\n\n✿ ∘ ━━━━━━━━━━┉┅╍\nThe World Government has taken notice... Fufufu.",
+            );
             let _ = bot
                 .send_message(msg.chat.id, text)
                 .parse_mode(crate::telegram::ParseMode::Html)

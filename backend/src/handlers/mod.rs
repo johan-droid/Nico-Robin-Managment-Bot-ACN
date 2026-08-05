@@ -384,14 +384,9 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                 );
 
                 // Persist command executions for anti-spam throttling + moderation audit.
-                let _ = crate::db::command_history::log_command(
-                    client,
-                    user_id,
-                    &cmd_name,
-                    None,
-                    None,
-                )
-                .await;
+                let _ =
+                    crate::db::command_history::log_command(client, user_id, &cmd_name, None, None)
+                        .await;
 
                 match cmd_name.as_str() {
                     "bounty" => return game::bounty::handle_bounty(bot, msg, client).await,
@@ -442,15 +437,8 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                     "crewlb" => return game::crew::handle_crew_leaderboard(bot, msg, client).await,
                     "start" => return core::handle_start(bot, msg, client).await,
                     "help" => {
-                        if !check_command_rate_limit(
-                            client,
-                            user_id,
-                            "help",
-                            5,
-                            &bot,
-                            msg.chat.id,
-                        )
-                        .await?
+                        if !check_command_rate_limit(client, user_id, "help", 5, &bot, msg.chat.id)
+                            .await?
                         {
                             return Ok(());
                         }
