@@ -211,16 +211,13 @@ pub(crate) async fn resolve_user_names(client: &Client, user_ids: &[i64]) -> Has
     };
 
     let mut names = HashMap::new();
-    match client.query(&stmt, &[&user_ids]).await {
-        Ok(rows) => {
-            for row in rows {
-                let user_id: i64 = row.get(0);
-                let name: String = row.get(1);
-                let name = crate::crypto::try_decrypt(&name);
-                names.insert(user_id, name);
-            }
+    if let Ok(rows) = client.query(&stmt, &[&user_ids]).await {
+        for row in rows {
+            let user_id: i64 = row.get(0);
+            let name: String = row.get(1);
+            let name = crate::crypto::try_decrypt(&name);
+            names.insert(user_id, name);
         }
-        Err(_) => {}
     }
     names
 }

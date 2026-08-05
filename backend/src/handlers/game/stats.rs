@@ -18,7 +18,7 @@ fn format_bounty(n: i64) -> String {
     let neg = n < 0;
     let mut out = String::new();
     for (i, c) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i) % 3 == 0 {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
             out.push(',');
         }
         out.push(c);
@@ -193,7 +193,7 @@ pub async fn handle_cooldown(bot: Bot, msg: Message, client: &Client) -> Result<
     let cooldowns = list_cooldowns(client, user_id).await.unwrap_or_default();
 
     let filtered: Vec<&(String, i32)> = match requested.as_deref() {
-        Some(game) => cooldowns.iter().filter(|(g, _)| g == &game).collect(),
+        Some(game) => cooldowns.iter().filter(|(g, _)| g == game).collect(),
         None => cooldowns.iter().collect(),
     };
 

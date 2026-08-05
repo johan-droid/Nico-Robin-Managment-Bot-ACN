@@ -38,7 +38,7 @@ pub async fn handle_leaderboard(bot: Bot, msg: Message, client: &Client) -> Resu
             let mut text = String::from(
                 "WALL OF WANTED POSTERS 🍁\nThe World's Most Notorious 🏴‍☠\n✿ ∘ ━━━━━━━━━┉┅╍\n\n",
             );
-            for (i, (user_id, bounty, name)) in rows.iter().enumerate() {
+            for (i, (_, bounty, name)) in rows.iter().enumerate() {
                 let medal = match i {
                     0 => "🥇",
                     1 => "🥈",

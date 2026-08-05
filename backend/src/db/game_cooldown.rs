@@ -70,6 +70,7 @@ pub async fn get_remaining_cooldown(
 ///     timestamp and fails the predicate.
 ///  2. If no row exists yet, a bare `INSERT ... ON CONFLICT DO NOTHING` lets
 ///     exactly one concurrent caller win.
+///
 /// Returns `true` when the slot was claimed (game may proceed), `false` when
 /// the user is still inside their cooldown window.
 pub async fn try_consume_cooldown(
