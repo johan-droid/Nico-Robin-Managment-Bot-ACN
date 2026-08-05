@@ -80,13 +80,18 @@ pub async fn try_consume_cooldown(
     let cooldown_secs = cooldown_for(game_type);
 
     // Expired record present -> atomically refresh it.
+    // PostgreSQL has no `interval * integer` operator — interval multiplication
+    // only exists with FLOAT8. `$4` is therefore sent as f64 (always an exact
+    // integer, so the round-trip is lossless) while `$3` stays i32 for the INT
+    // column. Using two parameters avoids any server-side type inference on a
+    // single $n used in both int4 and float8 contexts.
     let updated = client
         .execute(
             "UPDATE game_cooldowns
              SET last_played_at = NOW(), cooldown_seconds = $3
              WHERE user_id = $1 AND game_type = $2
-               AND last_played_at <= NOW() - ($3 * interval '1 second')",
-            &[&user_id, &game_type, &cooldown_secs],
+               AND last_played_at <= NOW() - ($4 * interval '1 second')",
+            &[&user_id, &game_type, &cooldown_secs, &(cooldown_secs as f64)],
         )
         .await
         .map_err(|e| format!("Failed to consume cooldown: {}", e))?;

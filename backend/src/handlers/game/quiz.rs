@@ -493,7 +493,7 @@ async fn next_quiz(client: &Client, chat_id: i64) -> Option<(i32, QuizData)> {
 
 /// Question ids recently asked in this chat, most recent first.
 async fn recent_question_ids(client: &Client, chat_id: i64) -> Vec<i32> {
-    match crate::db::quiz_tracker::get_recent_question_ids_db(client, chat_id, 30).await {
+    match crate::db::quiz_tracker::get_recent_question_ids_db(client, chat_id, 30i64).await {
         Ok(ids) => ids,
         Err(e) => {
             tracing::warn!("Failed to load recent quiz ids for chat {}: {}", chat_id, e);

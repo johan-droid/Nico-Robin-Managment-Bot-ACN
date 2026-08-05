@@ -68,7 +68,7 @@ pub async fn record_quiz_attempt(
 pub async fn get_recent_question_ids_db(
     client: &Client,
     chat_id: i64,
-    limit: i32,
+    limit: i64,
 ) -> Result<Vec<i32>, String> {
     let stmt = client
         .prepare(
