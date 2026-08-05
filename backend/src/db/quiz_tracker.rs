@@ -150,7 +150,7 @@ pub async fn get_user_quiz_stats(
     let stmt = client
         .prepare(
             "SELECT total_attempts, correct_answers, wrong_answers,
-                    ROUND(100.0 * correct_answers / NULLIF(total_attempts, 0), 1) AS accuracy
+                    ROUND(100.0 * correct_answers / NULLIF(total_attempts, 0), 1)::FLOAT8 AS accuracy
              FROM user_quiz_stats WHERE user_id = $1",
         )
         .await
@@ -181,11 +181,11 @@ pub async fn get_quiz_leaderboard(
     let stmt = client
         .prepare(
             "SELECT
-                ROW_NUMBER() OVER (ORDER BY correct_answers DESC, total_attempts ASC, user_id ASC) AS rank,
+                ROW_NUMBER() OVER (ORDER BY correct_answers DESC, total_attempts ASC, user_id ASC)::INT AS rank,
                 user_id,
                 correct_answers,
                 total_attempts,
-                ROUND(100.0 * correct_answers / NULLIF(total_attempts, 0), 1) AS accuracy
+                ROUND(100.0 * correct_answers / NULLIF(total_attempts, 0), 1)::FLOAT8 AS accuracy
              FROM user_quiz_stats
              WHERE total_attempts > 0
              ORDER BY correct_answers DESC, total_attempts ASC, user_id ASC

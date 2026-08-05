@@ -32,11 +32,11 @@ pub async fn get_crew_leaderboard_detailed(
     let stmt = client
         .prepare(
             "SELECT
-                ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(b.bounty), 0) DESC, c.id ASC) AS rank,
+                ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(b.bounty), 0) DESC, c.id ASC)::INT AS rank,
                 c.id,
                 c.name,
                 COALESCE(SUM(b.bounty), 0) AS total_bounty,
-                COUNT(DISTINCT m.user_id) AS member_count,
+                COUNT(DISTINCT m.user_id)::INT AS member_count,
                 CASE
                     WHEN COUNT(DISTINCT m.user_id) > 0
                     THEN COALESCE(SUM(b.bounty), 0) / COUNT(DISTINCT m.user_id)
@@ -45,7 +45,7 @@ pub async fn get_crew_leaderboard_detailed(
                 c.captain_id,
                 COALESCE((SELECT SUM(gs.plays) FROM game_stats gs
                           JOIN pirate_crew_members cm ON cm.user_id = gs.user_id
-                          WHERE cm.crew_id = c.id AND gs.game_type = 'voyage'), 0) AS total_voyages
+                          WHERE cm.crew_id = c.id AND gs.game_type = 'voyage'), 0)::INT AS total_voyages
             FROM pirate_crews c
             LEFT JOIN pirate_crew_members m ON c.id = m.crew_id
             LEFT JOIN one_piece_bounties b ON m.user_id = b.user_id
@@ -97,7 +97,7 @@ pub async fn get_user_leaderboard_detailed(
     let stmt = client
         .prepare(
             "SELECT
-                ROW_NUMBER() OVER (ORDER BY b.bounty DESC, b.user_id ASC) AS rank,
+                ROW_NUMBER() OVER (ORDER BY b.bounty DESC, b.user_id ASC)::INT AS rank,
                 b.user_id,
                 b.bounty,
                 COALESCE(c.name, 'Solo Pirate') AS crew_name
@@ -144,11 +144,11 @@ pub async fn get_crew_stats(
     let stmt = client
         .prepare(
             "SELECT
-                ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(b.bounty), 0) DESC, c.id ASC) AS rank,
+                ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(b.bounty), 0) DESC, c.id ASC)::INT AS rank,
                 c.id,
                 c.name,
                 COALESCE(SUM(b.bounty), 0) AS total_bounty,
-                COUNT(DISTINCT m.user_id) AS member_count,
+                COUNT(DISTINCT m.user_id)::INT AS member_count,
                 CASE
                     WHEN COUNT(DISTINCT m.user_id) > 0
                     THEN COALESCE(SUM(b.bounty), 0) / COUNT(DISTINCT m.user_id)
@@ -157,7 +157,7 @@ pub async fn get_crew_stats(
                 c.captain_id,
                 COALESCE((SELECT SUM(gs.plays) FROM game_stats gs
                           JOIN pirate_crew_members cm ON cm.user_id = gs.user_id
-                          WHERE cm.crew_id = c.id AND gs.game_type = 'voyage'), 0) AS total_voyages
+                          WHERE cm.crew_id = c.id AND gs.game_type = 'voyage'), 0)::INT AS total_voyages
             FROM pirate_crews c
             LEFT JOIN pirate_crew_members m ON c.id = m.crew_id
             LEFT JOIN one_piece_bounties b ON m.user_id = b.user_id
