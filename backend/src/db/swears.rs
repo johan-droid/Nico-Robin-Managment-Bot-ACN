@@ -32,10 +32,15 @@ pub async fn add_swear(client: &Client, group_id: i64, word: &str) -> Result<(),
         return Ok(());
     }
 
+    let word_hash_param = if word_hash.is_empty() {
+        None
+    } else {
+        Some(word_hash.clone())
+    };
     client
         .execute(
             r#"INSERT INTO swear_words (group_id, word, word_hash) VALUES ($1, $2, $3)"#,
-            &[&group_id, &word_enc, &word_hash],
+            &[&group_id, &word_enc, &word_hash_param],
         )
         .await
         .map_err(|e| e.to_string())?;

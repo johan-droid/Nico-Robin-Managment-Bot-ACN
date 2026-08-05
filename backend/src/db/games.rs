@@ -1,4 +1,4 @@
-use std::time::SystemTime;
+use rand::RngExt;
 use tokio_postgres::Client;
 
 pub async fn get_bounty(client: &Client, user_id: i64) -> Result<i64, String> {
@@ -68,7 +68,8 @@ pub async fn get_leaderboard(
 
     let mut lb = Vec::new();
     for row in rows {
-        lb.push((row.get(0), row.get(1), row.get(2)));
+        let name: String = crate::crypto::try_decrypt(&row.get::<_, String>(2));
+        lb.push((row.get(0), row.get(1), name));
     }
     Ok(lb)
 }
@@ -159,23 +160,26 @@ pub async fn perform_voyage(
     client: &Client,
     user_id: i64,
 ) -> Result<Result<(i64, i64, String), String>, String> {
-    // Per-user, per-game-instance cooldown tracking.
-    let remaining = crate::db::game_cooldown::get_remaining_cooldown(client, user_id, "voyage")
+    // The cooldown gate is claimed atomically (see try_consume_cooldown): the
+    // UPDATE takes a row lock, and concurrent `/voyage` calls serialize on it.
+    // Exactly one caller wins the slot, so the bounty is never paid out twice
+    // (double-spend) even when a user fires several commands at once.
+    let available = crate::db::game_cooldown::try_consume_cooldown(client, user_id, "voyage")
         .await?;
-    if remaining > 0 {
-        let hours = remaining / 3600;
-        let mins = (remaining % 3600) / 60;
+    if !available {
+        let remaining = crate::db::game_cooldown::get_remaining_cooldown(client, user_id, "voyage")
+            .await?
+            .max(1);
         return Ok(Err(format!(
             "Your crew needs rest. Sail again in {}h {}m.",
-            hours, mins
+            remaining / 3600,
+            (remaining % 3600) / 60
         )));
     }
 
-    let roll = SystemTime::now()
-        .duration_since(SystemTime::UNIX_EPOCH)
-        .unwrap_or(std::time::Duration::from_secs(0))
-        .subsec_nanos()
-        % 100;
+    // Use the platform CSPRNG instead of wall-clock time so the outcome is not
+    // predictable/seeded from a trivial source.
+    let roll = rand::rng().random_range(0..100);
 
     let (change, msg) = match roll {
         0..=15 => (20, "You found hidden treasure!"),
@@ -186,30 +190,16 @@ pub async fn perform_voyage(
         _ => (-10, "Marines ambushed your crew!"),
     };
 
-    let stmt = client
-        .prepare(
-            "
-            INSERT INTO one_piece_bounties (user_id, bounty, last_voyage)
-            VALUES ($1, GREATEST($2::BIGINT, 0::BIGINT), NOW())
-            ON CONFLICT (user_id)
-            DO UPDATE SET
-                bounty = GREATEST(one_piece_bounties.bounty + $2, 0),
-                last_voyage = NOW()
-            RETURNING bounty
-        ",
-        )
-        .await
-        .map_err(|e| format!("Failed to prepare query: {}", e))?;
-
-    let row = client
-        .query_one(&stmt, &[&user_id, &change])
-        .await
-        .map_err(|e| format!("Failed to execute query: {}", e))?;
-
-    let new_bounty = row.get::<_, i64>(0);
-
-    // Record the per-user cooldown and track the play for stats.
-    crate::db::game_cooldown::set_cooldown(client, user_id, "voyage").await?;
+    let new_bounty = match crate::db::games::add_bounty(client, user_id, change).await {
+        Ok(b) => b,
+        Err(e) => {
+            // The cooldown slot was claimed above but the payout statement
+            // failed (transient DB error). Refund the slot so the user is not
+            // locked out for an hour with nothing credited and no retry.
+            let _ = crate::db::game_cooldown::reset_cooldown(client, user_id, "voyage").await;
+            return Err(e);
+        }
+    };
     let _ = crate::db::game_stats::record_game_play(client, user_id, "voyage", change > 0).await;
 
     Ok(Ok((change, new_bounty, msg.to_string())))
@@ -229,12 +219,23 @@ pub async fn create_crew(client: &Client, captain_id: i64, name: &str) -> Result
                 .prepare("INSERT INTO pirate_crew_members (crew_id, user_id) VALUES ($1, $2)")
                 .await
                 .map_err(|e| e.to_string())?;
-            let _ = client
+            match client
                 .execute(&member_stmt, &[&crew_id, &captain_id])
                 .await
-                .map_err(|e| e.to_string())?;
-
-            Ok(crew_id)
+            {
+                Ok(_) => Ok(crew_id),
+                Err(e) => {
+                    // Roll back the just-created crew so we never leave an
+                    // orphaned crew with no captain.
+                    let _ = client
+                        .execute(
+                            "DELETE FROM pirate_crews WHERE id = $1",
+                            &[&crew_id],
+                        )
+                        .await;
+                    Err(format!("Failed to add captain to crew: {}", e))
+                }
+            }
         }
         Err(e) => {
             if e.to_string().contains("unique constraint") {
@@ -492,8 +493,22 @@ pub async fn get_random_quiz_excluding(
         .map_err(|e| e.to_string())?;
 
     if let Some(row) = row_opt {
-        let options: serde_json::Value = row.try_get(3).unwrap_or(serde_json::Value::Null);
-        let options: Vec<String> = serde_json::from_value(options).unwrap_or_default();
+        let options: serde_json::Value = match row.try_get(3) {
+            Ok(v) => v,
+            Err(e) => {
+                let id: i32 = row.get(0);
+                tracing::error!(
+                    question_id = id,
+                    error = %e,
+                    "Failed to read options column for quiz question"
+                );
+                serde_json::Value::Null
+            }
+        };
+        let options: Vec<String> = serde_json::from_value(options).unwrap_or_else(|e| {
+            tracing::warn!("Failed to parse quiz options JSON: {}", e);
+            vec![]
+        });
         Ok(Some(QuizQuestion {
             id: row.get(0),
             question: row.get(1),

@@ -53,8 +53,8 @@ fn test_sanitize_secrets_and_sentry_scrubber() {
     assert!(!sanitized_breadcrumb.contains("123456:secrettokenvalue"));
 }
 
-#[test]
-fn test_report_failure() {
+#[tokio::test]
+async fn test_report_failure() {
     let trace_id = 999999;
     let err = BotError::ValidationError("Testing failure reporting".to_string());
 
@@ -62,7 +62,7 @@ fn test_report_failure() {
     let _ = fs::remove_dir_all("diagnostics/failures");
 
     // Report the failure
-    report_failure(&err, trace_id, "Test Component", "Test Operation");
+    report_failure(&err, trace_id, "Test Component", "Test Operation").await;
 
     let dir = Path::new("diagnostics/failures");
     assert!(dir.exists());

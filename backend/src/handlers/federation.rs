@@ -16,7 +16,10 @@ pub async fn handle_newfed(bot: Bot, msg: Message, client: &Client) -> Result<()
         return Ok(());
     }
     let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
-    let fed_id = Uuid::new_v4().to_string()[..8].to_string();
+    // Full v4 UUID (122 bits of randomness, not brute-forceable). The 8-hex-char
+    // prefix previously used was only ~32 bits and acted as a guessable join
+    // secret. The full token is the shared "invite secret" for this federation.
+    let fed_id = Uuid::new_v4().to_string();
 
     match crate::db::federations::create_federation(client, &fed_id, name, user_id).await {
         Ok(_) => {

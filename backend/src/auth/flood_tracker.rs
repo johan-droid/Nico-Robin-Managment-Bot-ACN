@@ -113,24 +113,36 @@ pub async fn execute_flood_action(
 
     match action.mode.to_lowercase().as_str() {
         "ban" => {
-            let _ = bot.ban_chat_member(msg.chat.id, action.user_id).await;
-            let _ = bot
-                .send_message(
-                    msg.chat.id,
-                    format!("Banned {} for flooding.", escape_md_v2(user_name)),
-                )
-                .await;
-            log_mod_action(
-                bot,
-                settings,
-                msg.chat.id,
-                &format!(
-                    "Auto-banned {} in {} for flooding",
-                    escape_md_v2(user_name),
-                    escape_md_v2(msg.chat.title().unwrap_or("group"))
-                ),
-            )
-            .await;
+            match bot.ban_chat_member(msg.chat.id, action.user_id).await {
+                Ok(_) => {
+                    let _ = bot
+                        .send_message(
+                            msg.chat.id,
+                            format!("Banned {} for flooding.", escape_md_v2(user_name)),
+                        )
+                        .await;
+                    log_mod_action(
+                        bot,
+                        settings,
+                        msg.chat.id,
+                        &format!(
+                            "Auto-banned {} in {} for flooding",
+                            escape_md_v2(user_name),
+                            escape_md_v2(msg.chat.title().unwrap_or("group"))
+                        ),
+                    )
+                    .await;
+                }
+                Err(e) => {
+                    tracing::error!(user_id = %action.user_id, error = %e, "Flood ban failed");
+                    let _ = bot
+                        .send_message(
+                            msg.chat.id,
+                            format!("Failed to ban {} for flooding.", escape_md_v2(user_name)),
+                        )
+                        .await;
+                }
+            }
         }
         "warn" => {
             let _ = bot
@@ -142,26 +154,39 @@ pub async fn execute_flood_action(
         }
         _ => {
             let permissions = ChatPermissions::empty();
-            let _ = bot
+            match bot
                 .restrict_chat_member(msg.chat.id, action.user_id, permissions)
-                .await;
-            let _ = bot
-                .send_message(
-                    msg.chat.id,
-                    format!("Muted {} for flooding.", escape_md_v2(user_name)),
-                )
-                .await;
-            log_mod_action(
-                bot,
-                settings,
-                msg.chat.id,
-                &format!(
-                    "Auto-muted {} in {} for flooding",
-                    escape_md_v2(user_name),
-                    escape_md_v2(msg.chat.title().unwrap_or("group"))
-                ),
-            )
-            .await;
+                .await
+            {
+                Ok(_) => {
+                    let _ = bot
+                        .send_message(
+                            msg.chat.id,
+                            format!("Muted {} for flooding.", escape_md_v2(user_name)),
+                        )
+                        .await;
+                    log_mod_action(
+                        bot,
+                        settings,
+                        msg.chat.id,
+                        &format!(
+                            "Auto-muted {} in {} for flooding",
+                            escape_md_v2(user_name),
+                            escape_md_v2(msg.chat.title().unwrap_or("group"))
+                        ),
+                    )
+                    .await;
+                }
+                Err(e) => {
+                    tracing::error!(user_id = %action.user_id, error = %e, "Flood mute failed");
+                    let _ = bot
+                        .send_message(
+                            msg.chat.id,
+                            format!("Failed to mute {} for flooding.", escape_md_v2(user_name)),
+                        )
+                        .await;
+                }
+            }
         }
     }
 }

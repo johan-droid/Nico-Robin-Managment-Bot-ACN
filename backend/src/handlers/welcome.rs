@@ -1,8 +1,29 @@
 use crate::telegram::api::Bot;
 use crate::telegram::update::{Message, User};
+use std::collections::HashMap;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tokio_postgres::Client;
 
 use crate::utils::escape_md_v2;
+
+/// Guards against a member being welcomed repeatedly (churn bots that add /
+/// remove the same user) while still allowing distinct users to be welcomed.
+/// Returned as a sync helper so the MutexGuard never enters an async fn.
+fn welcome_ok(chat_id: i64, member_id: i64) -> bool {
+    static CACHE: std::sync::LazyLock<Mutex<HashMap<(i64, i64), Instant>>> =
+        std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+    let now = Instant::now();
+    if let Ok(mut m) = CACHE.lock() {
+        if let Some(prev) = m.get(&(chat_id, member_id)) {
+            if now.duration_since(*prev) < Duration::from_secs(60) {
+                return false;
+            }
+        }
+        m.insert((chat_id, member_id), now);
+    }
+    true
+}
 
 pub async fn handle_setwelcome(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
@@ -191,6 +212,10 @@ pub async fn handle_new_member(
     member: &User,
 ) -> Result<(), String> {
     let chat_id = msg.chat.id;
+    // Skip duplicate welcomes for the same user inside the cooldown window.
+    if !welcome_ok(chat_id, member.id as i64) {
+        return Ok(());
+    }
     match crate::db::welcome::get_welcome_settings(client, chat_id).await {
         Ok(Some(settings)) => {
             // Send welcome message to group

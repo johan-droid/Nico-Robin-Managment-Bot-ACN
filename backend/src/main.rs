@@ -98,6 +98,22 @@ async fn main() {
     let enc_key = nico_robin_bot::config::Settings::global()
         .encryption_key
         .clone();
+
+    // Refuse to start in production without encryption: otherwise sensitive
+    // data silently falls back to plaintext and later enabling the key leaves
+    // a hard-to-repair hybrid plaintext+encrypted state.
+    let is_production = env::var("ENVIRONMENT")
+        .unwrap_or_else(|_| "development".to_string())
+        .to_lowercase()
+        == "production";
+    if is_production && enc_key.is_empty() {
+        error!(
+            "FATAL: ENCRYPTION_KEY is not set in production. \
+             Set ENCRYPTION_KEY before deploying."
+        );
+        std::process::exit(1);
+    }
+
     if enc_key.is_empty() {
         warn!("ENCRYPTION_KEY not set — database data will be stored in plaintext");
     } else {
@@ -175,6 +191,14 @@ async fn main() {
     // `migrations/` (run by entrypoint.sh before the bot starts). No inline
     // CREATE TABLE is executed here anymore.
 
+    // If encryption was just enabled over previously-plaintext data, backfill
+    // the *_hash lookup columns so hash-based lookups can find legacy rows.
+    match nico_robin_bot::db::migration_backfill::backfill_legacy_hashes(&db_client).await {
+        Ok(n) if n > 0 => info!(hashed_rows = n, "Backfilled legacy hash columns"),
+        Ok(_) => {}
+        Err(e) => warn!(error = %e, "Legacy hash backfill failed; lookups on old rows may miss"),
+    }
+
     // Return client to pool
     drop(db_client);
 
@@ -221,14 +245,24 @@ async fn main() {
     }
 
     // Always serve the HTTP listener (health + webhook) even in long-polling
-    // mode so the process exposes a port for health checks.
-    let server_handle = tokio::spawn(run_webhook_server(state.clone(), port));
+    // mode so the process exposes a port for health checks. The server drains
+    // through a shared shutdown signal so main and the server respond to the
+    // same single ctrl_c (previously each installed its own handler, racing).
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
+    let server_shutdown = {
+        let mut rx = shutdown_rx;
+        async move {
+            let _ = rx.changed().await;
+        }
+    };
+    let mut server_handle = tokio::spawn(run_webhook_server(state.clone(), port, server_shutdown));
 
     if bot_mode == "webhook"
         && env::var("WEBHOOK_SECRET_PATH").is_err()
         && env::var("WEBHOOK_SECRET").is_err()
     {
-        panic!("WEBHOOK_SECRET_PATH or WEBHOOK_SECRET env var must be set when BOT_MODE=webhook");
+        error!("WEBHOOK_SECRET_PATH or WEBHOOK_SECRET env var must be set when BOT_MODE=webhook");
+        std::process::exit(1);
     }
 
     let chat_states_clone = state.chat_states.clone();
@@ -238,11 +272,16 @@ async fn main() {
             interval.tick().await;
             if let Ok(mut states) = chat_states_clone.lock() {
                 states.retain(|_, per_chat_arc| {
+                    // If we're the only holder, no handler is using this chat
+                    // anymore. Clean up and EVICT so the map doesn't grow
+                    // without bound across every chat the bot ever sees. The
+                    // state is re-created lazily on the next message.
                     if Arc::strong_count(per_chat_arc) == 1 {
                         if let Ok(mut guard) = per_chat_arc.try_lock() {
                             guard.0.cleanup_stale(std::time::Duration::from_secs(3600));
                             guard.1.cleanup_stale(std::time::Duration::from_secs(3600));
                         }
+                        return false;
                     }
                     true
                 });
@@ -250,16 +289,79 @@ async fn main() {
         }
     });
 
+    // Periodically evict expired admin-cache entries so the map never grows
+    // without bound (each user/chat pair is a key).
+    let pool_for_monitor = pool.clone();    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(900));
+        loop {
+            interval.tick().await;
+            let before = nico_robin_bot::auth::admin_cache_len();
+            nico_robin_bot::auth::cleanup_admin_cache();
+            let after = nico_robin_bot::auth::admin_cache_len();
+            if before != after {
+                info!(
+                    before = before,
+                    after = after,
+                    "Admin cache cleanup completed"
+                );
+            }
+
+            // Pool observability: surfaces connection leaks/contention early.
+            let pool_state = pool_for_monitor.status();
+            let active = pool_state.size.saturating_sub(pool_state.available);
+            info!(
+                pool_size = pool_state.max_size,
+                active_conns = active,
+                idle_conns = pool_state.available,
+                waiting = pool_state.waiting,
+                "DB pool state"
+            );
+        }
+    });
+
+    // Background DB maintenance (temp mute/ban expiry) + reminder delivery.
+    nico_robin_bot::tasks::cleanup::start_cleanup_task(pool.clone());
+    nico_robin_bot::tasks::cleanup::start_reminder_sweep(pool.clone(), state.bot.clone());
+
+    let shutdown = async {
+        match tokio::signal::ctrl_c().await {
+            Ok(()) => {
+                info!("Shutdown signal received, draining…");
+                let _ = shutdown_tx.send(true);
+            }
+            Err(e) => warn!(error = %e, "Failed to listen for shutdown signal"),
+        }
+    };
+
     if bot_mode == "polling" {
         info!("Starting in long-polling mode (local development)");
-        run_polling(state).await;
+        tokio::select! {
+            _ = shutdown => {}
+            _ = run_polling(state) => {}
+        }
     } else {
         info!("Starting in webhook mode");
-        server_handle.await.expect("Webhook server failed");
+        tokio::select! {
+            _ = shutdown => {}
+            _ = &mut server_handle => {}
+        }
     }
+
+    // Wait for the spawned server to finish draining via the shared signal
+    // instead of having main abort it mid-drain (bounded, so we never hang).
+    let _ = tokio::time::timeout(std::time::Duration::from_secs(5), server_handle).await;
+
+    // Let in-flight DB work drain before closing the pool.
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    pool.close();
+    info!("Shutdown complete");
 }
 
-async fn run_webhook_server(state: NativeState, port: u16) {
+async fn run_webhook_server(
+    state: NativeState,
+    port: u16,
+    shutdown: impl std::future::Future<Output = ()> + Send + 'static,
+) {
     let app = Router::new()
         .route("/health", get(health))
         .route("/webhook/:secret", post(webhook_handler))
@@ -271,7 +373,10 @@ async fn run_webhook_server(state: NativeState, port: u16) {
         .expect("Failed to bind to address");
 
     info!(addr = %addr, "Listening for webhooks");
-    axum::serve(listener, app).await.expect("Server failed");
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown)
+        .await
+        .expect("Server failed");
 }
 
 async fn run_polling(state: NativeState) {
@@ -293,7 +398,13 @@ async fn run_polling(state: NativeState) {
                     offset = (update.update_id as i64) + 1;
                     let state_clone = state.clone();
                     tokio::spawn(async move {
-                        if let Err(e) = process_update(state_clone, update).await {
+                        let trace_id = perf::next_trace_id();
+                        if let Err(e) = nico_robin_bot::utils::crash_reporter::catch_handler_panic(
+                            trace_id,
+                            process_update(state_clone, update),
+                        )
+                        .await
+                        {
                             error!(error = %e, "Failed to process polled update");
                         }
                     });
@@ -356,7 +467,10 @@ async fn webhook_handler(
     // Process the update in the background and return 200 immediately so
     // Telegram never waits on (or retries) our slow DB/API work.
     tokio::spawn(async move {
-        if let Err(e) = process_update(state, update).await {
+        let trace_id = perf::next_trace_id();
+        if let Err(e) =
+            nico_robin_bot::utils::crash_reporter::catch_handler_panic(trace_id, process_update(state, update)).await
+        {
             error!(error = %e, "Webhook update processing failed");
         }
     });
@@ -409,9 +523,15 @@ async fn process_update(state: NativeState, update: Update) -> Result<(), String
                 if let Some(msg) = update.message {
                     let chat_id = msg.chat.id;
                     let text = msg.text().unwrap_or("");
-                    let is_settings_change = text.starts_with("/setflood")
+                    let is_flood_setting = text.starts_with("/setflood");
+                    let is_settings_change = is_flood_setting
                         || text.starts_with("/addswear")
-                        || text.starts_with("/delswear");
+                        || text.starts_with("/delswear")
+                        || text.starts_with("/filter")
+                        || text.starts_with("/stop")
+                        || text.starts_with("/enable")
+                        || text.starts_with("/disable")
+                        || text.starts_with("/toggle");
 
                     let user_id = msg.from().map(|u| u.id).unwrap_or(0);
                     let (is_admin, security_enabled) = tokio::join!(
@@ -510,6 +630,14 @@ async fn process_update(state: NativeState, update: Update) -> Result<(), String
 
                     if is_settings_change {
                         nico_robin_bot::db::feature_cache::invalidate_group(chat_id);
+                        nico_robin_bot::handlers::invalidate_chat_caches(chat_id);
+                        // The per-chat FloodTracker caches flood settings; /setflood
+                        // changed them, so force a re-fetch on the next message.
+                        if is_flood_setting {
+                            if let Ok(mut guard) = per_chat.clone().try_lock() {
+                                guard.0.invalidate();
+                            }
+                        }
                     }
 
                     res
@@ -525,7 +653,8 @@ async fn process_update(state: NativeState, update: Update) -> Result<(), String
                     trace_id,
                     "Update Handler",
                     "Process Telegram Message",
-                );
+                )
+                .await;
             }
             let res = result;
 

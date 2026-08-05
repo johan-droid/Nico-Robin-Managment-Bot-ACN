@@ -28,3 +28,5 @@ pub mod leaderboard;
 pub mod logs;
 pub mod moderation;
 pub mod nim;
+pub mod quiz_tracker;
+pub mod migration_backfill;

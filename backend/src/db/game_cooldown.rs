@@ -61,6 +61,54 @@ pub async fn get_remaining_cooldown(
         .unwrap_or(0))
 }
 
+/// Atomically claims the cooldown slot for `game_type`, if available.
+///
+/// This is the authoritative gate for paid gameplay. The check-and-claim is
+/// race-free:
+///  1. `UPDATE ... WHERE last_played_at <= expiry` takes a row lock, so
+///     concurrent calls serialize on the row and the loser sees the fresh
+///     timestamp and fails the predicate.
+///  2. If no row exists yet, a bare `INSERT ... ON CONFLICT DO NOTHING` lets
+///     exactly one concurrent caller win.
+/// Returns `true` when the slot was claimed (game may proceed), `false` when
+/// the user is still inside their cooldown window.
+pub async fn try_consume_cooldown(
+    client: &Client,
+    user_id: i64,
+    game_type: &str,
+) -> Result<bool, String> {
+    let cooldown_secs = cooldown_for(game_type);
+
+    // Expired record present -> atomically refresh it.
+    let updated = client
+        .execute(
+            "UPDATE game_cooldowns
+             SET last_played_at = NOW(), cooldown_seconds = $3
+             WHERE user_id = $1 AND game_type = $2
+               AND last_played_at <= NOW() - ($3 * interval '1 second')",
+            &[&user_id, &game_type, &cooldown_secs],
+        )
+        .await
+        .map_err(|e| format!("Failed to consume cooldown: {}", e))?;
+    if updated > 0 {
+        return Ok(true);
+    }
+
+    // No row (or not expired). Try to insert a fresh record; only one of any
+    // concurrent callers can win the conflict.
+    let inserted = client
+        .execute(
+            "INSERT INTO game_cooldowns (user_id, game_type, last_played_at, cooldown_seconds)
+             VALUES ($1, $2, NOW(), $3)
+             ON CONFLICT (user_id, game_type) DO NOTHING",
+            &[&user_id, &game_type, &cooldown_secs],
+        )
+        .await
+        .map_err(|e| format!("Failed to create cooldown record: {}", e))?;
+
+    Ok(inserted > 0)
+}
+
 /// Removes the cooldown record entirely (used by the `/resetcooldown` admin command).
 /// Returns true if a record existed and was removed.
 pub async fn reset_cooldown(

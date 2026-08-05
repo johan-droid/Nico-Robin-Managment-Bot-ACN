@@ -26,10 +26,29 @@ pub async fn handle_setflood(
         }
     };
     let chat_id = msg.chat.id;
-    let mode = if count == 0 { "off" } else { "warn" };
+    // count <= 0 disables; otherwise clamp to a sane detection range so a huge
+    // value doesn't silently disable flood protection.
+    if count != 0 && !(1..=60).contains(&count) {
+        bot.send_message(
+            msg.chat.id,
+            "Count must be 0 (disable) or between 1 and 60.",
+        )
+        .await?;
+        return Ok(());
+    }
+    // Optional mode for the non-zero case: /setflood <count> [warn|ban].
+    // Previously every non-zero count hard-coded "warn", making /ban unreachable.
+    let mode = if count == 0 {
+        "off".to_string()
+    } else {
+        match parts.get(2).map(|s| s.to_lowercase()).as_deref() {
+            Some("ban") => "ban".to_string(),
+            _ => "warn".to_string(),
+        }
+    };
     let window = 10;
 
-    match crate::db::flood::set_flood_settings(client, chat_id, count, mode, window).await {
+    match crate::db::flood::set_flood_settings(client, chat_id, count, &mode, window).await {
         Ok(_) => {
             if count == 0 {
                 let _ = bot
@@ -40,8 +59,8 @@ pub async fn handle_setflood(
                     .send_message(
                         msg.chat.id,
                         format!(
-                            "Flood limit set to {} messages per {} seconds.",
-                            count, window
+                            "Flood limit set to {} messages per {} seconds ({}).",
+                            count, window, mode
                         ),
                     )
                     .await;
@@ -109,6 +128,34 @@ pub async fn handle_addswear(
     }
     let word = parts[1].to_lowercase();
     let chat_id = msg.chat.id;
+
+    if word.len() > 100 {
+        bot.send_message(
+            msg.chat.id,
+            format!(
+                "Word too long. Max 100 characters (yours: {}).",
+                word.len()
+            ),
+        )
+        .await?;
+        return Ok(());
+    }
+
+    if word.contains('%') || word.contains('_') {
+        bot.send_message(
+            msg.chat.id,
+            "Word contains invalid characters (% or _).",
+        )
+        .await?;
+        return Ok(());
+    }
+
+    let alpha_count = word.chars().filter(|c| c.is_alphanumeric()).count();
+    if !word.is_empty() && (word.len() as f32 - alpha_count as f32) / word.len() as f32 > 0.8 {
+        bot.send_message(msg.chat.id, "Word is mostly special characters.")
+            .await?;
+        return Ok(());
+    }
 
     match crate::db::swears::add_swear(client, chat_id, &word).await {
         Ok(_) => {

@@ -276,22 +276,14 @@ pub async fn handle_export(bot: Bot, msg: Message, client: &Client) -> Result<()
 
 pub async fn handle_delete_data(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let caller_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
-    let target_id = match extract_target_user(&msg) {
-        Some((id, _)) if id > 0 => id,
-        _ => caller_id,
-    };
 
-    match crate::db::profiles::delete_profile(client, target_id).await {
+    // GDPR-style self-erasure only. Never target a different user via reply /
+    // numeric arg / mention — that would silently delete a third party's data.
+    match crate::db::profiles::delete_profile(client, caller_id).await {
         Ok(true) => {
-            if target_id == caller_id {
-                let _ = bot
-                    .send_message(msg.chat.id, "Your data has been deleted.")
-                    .await;
-            } else {
-                let _ = bot
-                    .send_message(msg.chat.id, "The user's data has been deleted.")
-                    .await;
-            }
+            let _ = bot
+                .send_message(msg.chat.id, "Your data has been deleted.")
+                .await;
         }
         Ok(false) => {
             let _ = bot

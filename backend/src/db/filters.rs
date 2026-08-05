@@ -13,6 +13,9 @@ pub async fn add_filter(
     response: &str,
     created_by: i64,
 ) -> Result<(), String> {
+    if response.len() > 4000 {
+        return Err("Filter response is too long (max 4000 characters).".to_string());
+    }
     let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let lower_trigger = trigger_text.to_lowercase();
     let trigger_enc = crate::crypto::try_encrypt(&lower_trigger);
@@ -60,6 +63,25 @@ pub async fn add_filter(
                 .map_err(|e| e.to_string())?;
         }
     } else {
+        // NULL instead of "" when crypto is off, so the partial unique index
+        // (idx_filters_group_trigger_hash WHERE trigger_hash IS NOT NULL) does
+        // not force every distinct filter in the group onto one free slot.
+        let trigger_hash_param = if trigger_hash.is_empty() {
+            None
+        } else {
+            Some(trigger_hash.clone())
+        };
+        let count: i64 = client
+            .query_one(
+                "SELECT COUNT(*) FROM filters WHERE group_id = $1",
+                &[&group_id],
+            )
+            .await
+            .map_err(|e| e.to_string())?
+            .get(0);
+        if count >= 200 {
+            return Err("Filter limit reached (max 200 filters per group).".to_string());
+        }
         client
             .execute(
                 r#"INSERT INTO filters (group_id, trigger_text, trigger_hash, response, created_by)
@@ -67,7 +89,7 @@ pub async fn add_filter(
                 &[
                     &group_id,
                     &trigger_enc,
-                    &trigger_hash,
+                    &trigger_hash_param,
                     &response_enc,
                     &created_by,
                 ],
@@ -116,7 +138,7 @@ pub async fn check_filter(
     for row in rows {
         let trigger: String = crate::crypto::try_decrypt(&row.get::<_, String>(0));
         let response: String = crate::crypto::try_decrypt(&row.get::<_, String>(1));
-        if text_lower.contains(&trigger.to_lowercase()) {
+        if crate::utils::contains_word(&text_lower, &trigger.to_lowercase()) {
             return Ok(Some(response));
         }
     }

@@ -17,6 +17,15 @@ pub async fn handle_save(bot: Bot, msg: Message, client: &Client) -> Result<(), 
     let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
     let chat_id = msg.chat.id;
 
+    if name.len() > 100 {
+        bot.send_message(
+            msg.chat.id,
+            format!("Note name too long. Max 100 characters (yours: {}).", name.len()),
+        )
+        .await?;
+        return Ok(());
+    }
+
     match crate::db::notes::save_note(client, chat_id, name, content, user_id).await {
         Ok(_) => {
             let _ = bot

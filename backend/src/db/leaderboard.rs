@@ -196,7 +196,7 @@ pub async fn get_crew_stats(
 
 /// Resolves display names for a batch of user IDs from `username_cache`.
 /// `first_name` is stored encrypted, so each entry is decrypted before use.
-async fn resolve_user_names(client: &Client, user_ids: &[i64]) -> HashMap<i64, String> {
+pub(crate) async fn resolve_user_names(client: &Client, user_ids: &[i64]) -> HashMap<i64, String> {
     if user_ids.is_empty() {
         return HashMap::new();
     }

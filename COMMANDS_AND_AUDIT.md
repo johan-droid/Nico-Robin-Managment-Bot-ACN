@@ -192,7 +192,9 @@
 |---------|--------|----------------|------------|--------------------------------------|
 | `/voyage` | `/voyage` | **Voyage** | 🌍 Everyone | **Explanation**: Sails the Grand Line for fortune or ruin. Outcome is rolled per user and the bounty is updated. A **per-user 1-hour cooldown** is enforced via the `game_cooldowns` table — other users are never affected.<br>**How to use**: Send `/voyage` to set sail. If on cooldown, the bot reports the remaining `h m`. |
 | `/daily` | `/daily` | **Daily** | 🌍 Everyone | **Explanation**: Claims +5 Berries once per 24 hours.<br>**How to use**: Send `/daily`. |
-| `/quiz` | `/quiz` | **Poneglyph Quiz** | 🌍 Everyone | **Explanation**: Deciphers a Poneglyph riddle. Correct = +10, wrong = -5. Outcomes are recorded in `game_stats`.<br>**How to use**: Send `/quiz` then reply (or tap an option) with your answer. |
+| `/quiz` | `/quiz` | **Poneglyph Quiz** | 🌍 Everyone | **Explanation**: Deciphers a Poneglyph riddle. Correct = +10, wrong = -5. Questions avoid repeats within a chat (persistent via `quiz_history`), favor least-used questions, and rest 30 minutes between appearances. Every attempt is recorded in `user_quiz_stats` and bumps the question's `usage_count`.<br>**How to use**: Send `/quiz` then reply (or tap an option) with your answer. |
+| `/quizstats` | `/quizstats` | **Quiz Stats** | 🌍 Everyone | **Explanation**: Your personal Poneglyph record — correct, wrong, accuracy, and total attempts.<br>**How to use**: Send `/quizstats`. |
+| `/qleaderboard` | `/qleaderboard` | **Quiz Board** | 🌍 Everyone | **Explanation**: Top 10 pirates by correct Poneglyph deciphers across all chats, with accuracy.<br>**How to use**: Send `/qleaderboard`. |
 | `/cooldown` | `/cooldown [game]` | **Cooldowns** | 🌍 Everyone | **Explanation**: Lists all active per-user game cooldowns with remaining time.<br>**How to use**: Send `/cooldown` for all games, or `/cooldown voyage` for a specific one. |
 | `/mystats` | `/mystats` | **My Stats** | 🌍 Everyone | **Explanation**: Shows your bounty, total games played, wins, crew, and a per-game breakdown.<br>**How to use**: Send `/mystats`. |
 | `/toppirates` | `/toppirates` | **User Board** | 🌍 Everyone | **Explanation**: Top 10 pirates by bounty, each annotated with their crew affiliation.<br>**How to use**: Send `/toppirates`. |
@@ -205,6 +207,7 @@
 |---------|--------|----------------|------------|--------------------------------------|
 | `/resetcooldown` | `/resetcooldown [@user] [game]` | **Cooldown Reset** | 🛡️ Admin | **Explanation**: Removes the cooldown record for a user (default game: `voyage`).<br>**How to use**: Reply to a user with `/resetcooldown` or `/resetcooldown @username voyage`. |
 | `/gamestats` | `/gamestats [@user]` | **Game Audit** | 🛡️ Admin | **Explanation**: Detailed game history (plays, wins, win-rate per game type) for a user.<br>**How to use**: Reply to a user with `/gamestats` or send `/gamestats @username`. |
+| `/quiz:admin` | `/quiz:admin stats \| reset <id> \| remove <id>` | **Quiz Pool Admin** | 🛡️ Admin | **Explanation**: Manages the stored question pool. `stats` shows total/used/fresh questions; `reset <id>` clears usage tracking so a question can appear again; `remove <id>` deletes a question.<br>**How to use**: Send `/quiz:admin stats`, `/quiz:admin reset 42`, or `/quiz:admin remove 42`. |
 | `/leaderboard reset` | `/leaderboard reset [confirm]` | **Ledger Wipe** | 🛡️ Admin | **Explanation**: Wipes every pirate bounty and restarts the game. Requires a `confirm` argument.<br>**How to use**: Send `/leaderboard reset`, then `/leaderboard reset confirm`. |
 
 ---

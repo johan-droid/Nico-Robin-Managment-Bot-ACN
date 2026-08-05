@@ -129,6 +129,7 @@ pub async fn handle_start(bot: Bot, msg: Message, client: &Client) -> Result<(),
                 .unwrap_or_else(|| u.first_name.clone())
         })
         .unwrap_or_else(|| "there".to_string());
+    let mention = crate::utils::escape_html(&mention);
 
     let caption = format!(
         concat!(

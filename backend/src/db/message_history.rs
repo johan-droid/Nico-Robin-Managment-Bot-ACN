@@ -86,7 +86,7 @@ pub async fn get_recent_between(
         .query(
             "SELECT message_id, user_id, user_name, text, date \
              FROM message_history WHERE chat_id = $1 AND message_id >= $2 AND message_id <= $3 \
-             ORDER BY message_id ASC",
+             ORDER BY message_id ASC LIMIT 500",
             &[&chat_id, &(from_id as i64), &(to_id as i64)],
         )
         .await

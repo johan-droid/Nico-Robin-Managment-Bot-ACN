@@ -18,6 +18,23 @@ pub async fn handle_filter(bot: Bot, msg: Message, client: &Client) -> Result<()
     let user_id = msg.from().map(|u| u.id as i64).unwrap_or(0);
     let chat_id = msg.chat.id;
 
+    if trigger.len() > 100 {
+        bot.send_message(
+            msg.chat.id,
+            format!("Trigger too long. Max 100 characters (yours: {}).", trigger.len()),
+        )
+        .await?;
+        return Ok(());
+    }
+    if trigger.chars().count() < 3 {
+        bot.send_message(
+            msg.chat.id,
+            "Trigger too short. Minimum 3 characters to avoid matching everything.",
+        )
+        .await?;
+        return Ok(());
+    }
+
     match crate::db::filters::add_filter(client, chat_id, trigger, response, user_id).await {
         Ok(_) => {
             let _ = bot

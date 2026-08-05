@@ -17,6 +17,16 @@ async fn extract_target(
     client: &Client,
     usage: &str,
 ) -> Option<(i64, String)> {
+    // Moderation actions only ever make sense inside a group. In a private chat
+    // there is no group admin context, so resolving a @username could otherwise
+    // let a user act on a cached target from an unrelated group.
+    if msg.chat.id > 0 {
+        let _ = bot
+            .send_message(msg.chat.id, "Moderation commands only work in groups.")
+            .await;
+        return None;
+    }
+
     match extract_target_user(msg) {
         Some((id, name)) if id != 0 => Some((id, name)),
         Some((0, name)) => {
@@ -50,7 +60,26 @@ async fn extract_target(
                         let user_id: i64 = row.get(0);
                         let first_name: String =
                             crate::crypto::try_decrypt(&row.get::<_, String>(1));
-                        Some((user_id, first_name))
+                        // The cache is global; before acting on the resolved ID,
+                        // confirm the user actually belongs to THIS chat, so a
+                        // stale/cross-group cache entry can't make an admin ban a
+                        // stranger in another group.
+                        match bot.get_chat_member(msg.chat.id, user_id as u64).await {
+                            Ok(_member) => Some((user_id, first_name)),
+                            Err(_) => {
+                                tracing::warn!(user_id = %user_id, chat_id = %msg.chat.id, "Username-cache target not a member of this chat; refusing");
+                                send_text(
+                                    bot,
+                                    msg.chat.id,
+                                    &format!(
+                                        "[Pending] {} is not a member of this group. Please reply with a Numeric ID to confirm the target.",
+                                        name
+                                    ),
+                                )
+                                .await;
+                                None
+                            }
+                        }
                     }
                     Err(_) => {
                         let command_name = msg
@@ -105,6 +134,7 @@ pub async fn handle_ban(
     tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /ban command");
     match bot.ban_chat_member(msg.chat.id, target_id as u64).await {
         Ok(_) => {
+            crate::auth::invalidate_admin_cache(msg.chat.id, target_id as u64);
             tracing::info!(target_id = %target_id, "Telegram banChatMember API call succeeded");
             send_text(
                 &bot,
@@ -162,6 +192,7 @@ pub async fn handle_unban(
     tracing::info!(target_id = %target_id, target_name = %target_name, executor = %executor, "Executing /unban command");
     match bot.unban_chat_member(msg.chat.id, target_id as u64).await {
         Ok(_) => {
+            crate::auth::invalidate_admin_cache(msg.chat.id, target_id as u64);
             let _ = crate::db::moderation::remove_temp_ban(client, msg.chat.id, target_id).await;
             tracing::info!(target_id = %target_id, "Telegram unbanChatMember API call succeeded");
 
@@ -262,6 +293,7 @@ pub async fn handle_kick(
     match bot.ban_chat_member(msg.chat.id, target_id as u64).await {
         Ok(_) => {
             tracing::info!(target_id = %target_id, "Telegram banChatMember (part of kick) succeeded");
+            crate::auth::invalidate_admin_cache(msg.chat.id, target_id as u64);
             // Unban immediately to complete the kick (allows re-joining)
             let unban_res = bot.unban_chat_member(msg.chat.id, target_id as u64).await;
             tracing::info!(target_id = %target_id, result = ?unban_res, "Telegram unbanChatMember (part of kick) completed");
@@ -487,25 +519,46 @@ pub async fn handle_warn(
     .await;
 
     if count >= settings.warn_threshold as i64 {
-        let _ = bot.ban_chat_member(msg.chat.id, target_id as u64).await;
-        send_text(
-            &bot,
-            msg.chat.id,
-            &crate::handlers::flavor::auto_ban_msg(&target_name, count, "exceeded warn threshold"),
-        )
-        .await;
-        log_mod_action(
-            &bot,
-            settings,
-            msg.chat.id,
-            &format!(
-                "Auto-banned {} in {} (exceeded warn threshold)",
-                escape_md_v2(&target_name),
-                escape_md_v2(msg.chat.title().unwrap_or("group"))
-            ),
-        )
-        .await;
-        let _ = crate::db::warnings::reset_warnings(client, chat_id, target_id).await;
+        match bot.ban_chat_member(msg.chat.id, target_id as u64).await {
+            Ok(_) => {
+                crate::auth::invalidate_admin_cache(msg.chat.id, target_id as u64);
+                send_text(
+                    &bot,
+                    msg.chat.id,
+                    &crate::handlers::flavor::auto_ban_msg(
+                        &target_name,
+                        count,
+                        "exceeded warn threshold",
+                    ),
+                )
+                .await;
+                log_mod_action(
+                    &bot,
+                    settings,
+                    msg.chat.id,
+                    &format!(
+                        "Auto-banned {} in {} (exceeded warn threshold)",
+                        escape_md_v2(&target_name),
+                        escape_md_v2(msg.chat.title().unwrap_or("group"))
+                    ),
+                )
+                .await;
+                let _ = crate::db::warnings::reset_warnings(client, chat_id, target_id).await;
+            }
+            Err(e) => {
+                tracing::error!(target_id = %target_id, error = %e, "Auto-ban after warn threshold failed");
+                send_text(
+                    &bot,
+                    msg.chat.id,
+                    &format!(
+                        "{} reached the warn threshold but the ban failed: {}",
+                        escape_md_v2(&target_name),
+                        escape_md_v2(&e)
+                    ),
+                )
+                .await;
+            }
+        }
     }
     Ok(())
 }
@@ -619,6 +672,9 @@ pub async fn handle_slowmode(bot: Bot, msg: Message, _settings: &Settings) -> Re
             return Ok(());
         }
     };
+    // Telegram only accepts 0..=3600 seconds; clamp before the API call so the
+    // confirmation message matches what Telegram will actually apply.
+    let seconds = seconds.min(3600);
     match bot
         .api_post(
             "setChatSlowMode",

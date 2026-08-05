@@ -58,6 +58,19 @@ const FILTER_CACHE_TTL_SECS: u64 = 30;
 /// TTL for swear-word cache.
 const SWEAR_CACHE_TTL_SECS: u64 = 60;
 
+/// Drops a chat's in-memory filter / swear caches so the next message reloads
+/// them from the DB. Called from `main` after a settings-writing command
+/// (filter/unfilter/addswear/delswear) so edits apply immediately instead of
+/// waiting out the TTL.
+pub fn invalidate_chat_caches(chat_id: i64) {
+    if let Ok(mut m) = FILTER_CACHE.lock() {
+        m.remove(&chat_id);
+    }
+    if let Ok(mut m) = SWEAR_CACHE.lock() {
+        m.remove(&chat_id);
+    }
+}
+
 // ── Strict action protocol ────────────────────────────────────────────
 /// Maximum warnings before auto-ban.
 const MAX_WARNINGS: i64 = 3;
@@ -385,6 +398,16 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                     "daily" => return game::bounty::handle_daily(bot, msg, client).await,
                     "voyage" => return game::voyage::handle_voyage(bot, msg, client).await,
                     "quiz" => return game::quiz::handle_quiz(bot, msg, client).await,
+                    "quizstats" => return game::quiz::handle_quizstats(bot, msg, client).await,
+                    "qleaderboard" => {
+                        return game::quiz::handle_qleaderboard(bot, msg, client).await
+                    }
+                    "quiz:admin" => {
+                        if !require_admin_fast(&bot, &msg, is_admin).await? {
+                            return Ok(());
+                        }
+                        return game::quiz::handle_quiz_admin(bot, msg, client).await;
+                    }
                     "crew" => return game::crew::handle_crew(bot, msg, client).await,
                     "crewboard" => return game::stats::handle_crewboard(bot, msg, client).await,
                     "toppirates" => return game::stats::handle_toppirates(bot, msg, client).await,
@@ -1009,7 +1032,7 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                 };
                 if let Some((_, response)) = filters
                     .iter()
-                    .find(|(trigger, _)| text_lower.contains(trigger))
+                    .find(|(trigger, _)| crate::utils::contains_word(&text_lower, trigger))
                 {
                     let _ = bot.send_message(msg.chat.id, response).await;
                 }

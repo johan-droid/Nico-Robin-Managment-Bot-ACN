@@ -26,7 +26,6 @@ path = "src/bin/diagnose.rs"
 opt-level = "z"
 lto = true
 codegen-units = 1
-panic = "abort"
 strip = true
 
 [dependencies]
@@ -43,7 +42,7 @@ aes-gcm = "0.10"
 base64 = "0.22"
 sha2 = "0.10"
 hmac = "0.12"
-tokio = { version = "1.38", default-features = false, features = ["macros", "sync", "rt", "rt-multi-thread", "io-util", "time"] }
+tokio = { version = "1.38", default-features = false, features = ["macros", "sync", "rt", "rt-multi-thread", "io-util", "time", "signal"] }
 dotenvy = "0.15"
 tokio-postgres = { version = "0.7", default-features = false, features = ["with-chrono-0_4", "with-serde_json-1", "runtime"] }
 deadpool-postgres = { version = "0.14", default-features = false, features = ["serde", "rt_tokio_1"] }

@@ -8,6 +8,9 @@ pub async fn save_note(
     content: &str,
     created_by: i64,
 ) -> Result<(), String> {
+    if content.len() > 4000 {
+        return Err("Note content is too long (max 4000 characters).".to_string());
+    }
     let _ = crate::db::groups::ensure_group(client, group_id, "Group").await;
     let lower_name = name.to_lowercase();
     let name_enc = crate::crypto::try_encrypt(&lower_name);
@@ -56,11 +59,36 @@ pub async fn save_note(
                 .map_err(|e| e.to_string())?;
         }
     } else {
+        // When crypto is disabled the hash is empty; store SQL NULL so the
+        // partial unique index (idx_notes_group_name_hash WHERE name_hash IS NOT
+        // NULL) does not collide every note in the group onto one free slot.
+        let name_hash_param = if name_hash.is_empty() {
+            None
+        } else {
+            Some(name_hash.clone())
+        };
+        let count: i64 = client
+            .query_one(
+                "SELECT COUNT(*) FROM notes WHERE group_id = $1",
+                &[&group_id],
+            )
+            .await
+            .map_err(|e| e.to_string())?
+            .get(0);
+        if count >= 300 {
+            return Err("Note limit reached (max 300 notes per group).".to_string());
+        }
         client
             .execute(
                 r#"INSERT INTO notes (group_id, name, name_hash, content, created_by)
                VALUES ($1, $2, $3, $4, $5)"#,
-                &[&group_id, &name_enc, &name_hash, &content_enc, &created_by],
+                &[
+                    &group_id,
+                    &name_enc,
+                    &name_hash_param,
+                    &content_enc,
+                    &created_by,
+                ],
             )
             .await
             .map_err(|e| e.to_string())?;

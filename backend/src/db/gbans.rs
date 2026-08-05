@@ -56,11 +56,12 @@ pub async fn get_gban(client: &Client, user_id: i64) -> Result<Option<Gban>, Str
     }))
 }
 
-/// Returns all gbans, most recent first.
+/// Returns the most recent gbans (capped so a huge list can't blow the
+/// message-length limit or memory).
 pub async fn list_gbans(client: &Client) -> Result<Vec<Gban>, String> {
     let rows = client
         .query(
-            "SELECT user_id, user_name, reason, banned_by FROM gbans ORDER BY banned_at DESC",
+            "SELECT user_id, user_name, reason, banned_by FROM gbans ORDER BY banned_at DESC LIMIT 50",
             &[],
         )
         .await

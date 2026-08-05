@@ -50,12 +50,8 @@ impl From<serde_json::Error> for BotError {
     }
 }
 
-pub fn report_failure(err: &BotError, trace_id: u64, component: &str, operation: &str) {
+pub async fn report_failure(err: &BotError, trace_id: u64, component: &str, operation: &str) {
     let dir = Path::new("diagnostics/failures");
-    if let Err(e) = fs::create_dir_all(dir) {
-        eprintln!("Failed to create diagnostics/failures directory: {}", e);
-        return;
-    }
 
     let timestamp = Utc::now().to_rfc3339();
     let filename = format!(
@@ -69,6 +65,9 @@ pub fn report_failure(err: &BotError, trace_id: u64, component: &str, operation:
         .try_with(|buf| buf.borrow().join("\n"))
         .unwrap_or_else(|_| "No trace logs recorded".to_string());
 
+    // Redact secrets from BOTH the debug type line and the message body so a
+    // secret inside a handler error string never lands on disk in plaintext.
+    let sanitized_debug = sanitize_secrets(&format!("{:?}", err));
     let sanitized_err = sanitize_secrets(&err.to_string());
     let sanitized_logs = sanitize_secrets(&logs);
 
@@ -78,7 +77,7 @@ pub fn report_failure(err: &BotError, trace_id: u64, component: &str, operation:
          - **Trace ID**: {}\n\
          - **Component**: {}\n\
          - **Operation**: {}\n\
-         - **Error Type**: {:?}\n\n\
+         - **Error Type**: {}\n\n\
          ## Error Message\n\
          ```\n\
          {}\n\
@@ -87,12 +86,23 @@ pub fn report_failure(err: &BotError, trace_id: u64, component: &str, operation:
          ```\n\
          {}\n\
          ```\n",
-        timestamp, trace_id, component, operation, err, sanitized_err, sanitized_logs
+        timestamp, trace_id, component, operation, sanitized_debug, sanitized_err, sanitized_logs
     );
 
-    if let Err(e) = fs::write(&filepath, report) {
-        eprintln!("Failed to write failure report: {}", e);
-    }
+    // File I/O off the async worker thread.
+    let dir_owned = dir.to_path_buf();
+    let filepath_owned = filepath.clone();
+    let report_owned = report.clone();
+    let _ = tokio::task::spawn_blocking(move || {
+        if let Err(e) = fs::create_dir_all(&dir_owned) {
+            eprintln!("Failed to create diagnostics/failures directory: {}", e);
+            return;
+        }
+        if let Err(e) = fs::write(&filepath_owned, &report_owned) {
+            eprintln!("Failed to write failure report: {}", e);
+        }
+    })
+    .await;
 
     sentry::configure_scope(|scope| {
         scope.set_tag("trace_id", trace_id.to_string());
@@ -104,24 +114,21 @@ pub fn report_failure(err: &BotError, trace_id: u64, component: &str, operation:
 
 pub fn sanitize_secrets(input: &str) -> String {
     let mut output = input.to_string();
-    if let Ok(token) = std::env::var("BOT_TOKEN") {
-        if !token.is_empty() {
-            output = output.replace(&token, "[REDACTED_BOT_TOKEN]");
-        }
-    }
-    if let Ok(db_url) = std::env::var("DATABASE_URL") {
-        if !db_url.is_empty() {
-            output = output.replace(&db_url, "[REDACTED_DATABASE_URL]");
-        }
-    }
-    if let Ok(secret) = std::env::var("WEBHOOK_SECRET") {
-        if !secret.is_empty() {
-            output = output.replace(&secret, "[REDACTED_WEBHOOK_SECRET]");
-        }
-    }
-    if let Ok(secret_path) = std::env::var("WEBHOOK_SECRET_PATH") {
-        if !secret_path.is_empty() {
-            output = output.replace(&secret_path, "[REDACTED_WEBHOOK_SECRET_PATH]");
+    for key in [
+        "BOT_TOKEN",
+        "DATABASE_URL",
+        "WEBHOOK_SECRET",
+        "WEBHOOK_SECRET_PATH",
+        "ENCRYPTION_KEY",
+        "NVIDIA_NIM_KEY",
+        "NVIDIA_API_KEY",
+        "NVCF_API_KEY",
+        "SENTRY_DSN",
+    ] {
+        if let Ok(val) = std::env::var(key) {
+            if !val.is_empty() {
+                output = output.replace(&val, &format!("[REDACTED_{}]", key));
+            }
         }
     }
     output

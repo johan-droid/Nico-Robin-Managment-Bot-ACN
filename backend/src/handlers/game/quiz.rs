@@ -10,6 +10,7 @@ use tokio_postgres::Client;
 
 pub struct ActiveQuiz {
     pub message_id: u64,
+    question_id: i32,
     answer: String,
     options: Vec<String>,
     expires_at: Instant,
@@ -18,11 +19,6 @@ pub struct ActiveQuiz {
 
 pub static ACTIVE_QUIZZES: LazyLock<Arc<Mutex<HashMap<i64, ActiveQuiz>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
-
-static RECENT_QUIZ_IDS: LazyLock<Arc<Mutex<HashMap<i64, Vec<i32>>>>> =
-    LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
-
-const RECENT_LIMIT: usize = 50;
 
 static USER_QUIZ_COOLDOWN: LazyLock<Arc<Mutex<HashMap<i64, Instant>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
@@ -37,8 +33,8 @@ const CHAT_COOLDOWN_SECS: u64 = 300; // 5 mins per chat
 pub enum QuizOutcome {
     NoActiveQuiz,
     AlreadyAnswered,
-    WrongAnswer,
-    CorrectAnswer { answer: String },
+    WrongAnswer { question_id: i32 },
+    CorrectAnswer { answer: String, question_id: i32 },
 }
 
 struct QuizData {
@@ -103,7 +99,7 @@ pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), 
     let quiz = next_quiz(client, chat_id).await;
 
     match quiz {
-        Some(quiz) => {
+        Some((question_id, quiz)) => {
             let timeout_secs = Settings::global().quiz_timeout_secs.clamp(10, 20);
 
             let text = if quiz.options.is_empty() {
@@ -141,12 +137,14 @@ pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), 
             }
             let send_msg_result = builder.await;
 
-            if let Ok(sent) = send_msg_result {
+            match send_msg_result {
+            Ok(sent) => {
                 let mut guard = ACTIVE_QUIZZES.lock().await;
                 guard.insert(
                     chat_id,
                     ActiveQuiz {
                         message_id: sent.message_id,
+                        question_id,
                         answer: quiz.answer,
                         options: quiz.options,
                         expires_at: Instant::now() + Duration::from_secs(timeout_secs),
@@ -186,6 +184,22 @@ pub async fn handle_quiz(bot: Bot, msg: Message, client: &Client) -> Result<(), 
                     }
                 });
             }
+            Err(e) => {
+                tracing::error!(error = %e, chat_id = %chat_id, "Failed to send quiz message");
+                // Roll back the cooldowns so the failed attempt doesn't lock
+                // the user and chat out of the next quiz.
+                let mut user_guard = USER_QUIZ_COOLDOWN.lock().await;
+                user_guard.remove(&user_id);
+                let mut chat_guard = CHAT_QUIZ_COOLDOWN.lock().await;
+                chat_guard.remove(&chat_id);
+                let _ = bot
+                    .send_message(
+                        chat_id,
+                        "Fufufu... the Poneglyph refused to appear. Please try again.",
+                    )
+                    .await;
+            }
+        }
         }
         None => {
             {
@@ -255,11 +269,17 @@ pub async fn evaluate_answer(
 
     if normalize(answer) == normalize(&quiz.answer) {
         let ans = quiz.answer.clone();
+        let question_id = quiz.question_id;
         guard.remove(&chat_id);
-        QuizOutcome::CorrectAnswer { answer: ans }
+        QuizOutcome::CorrectAnswer {
+            answer: ans,
+            question_id,
+        }
     } else {
         quiz.attempts.insert(user_id, false);
-        QuizOutcome::WrongAnswer
+        QuizOutcome::WrongAnswer {
+            question_id: quiz.question_id,
+        }
     }
 }
 
@@ -287,12 +307,18 @@ async fn evaluate_choice(
     match quiz.options.get(choice) {
         Some(chosen) if normalize(chosen) == normalize(&quiz.answer) => {
             let ans = quiz.answer.clone();
+            let question_id = quiz.question_id;
             guard.remove(&chat_id);
-            QuizOutcome::CorrectAnswer { answer: ans }
+            QuizOutcome::CorrectAnswer {
+                answer: ans,
+                question_id,
+            }
         }
         Some(_) => {
             quiz.attempts.insert(user_id, false);
-            QuizOutcome::WrongAnswer
+            QuizOutcome::WrongAnswer {
+                question_id: quiz.question_id,
+            }
         }
         None => QuizOutcome::NoActiveQuiz,
     }
@@ -307,21 +333,43 @@ pub async fn apply_quiz_result(
     outcome: QuizOutcome,
 ) {
     match outcome {
-        QuizOutcome::CorrectAnswer { answer } => {
-            let _ = crate::db::games::add_bounty(client, user_id, 10).await;
+        QuizOutcome::CorrectAnswer {
+            answer,
+            question_id,
+        } => {
+            let credited = match crate::db::games::add_bounty(client, user_id, 10).await {
+                Ok(_) => true,
+                Err(e) => {
+                    tracing::error!(error = %e, user_id = %user_id, "Failed to credit quiz bounty");
+                    false
+                }
+            };
             let _ = crate::db::game_stats::record_game_play(client, user_id, "quiz", true).await;
+            let _ = crate::db::quiz_tracker::record_quiz_attempt(
+                client, chat_id, question_id, user_id, true,
+            )
+            .await;
+            let credit_line = if credited {
+                "➕ <b>+10 Bounty</b>\n\n"
+            } else {
+                ""
+            };
             let reply = format!(
-                "Fufufu... beautifully deciphered, dear pirate. The truth has been revealed.\n\n➕ <b>+10 Bounty</b>\n\nThe answer was: <b>{}</b>",
-                answer
+                "Fufufu... beautifully deciphered, dear pirate. The truth has been revealed.\n\n{}The answer was: <b>{}</b>",
+                credit_line, answer
             );
             let _ = bot
                 .send_message(chat_id, reply)
                 .parse_mode(crate::telegram::ParseMode::Html)
                 .await;
         }
-        QuizOutcome::WrongAnswer => {
+        QuizOutcome::WrongAnswer { question_id } => {
             let _ = crate::db::games::add_bounty(client, user_id, -5).await;
             let _ = crate::db::game_stats::record_game_play(client, user_id, "quiz", false).await;
+            let _ = crate::db::quiz_tracker::record_quiz_attempt(
+                client, chat_id, question_id, user_id, false,
+            )
+            .await;
             let reply = "Hmm... not quite, dear. The truth eludes you this time.\n\n➖ <b>-5 Bounty</b>\n\nThis Poneglyph will not grant you a second reading."
                 .to_string();
             let _ = bot.send_message(chat_id, reply).await;
@@ -379,28 +427,32 @@ fn normalize(s: &str) -> String {
         .to_ascii_lowercase()
 }
 
-async fn next_quiz(client: &Client, chat_id: i64) -> Option<QuizData> {
-    let excluded = recent_ids(chat_id).await;
+/// Fetches the next quiz question. Returns the question id alongside the
+/// question data so attempts can be persisted against the exact question.
+/// Tracks recent ids per chat in `quiz_history` (survives restarts).
+async fn next_quiz(client: &Client, chat_id: i64) -> Option<(i32, QuizData)> {
+    let excluded = recent_question_ids(client, chat_id).await;
 
     if !Settings::global().nvidia_nim_key.is_empty() {
         match crate::db::nim::generate_quiz("one_piece").await {
             Ok(generated) => {
-                let id = crate::db::games::add_quiz_question(
+                if let Ok(id) = crate::db::games::add_quiz_question(
                     client,
                     &generated.question,
                     &generated.answer,
                     &generated.options,
                 )
                 .await
-                .ok();
-                if let Some(id) = id {
-                    record_recent_id(chat_id, id).await;
+                {
+                    return Some((
+                        id,
+                        QuizData {
+                            question: generated.question,
+                            answer: generated.answer,
+                            options: generated.options,
+                        },
+                    ));
                 }
-                return Some(QuizData {
-                    question: generated.question,
-                    answer: generated.answer,
-                    options: generated.options,
-                });
             }
             Err(e) => {
                 tracing::warn!(
@@ -411,24 +463,25 @@ async fn next_quiz(client: &Client, chat_id: i64) -> Option<QuizData> {
         }
     }
 
-    match crate::db::games::get_random_quiz_excluding(client, &excluded).await {
-        Ok(Some(q)) => {
-            record_recent_id(chat_id, q.id).await;
-            Some(QuizData {
-                question: q.question,
-                answer: q.answer,
-                options: q.options,
-            })
-        }
-        Ok(None) => match crate::db::games::get_random_quiz_excluding(client, &[]).await {
-            Ok(Some(q)) => {
-                record_recent_id(chat_id, q.id).await;
-                Some(QuizData {
+    match crate::db::quiz_tracker::get_random_quiz_smart(client, &excluded).await {
+        Ok(Some((id, question, answer, options))) => Some((
+            id,
+            QuizData {
+                question,
+                answer,
+                options,
+            },
+        )),
+        // All stored questions were recently used; fall back to any question.
+        Ok(None) => match crate::db::games::get_random_quiz(client).await {
+            Ok(Some(q)) => Some((
+                q.id,
+                QuizData {
                     question: q.question,
                     answer: q.answer,
                     options: q.options,
-                })
-            }
+                },
+            )),
             _ => None,
         },
         Err(e) => {
@@ -438,18 +491,249 @@ async fn next_quiz(client: &Client, chat_id: i64) -> Option<QuizData> {
     }
 }
 
-async fn record_recent_id(chat_id: i64, id: i32) {
-    let mut guard = RECENT_QUIZ_IDS.lock().await;
-    let list = guard.entry(chat_id).or_default();
-    if !list.contains(&id) {
-        list.push(id);
-    }
-    while list.len() > RECENT_LIMIT {
-        list.remove(0);
+/// Question ids recently asked in this chat, most recent first.
+async fn recent_question_ids(client: &Client, chat_id: i64) -> Vec<i32> {
+    match crate::db::quiz_tracker::get_recent_question_ids_db(client, chat_id, 30).await {
+        Ok(ids) => ids,
+        Err(e) => {
+            tracing::warn!("Failed to load recent quiz ids for chat {}: {}", chat_id, e);
+            vec![]
+        }
     }
 }
 
-async fn recent_ids(chat_id: i64) -> Vec<i32> {
-    let guard = RECENT_QUIZ_IDS.lock().await;
-    guard.get(&chat_id).cloned().unwrap_or_default()
+/// `/quizstats` — the user's personal quiz performance.
+pub async fn handle_quizstats(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    let user_id = msg.from().map(|u| u.id).unwrap_or(0) as i64;
+    if user_id == 0 {
+        return Ok(());
+    }
+
+    match crate::db::quiz_tracker::get_user_quiz_stats(client, user_id).await {
+        Ok(Some(s)) => {
+            let name = msg
+                .from()
+                .map(|u| u.first_name.clone())
+                .unwrap_or_else(|| "Pirate".to_string());
+            let text = format!(
+                "📚 <b>Poneglyph Record</b>\n\n\
+                 <b>{}</b>\n\n\
+                 ✅ Correct: <b>{}</b>\n\
+                 ❌ Wrong: <b>{}</b>\n\
+                 🎯 Accuracy: <b>{:.1}%</b>\n\
+                 🎮 Total attempts: <b>{}</b>",
+                crate::utils::escape_html(&name),
+                s.correct_answers,
+                s.wrong_answers,
+                s.accuracy,
+                s.total_attempts
+            );
+            let _ = bot
+                .send_message(chat_id, text)
+                .parse_mode(crate::telegram::ParseMode::Html)
+                .await;
+        }
+        Ok(None) => {
+            let text =
+                "Fufufu... You have not deciphered a single Poneglyph yet, dear pirate. Try /quiz!";
+            let _ = bot.send_message(chat_id, text).await;
+        }
+        Err(e) => {
+            tracing::error!("Failed to load quiz stats for user {}: {}", user_id, e);
+            let _ = bot
+                .send_message(chat_id, "Fufufu... the archives are out of reach. Try again later.")
+                .await;
+        }
+    }
+    Ok(())
+}
+
+/// `/qleaderboard` — top quiz deciphers across all chats.
+pub async fn handle_qleaderboard(
+    bot: Bot,
+    msg: Message,
+    client: &Client,
+) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+
+    let entries = match crate::db::quiz_tracker::get_quiz_leaderboard(client, 10).await {
+        Ok(e) => e,
+        Err(e) => {
+            tracing::error!("Failed to load quiz leaderboard: {}", e);
+            let _ = bot
+                .send_message(chat_id, "Fufufu... the archives are out of reach. Try again later.")
+                .await;
+            return Ok(());
+        }
+    };
+
+    if entries.is_empty() {
+        let _ = bot
+            .send_message(
+                chat_id,
+                "Fufufu... No pirate has deciphered a Poneglyph yet. Be the first with /quiz!",
+            )
+            .await;
+        return Ok(());
+    }
+
+    let user_ids: Vec<i64> = entries.iter().map(|e| e.1).collect();
+    let names = crate::db::leaderboard::resolve_user_names(client, &user_ids).await;
+
+    let mut lines = vec!["👑 <b>Top Poneglyph Deciphers</b>".to_string()];
+    for (rank, user_id, correct, total, accuracy) in entries {
+        let name = names
+            .get(&user_id)
+            .cloned()
+            .unwrap_or_else(|| "Unknown Pirate".to_string());
+        let medal = match rank {
+            1 => "🥇",
+            2 => "🥈",
+            3 => "🥉",
+            _ => "🎴",
+        };
+        lines.push(format!(
+            "{} <b>{}</b> — {} correct / {} ({:.1}%)",
+            medal,
+            crate::utils::escape_html(&name),
+            correct,
+            total,
+            accuracy
+        ));
+    }
+
+    let _ = bot
+        .send_message(chat_id, lines.join("\n"))
+        .parse_mode(crate::telegram::ParseMode::Html)
+        .await;
+    Ok(())
+}
+
+/// `/quiz:admin` — moderator-only quiz pool management.
+///   /quiz:admin stats        — pool totals and usage
+///   /quiz:admin reset <id>   — clear usage tracking for a question
+///   /quiz:admin remove <id>  — delete a question from the pool
+pub async fn handle_quiz_admin(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
+    let chat_id = msg.chat.id;
+    let text = msg.text().unwrap_or("");
+    let parts: Vec<&str> = text.split_whitespace().collect();
+    let sub = parts
+        .get(1)
+        .map(|s| s.to_ascii_lowercase())
+        .unwrap_or_else(|| "stats".to_string());
+
+    match sub.as_str() {
+        "stats" => match crate::db::quiz_tracker::quiz_pool_stats(client).await {
+            Ok((total, used)) => {
+                let text = format!(
+                    "📊 <b>Quiz Pool</b>\n\n\
+                     📚 Total questions: <b>{}</b>\n\
+                     🔁 Already used: <b>{}</b>\n\
+                     ✨ Fresh questions: <b>{}</b>",
+                    total,
+                    used,
+                    total - used
+                );
+                let _ = bot
+                    .send_message(chat_id, text)
+                    .parse_mode(crate::telegram::ParseMode::Html)
+                    .await;
+            }
+            Err(e) => {
+                tracing::error!("Failed to load quiz pool stats: {}", e);
+                let _ = bot
+                    .send_message(chat_id, "Fufufu... the archives are out of reach.")
+                    .await;
+            }
+        },
+        "reset" => {
+            let id: i32 = match parts.get(2).and_then(|p| p.parse().ok()) {
+                Some(id) => id,
+                None => {
+                    let _ = bot
+                        .send_message(
+                            chat_id,
+                            "Usage: <b>/quiz:admin reset &lt;question_id&gt;</b>".to_string(),
+                        )
+                        .parse_mode(crate::telegram::ParseMode::Html)
+                        .await;
+                    return Ok(());
+                }
+            };
+            match crate::db::quiz_tracker::reset_question_usage(client, id).await {
+                Ok(true) => {
+                    let _ = bot
+                        .send_message(
+                            chat_id,
+                            format!(
+                                "🗑️ Usage reset for question <b>{}</b>. It can appear again.",
+                                id
+                            ),
+                        )
+                        .parse_mode(crate::telegram::ParseMode::Html)
+                        .await;
+                }
+                Ok(false) => {
+                    let _ = bot
+                        .send_message(chat_id, format!("No question with id {} found.", id))
+                        .await;
+                }
+                Err(e) => {
+                    tracing::error!("Failed to reset usage for question {}: {}", id, e);
+                    let _ = bot
+                        .send_message(chat_id, "Fufufu... the archives are out of reach.")
+                        .await;
+                }
+            }
+        }
+        "remove" => {
+            let id: i32 = match parts.get(2).and_then(|p| p.parse().ok()) {
+                Some(id) => id,
+                None => {
+                    let _ = bot
+                        .send_message(
+                            chat_id,
+                            "Usage: <b>/quiz:admin remove &lt;question_id&gt;</b>".to_string(),
+                        )
+                        .parse_mode(crate::telegram::ParseMode::Html)
+                        .await;
+                    return Ok(());
+                }
+            };
+            match crate::db::quiz_tracker::remove_question(client, id).await {
+                Ok(true) => {
+                    let _ = bot
+                        .send_message(
+                            chat_id,
+                            format!("🗑️ Removed question <b>{}</b> from the pool.", id),
+                        )
+                        .parse_mode(crate::telegram::ParseMode::Html)
+                        .await;
+                }
+                Ok(false) => {
+                    let _ = bot
+                        .send_message(chat_id, format!("No question with id {} found.", id))
+                        .await;
+                }
+                Err(e) => {
+                    tracing::error!("Failed to remove question {}: {}", id, e);
+                    let _ = bot
+                        .send_message(chat_id, "Fufufu... the archives are out of reach.")
+                        .await;
+                }
+            }
+        }
+        _ => {
+            let help = "🔧 <b>Quiz Admin</b>\n\n\
+                        /quiz:admin stats — pool totals\n\
+                        /quiz:admin reset &lt;id&gt; — reset usage tracking\n\
+                        /quiz:admin remove &lt;id&gt; — delete a question";
+            let _ = bot
+                .send_message(chat_id, help)
+                .parse_mode(crate::telegram::ParseMode::Html)
+                .await;
+        }
+    }
+    Ok(())
 }

@@ -24,6 +24,72 @@ static SHARED_CLIENT: std::sync::LazyLock<Arc<Client>> = std::sync::LazyLock::ne
     )
 });
 
+/// Token bucket that bounds how fast the bot may call the Telegram API.
+/// Telegram enforces roughly 30 requests/second per bot; exceeding it causes
+/// cascading 429 responses and can lead to temporary lockouts. Every outbound
+/// call passes through `acquire()` so no handler can flood the API.
+struct TelegramRateLimiter {
+    rate: f64,
+    burst: f64,
+    state: Mutex<(f64, Instant)>,
+}
+
+impl TelegramRateLimiter {
+    fn new(rate_per_sec: f64) -> Self {
+        Self {
+            rate: rate_per_sec,
+            burst: rate_per_sec,
+            state: Mutex::new((rate_per_sec, Instant::now())),
+        }
+    }
+
+    async fn acquire(&self) {
+        loop {
+            let wait = {
+                let mut g = self.state.lock().unwrap_or_else(|e| e.into_inner());
+                let now = Instant::now();
+                let (mut tokens, last) = *g;
+                let elapsed = now.duration_since(last).as_secs_f64();
+                tokens = (tokens + elapsed * self.rate).min(self.burst);
+                let wait = if tokens >= 1.0 {
+                    0.0
+                } else {
+                    (1.0 - tokens) / self.rate
+                };
+                *g = (if tokens >= 1.0 { tokens - 1.0 } else { tokens }, now);
+                wait
+            };
+            if wait <= 0.0 {
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_secs_f64(wait.min(1.0))).await;
+        }
+    }
+}
+
+static TELEGRAM_RATE_LIMITER: std::sync::LazyLock<TelegramRateLimiter> =
+    std::sync::LazyLock::new(|| {
+        let rate = std::env::var("TELEGRAM_RATE_LIMIT")
+            .ok()
+            .and_then(|v| v.parse::<f64>().ok())
+            .filter(|r| *r >= 1.0)
+            .unwrap_or(30.0);
+        TelegramRateLimiter::new(rate)
+    });
+
+async fn rate_limit_telegram() {
+    TELEGRAM_RATE_LIMITER.acquire().await;
+}
+
+/// Methods that are NOT idempotent: a 429 retry of one of these would mint a
+/// duplicate side effect (e.g. a fresh invite link). These are never auto-retried.
+fn is_retryable(method: &str) -> bool {
+    !matches!(
+        method,
+        "exportChatInviteLink" | "createChatInviteLink" | "revokeChatInviteLink"
+    )
+}
+
 impl Bot {
     pub fn new(token: String) -> Self {
         Self {
@@ -39,6 +105,7 @@ impl Bot {
     }
 
     pub async fn api_post(&self, method: &str, payload: Value) -> Result<Value, String> {
+        rate_limit_telegram().await;
         let url = format!("https://api.telegram.org/bot{}/{}", self.token, method);
         let mut retries = 0;
 
@@ -58,12 +125,20 @@ impl Bot {
             }
 
             let error_code = json["error_code"].as_i64().unwrap_or(0);
-            if error_code == 429 && retries < 2 {
+            if error_code == 429
+                && retries < 2
+                && is_retryable(method)
+            {
+                // Honor Telegram's real backoff (can exceed 10s during a
+                // lockout); the previous hard 10s cap fought the API.
                 let retry_after = json["parameters"]["retry_after"]
                     .as_u64()
                     .unwrap_or(1)
-                    .min(10);
+                    .min(120);
                 tokio::time::sleep(std::time::Duration::from_secs(retry_after)).await;
+                // Re-acquire the token bucket between retries instead of letting
+                // the retry burst through the limiter.
+                rate_limit_telegram().await;
                 retries += 1;
                 continue;
             }
@@ -77,6 +152,7 @@ impl Bot {
         method: &str,
         form: reqwest::multipart::Form,
     ) -> Result<Value, String> {
+        rate_limit_telegram().await;
         let url = format!("https://api.telegram.org/bot{}/{}", self.token, method);
 
         let resp = self

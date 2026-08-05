@@ -15,6 +15,10 @@ struct AdminCacheEntry {
 static ADMIN_CACHE: std::sync::LazyLock<Mutex<HashMap<(i64, u64), AdminCacheEntry>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// Short TTL so demotions take effect quickly. Combined with explicit
+/// invalidation after moderation actions, this closes the stale-cache window.
+const ADMIN_CACHE_TTL_SECS: u64 = 30;
+
 pub fn is_sudo_or_privileged(user_id: u64) -> bool {
     if let Ok(sudo_val) = std::env::var("SUDO_USERS") {
         for id_str in sudo_val.split(',') {
@@ -80,12 +84,35 @@ pub async fn is_telegram_admin(bot: &Bot, chat_id: i64, user_id: u64) -> bool {
             key,
             AdminCacheEntry {
                 is_admin,
-                expires_at: now + Duration::from_secs(300),
+                expires_at: now + Duration::from_secs(ADMIN_CACHE_TTL_SECS),
             },
         );
     }
 
     is_admin
+}
+
+/// Forces a re-fetch the next time this user's admin status is checked.
+/// Called after moderation actions that change a user's standing in a chat
+/// (e.g. banning or demoting them).
+pub fn invalidate_admin_cache(chat_id: i64, user_id: u64) {
+    if let Ok(mut cache) = ADMIN_CACHE.lock() {
+        cache.remove(&(chat_id, user_id));
+    }
+}
+
+/// Evicts expired entries so the cache never grows without bound.
+/// Invoked periodically by a background task in `main`.
+pub fn cleanup_admin_cache() {
+    let now = Instant::now();
+    if let Ok(mut cache) = ADMIN_CACHE.lock() {
+        cache.retain(|_, entry| entry.expires_at > now);
+    }
+}
+
+/// Number of currently cached entries (for diagnostics).
+pub fn admin_cache_len() -> usize {
+    ADMIN_CACHE.lock().map(|c| c.len()).unwrap_or(0)
 }
 
 /// Checks if a user is the group captain (creator / owner) or a developer.
