@@ -144,12 +144,17 @@ pub async fn handle_toppirates(bot: Bot, msg: Message, client: &Client) -> Resul
         }
         Ok(rows) => {
             let mut text =
-                String::from("🏆 <b>TOP PIRATES — The World's Most Notorious</b> 🏆\n✿ ∘ ━━━━━━━━━┉┅╍\n");
+                String::from("WALL OF WANTED POSTERS 🍁\nThe World's Most Notorious 🏴‍☠\n✿ ∘ ━━━━━━━━━┉┅╍\n");
             for (i, row) in rows.iter().enumerate() {
+                let formatted_name = match i {
+                    0 => format!("🌹{}", crate::utils::escape_html(&row.username)), // 1st place, rose
+                    1 => format!("<b>{}</b>", crate::utils::escape_html(&row.username)), // 2nd place bold
+                    _ => crate::utils::escape_html(&row.username),
+                };
                 text.push_str(&format!(
-                    "\n{} <b>{}</b>\n   💰 {} Berries\n   🏴‍☠️ {}",
+                    "\n{} {}\n   💰 {} Berries\n   🏴‍☠️ {}",
                     medal(i),
-                    crate::utils::escape_html(&row.username),
+                    formatted_name,
                     format_bounty(row.bounty),
                     crate::utils::escape_html(&row.crew_name)
                 ));
