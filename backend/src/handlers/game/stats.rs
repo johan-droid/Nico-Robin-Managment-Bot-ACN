@@ -1,7 +1,7 @@
 use crate::auth::{extract_target_user, resolve_username};
 use crate::db::game_cooldown::list_cooldowns;
 use crate::db::game_stats::{get_game_stats, get_game_stats_breakdown, get_user_game_history};
-use crate::db::games::get_bounty;
+use crate::db::games::{get_bounty, get_crew_by_member};
 use crate::db::leaderboard::{
     get_crew_leaderboard_detailed, get_crew_stats, get_user_leaderboard_detailed,
     reset_all_bounties,
@@ -92,14 +92,26 @@ pub async fn handle_mystats(bot: Bot, msg: Message, client: &Client) -> Result<(
 
 /// 🏴‍☠️ /crewboard — crew leaderboard with detailed stats.
 pub async fn handle_crewboard(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
+    let user_id = msg.from().map(|u| u.id).unwrap_or(0) as i64;
+
+    let has_crew = matches!(get_crew_by_member(client, user_id).await, Ok(Some(_)));
+
+    let crew_nudge = if has_crew {
+        String::new()
+    } else {
+        "🌊 You sail alone, dear pirate — found a crew with /crew create, or join a friend with /crew join &lt;id&gt;, to see your banner on this board."
+            .to_string()
+    };
+
     match get_crew_leaderboard_detailed(client, BOARD_LIMIT).await {
         Ok(rankings) if rankings.is_empty() => {
-            let _ = bot
-                .send_message(
-                    msg.chat.id,
-                    "No crew has yet earned a bounty, dear. Found your own with /crew create and write your name in history!",
-                )
-                .await;
+            let mut text = "No crew has yet earned a bounty, dear. Found your own with /crew create and write your name in history!"
+                .to_string();
+            if !crew_nudge.is_empty() {
+                text.push_str("\n\n");
+                text.push_str(&crew_nudge);
+            }
+            let _ = bot.send_message(msg.chat.id, text).await;
         }
         Ok(rankings) => {
             let mut text = String::from("🏴‍☠️ <b>CREW LEADERBOARD</b> 🏴‍☠️\n✿ ∘ ━━━━━━━━━┉┅╍\n");
@@ -116,6 +128,10 @@ pub async fn handle_crewboard(bot: Bot, msg: Message, client: &Client) -> Result
                 ));
             }
             text.push_str("\n\n✿ The World Government has taken notice... Fufufu.");
+            if !crew_nudge.is_empty() {
+                text.push_str("\n\n");
+                text.push_str(&crew_nudge);
+            }
             let _ = bot
                 .send_message(msg.chat.id, text)
                 .parse_mode(ParseMode::Html)
@@ -147,7 +163,7 @@ pub async fn handle_toppirates(bot: Bot, msg: Message, client: &Client) -> Resul
         }
         Ok(rows) => {
             let mut text = String::from(
-                "WALL OF WANTED POSTERS 🍁\nThe World's Most Notorious 🏴‍☠\n✿ ∘ ━━━━━━━━━┉┅╍\n",
+                "<b>WALL OF WANTED POSTERS 🍁</b>\n<b>The World's Most Notorious 🏴‍☠</b>\n✿ ∘ ━━━━━━━━━┉┅╍\n",
             );
             for (i, row) in rows.iter().enumerate() {
                 let formatted_name =
