@@ -150,11 +150,8 @@ pub async fn handle_toppirates(bot: Bot, msg: Message, client: &Client) -> Resul
                 "WALL OF WANTED POSTERS 🍁\nThe World's Most Notorious 🏴‍☠\n✿ ∘ ━━━━━━━━━┉┅╍\n",
             );
             for (i, row) in rows.iter().enumerate() {
-                let formatted_name = match i {
-                    0 => format!("🌹{}", crate::utils::escape_html(&row.username)), // 1st place, rose
-                    1 => format!("<b>{}</b>", crate::utils::escape_html(&row.username)), // 2nd place bold
-                    _ => crate::utils::escape_html(&row.username),
-                };
+                let formatted_name =
+                    format!("<b>{}</b>", crate::utils::escape_html(&row.username));
                 text.push_str(&format!(
                     "\n{} {}\n   💰 {} Berries\n   🏴‍☠️ {}",
                     medal(i),

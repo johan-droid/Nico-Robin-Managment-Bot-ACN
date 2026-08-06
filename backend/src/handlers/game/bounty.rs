@@ -47,11 +47,7 @@ pub async fn handle_leaderboard(bot: Bot, msg: Message, client: &Client) -> Resu
                 };
 
                 let escaped_name = crate::utils::escape_html(name);
-                let formatted_name = match i {
-                    0 => format!("🌹{}", escaped_name),      // 1st place: add rose
-                    1 => format!("<b>{}</b>", escaped_name), // 2nd place: bold
-                    _ => escaped_name,                       // 3rd place and beyond: normal
-                };
+                let formatted_name = format!("<b>{}</b>", escaped_name);
 
                 text.push_str(&format!(
                     "\n{} {} - 💰 {} Berries",
