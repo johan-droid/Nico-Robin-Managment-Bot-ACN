@@ -58,10 +58,31 @@ async fn fetch_avatar(bot: &Bot, user_id: u64) -> Option<Vec<u8>> {
 /// ones above it. Commands and empty messages are skipped. Writes through to
 /// the persistent `message_history` table so quotes survive bot restarts.
 pub async fn record_message(client: &tokio_postgres::Client, msg: &Message) {
-    let (Some(from), Some(text)) = (msg.from(), msg.text()) else {
+    let Some(from) = msg.from() else {
         return;
     };
-    if text.trim().is_empty() || text.starts_with('/') {
+
+    let text = if let Some(t) = msg.text() {
+        t.to_string()
+    } else if msg.photo.is_some() {
+        "🖼 Photo".to_string()
+    } else if msg.video.is_some() {
+        "🎥 Video".to_string()
+    } else if msg.sticker.is_some() {
+        "🖼 Sticker".to_string()
+    } else if msg.animation.is_some() {
+        "🎥 GIF".to_string()
+    } else if msg.document.is_some() {
+        "📄 Document".to_string()
+    } else if msg.audio.is_some() {
+        "🎵 Audio".to_string()
+    } else if msg.voice.is_some() {
+        "🎤 Voice".to_string()
+    } else {
+        return;
+    };
+
+    if text.trim().is_empty() {
         return;
     }
     let entry = HistoryMessage {
@@ -484,7 +505,8 @@ fn draw_circle_avatar(img: &mut RgbaImage, x: u32, y: u32, size: u32, photo: &Rg
                     };
                     let dst = img.get_pixel_mut(ix, iy);
                     for i in 0..4 {
-                        dst[i] = (src[i] as f32 * coverage + dst[i] as f32 * (1.0 - coverage)) as u8;
+                        dst[i] =
+                            (src[i] as f32 * coverage + dst[i] as f32 * (1.0 - coverage)) as u8;
                     }
                 }
             }
@@ -559,8 +581,7 @@ fn truncate(s: &str, max_chars: usize) -> String {
 
 fn render_quote_image(messages: &[HistoryMessage]) -> Result<RgbaImage, String> {
     let font = FontRef::try_from_slice(FONT_DATA).map_err(|e| format!("font error: {}", e))?;
-    let bold = FontRef::try_from_slice(FONT_BOLD)
-        .map_err(|e| format!("bold font error: {}", e))?;
+    let bold = FontRef::try_from_slice(FONT_BOLD).map_err(|e| format!("bold font error: {}", e))?;
     let emoji_font = font.clone();
 
     let max_text_width = (WIDTH - PAD_X - AVATAR_SIZE - AVATAR_GAP - BUBBLE_PAD_X * 2 - 4) as f32;

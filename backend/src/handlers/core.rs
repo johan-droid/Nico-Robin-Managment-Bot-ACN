@@ -197,13 +197,18 @@ fn page_for(data: &str, mention: &str) -> (String, InlineKeyboardMarkup) {
         "about" => (about_text(), category_back_keyboard("back_start")),
         "back_start" => (start_text(mention), start_keyboard()),
         "back_help" => (help_text().to_string(), help_keyboard()),
-        _ if data == "cat_game" => (category_text(data).to_string(), category_back_keyboard("back_help")),
-        _ if is_moderator_category(data) => {
-            (category_text(data).to_string(), category_back_keyboard("back_moderator"))
-        }
-        _ if is_non_moderator_category(data) => {
-            (category_text(data).to_string(), category_back_keyboard("back_nonmoderator"))
-        }
+        _ if data == "cat_game" => (
+            category_text(data).to_string(),
+            category_back_keyboard("back_help"),
+        ),
+        _ if is_moderator_category(data) => (
+            category_text(data).to_string(),
+            category_back_keyboard("back_moderator"),
+        ),
+        _ if is_non_moderator_category(data) => (
+            category_text(data).to_string(),
+            category_back_keyboard("back_nonmoderator"),
+        ),
         _ => (category_text(data).to_string(), help_keyboard()),
     }
 }
@@ -223,26 +228,27 @@ pub async fn handle_start(bot: Bot, msg: Message, client: &Client) -> Result<(),
     let caption = start_text(&mention);
     let keyboard = start_keyboard();
 
-    let msg_id = if let Ok(Some((data, _mime))) = crate::db::assets::get_asset(client, "welcome").await {
-        bot.send_photo_file(
-            msg.chat.id,
-            "welcome.jpg",
-            data,
-            Some(caption),
-            Some(crate::telegram::ParseMode::Html),
-            Some(keyboard),
-        )
-        .await?
-    } else {
-        let photo_url = std::env::var("START_PHOTO_URL")
-            .unwrap_or_else(|_| "https://i.imgur.com/example-robin-welcome.jpg".to_string());
-
-        bot.send_photo(msg.chat.id, photo_url)
-            .caption(Some(caption))
-            .parse_mode(crate::telegram::ParseMode::Html)
-            .reply_markup(keyboard)
+    let msg_id =
+        if let Ok(Some((data, _mime))) = crate::db::assets::get_asset(client, "welcome").await {
+            bot.send_photo_file(
+                msg.chat.id,
+                "welcome.jpg",
+                data,
+                Some(caption),
+                Some(crate::telegram::ParseMode::Html),
+                Some(keyboard),
+            )
             .await?
-    };
+        } else {
+            let photo_url = std::env::var("START_PHOTO_URL")
+                .unwrap_or_else(|_| "https://i.imgur.com/example-robin-welcome.jpg".to_string());
+
+            bot.send_photo(msg.chat.id, photo_url)
+                .caption(Some(caption))
+                .parse_mode(crate::telegram::ParseMode::Html)
+                .reply_markup(keyboard)
+                .await?
+        };
 
     bot.track_menu(msg.chat.id, msg_id.id() as i64, true);
     Ok(())
@@ -561,7 +567,14 @@ pub async fn handle_category_callback(
 
         let (text, markup) = page_for(&data, &mention);
         let _ = bot
-            .edit_menu_message(chat_id, message_id, is_photo, &text, Some(ParseMode::Html), Some(markup))
+            .edit_menu_message(
+                chat_id,
+                message_id,
+                is_photo,
+                &text,
+                Some(ParseMode::Html),
+                Some(markup),
+            )
             .await;
     }
 
