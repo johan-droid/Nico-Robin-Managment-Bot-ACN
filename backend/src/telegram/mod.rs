@@ -24,6 +24,7 @@ pub fn get_bot_username() -> Option<String> {
 }
 
 /// Shared ParseMode enum used by the API implementation.
+#[derive(Clone, Copy)]
 pub enum ParseMode {
     MarkdownV2,
     Html,

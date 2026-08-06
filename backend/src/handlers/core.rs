@@ -35,6 +35,30 @@ fn get_bot_username() -> String {
         .to_lowercase()
 }
 
+fn start_text(mention: &str) -> String {
+    format!(
+        concat!(
+            "🌸 Hey There... {mention}\n\n",
+            "✿ ∘ ━━━━━━━━┉┅╍\n",
+            "<blockquote>",
+            "My name is 𝗡𝗜𝗖𝗢 𝗥𝗢𝗕𝗜𝗡, and I'm a group management &amp; ",
+            "moderation assistant. I'm here to keep your community organised, ",
+            "secure, and effortlessly under control... quietly, of course.\n\n",
+            "Oh, and yes... Poneglyphs?\n",
+            "Let's just say I have a habit of uncovering things others ",
+            "overlook. After all... \n",
+            "\"History is not erased by silence.\" 📖",
+            "</blockquote>\n",
+            "✿ ∘ ━━━━━━━━━┉┅╍\n\n",
+            "📜 Smart moderation &amp; administration tools\n",
+            "🛡️ Anti-spam, protection, and automation features\n",
+            "📊 Elegant controls to keep your group running smoothly\n\n",
+            "Use /help to discover everything I can do. ✨",
+        ),
+        mention = mention,
+    )
+}
+
 fn start_keyboard() -> InlineKeyboardMarkup {
     let bot_username = get_bot_username();
     let bot_name = std::env::var("BOT_NAME").unwrap_or_else(|_| "Nico Robin".to_string());
@@ -66,38 +90,90 @@ const NON_MODERATOR_CATEGORIES: &[(&str, &str)] = &[
     ("🎨 Fun", "cat_fun"),
 ];
 
+fn help_text() -> &'static str {
+    concat!(
+        "📖 <b>Nico Robin Bot — Commands</b>\n\n",
+        "🛡️ <b>Moderator Commands</b> — admin &amp; management tools\n",
+        "👤 <b>Non-Moderator Commands</b> — commands for everyone\n\n",
+        "Tap a category to see its commands:",
+    )
+}
+
+fn moderator_text() -> &'static str {
+    concat!(
+        "🛡️ <b>Moderator Commands</b> 🛡️\n\n",
+        "Admin &amp; management tools. Tap a category to see its commands:",
+    )
+}
+
+fn non_moderator_text() -> &'static str {
+    concat!(
+        "👤 <b>Non-Moderator Commands</b> 👤\n\n",
+        "Commands available to everyone. Tap a category to see its commands:",
+    )
+}
+
+fn about_text() -> String {
+    let bot_name = std::env::var("BOT_NAME").unwrap_or_else(|_| "Nico Robin".to_string());
+    format!(
+        concat!(
+            "🌸 <b>About {}</b> 🌸\n",
+            "✿ ∘ ━━━━━━━━━┉┅╍\n\n",
+            "<blockquote>",
+            "I am a group management &amp; moderation assistant, ",
+            "built to keep your community organised, secure, ",
+            "and effortlessly under control.\n\n",
+            "Whether it's taming spam, managing members, ",
+            "or just keeping the peace — I've got it covered. ",
+            "Quietly. Elegantly. Just like the Devil Child herself.",
+            "</blockquote>\n\n",
+            "🛠 <b>Capabilities</b>\n",
+            "• Smart moderation &amp; administration\n",
+            "• Anti-spam, flood &amp; rate-limit protection\n",
+            "• Custom auto-replies (filters)\n",
+            "• Welcome / farewell messages\n",
+            "• Notes &amp; user profiles\n",
+            "• Federation support\n",
+            "• Feature toggles per group\n\n",
+            "Use /help to explore all commands. ✨",
+        ),
+        bot_name,
+    )
+}
+
 fn help_keyboard() -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
         inline_keyboard: vec![
             vec![_btn("🛡️ Moderator Commands", "moderator")],
             vec![_btn("👤 Non-Moderator Commands", "nonmoderator")],
             vec![_btn("📜 Poneglyph Games", "cat_game")],
+            vec![_btn("🔙 Back", "back_start")],
         ],
     }
 }
 
-fn category_keyboard(categories: &[(&str, &str)]) -> InlineKeyboardMarkup {
+fn category_keyboard(categories: &[(&str, &str)], back_cb: &str) -> InlineKeyboardMarkup {
     let mut rows: Vec<Vec<InlineKeyboardButton>> = categories
         .chunks(2)
         .map(|chunk| chunk.iter().map(|(label, cb)| _btn(label, cb)).collect())
         .collect();
-    rows.push(vec![_btn("🔙 Back", "back")]);
+    rows.push(vec![_btn("🔙 Back", back_cb)]);
     InlineKeyboardMarkup {
         inline_keyboard: rows,
     }
 }
 
 fn moderator_keyboard() -> InlineKeyboardMarkup {
-    category_keyboard(MODERATOR_CATEGORIES)
+    category_keyboard(MODERATOR_CATEGORIES, "back_help")
 }
 
 fn non_moderator_keyboard() -> InlineKeyboardMarkup {
-    category_keyboard(NON_MODERATOR_CATEGORIES)
+    category_keyboard(NON_MODERATOR_CATEGORIES, "back_help")
 }
 
-fn category_back_keyboard() -> InlineKeyboardMarkup {
+fn category_back_keyboard(back_cb: &str) -> InlineKeyboardMarkup {
     InlineKeyboardMarkup {
-        inline_keyboard: vec![vec![_btn("🔙 Back", "back")]],
+        inline_keyboard: vec![vec![_btn("🔙 Back", back_cb)]],
     }
 }
 
@@ -109,13 +185,26 @@ fn is_non_moderator_category(cb: &str) -> bool {
     NON_MODERATOR_CATEGORIES.iter().any(|(_, c)| *c == cb)
 }
 
-fn back_keyboard_for(cb: &str) -> InlineKeyboardMarkup {
-    if is_moderator_category(cb) {
-        moderator_keyboard()
-    } else if is_non_moderator_category(cb) {
-        non_moderator_keyboard()
-    } else {
-        help_keyboard()
+/// Resolve a callback payload into the page (text + keyboard) to render.
+/// `mention` is only used when navigating back to the `/start` page.
+fn page_for(data: &str, mention: &str) -> (String, InlineKeyboardMarkup) {
+    match data {
+        "help" => (help_text().to_string(), help_keyboard()),
+        "moderator" | "back_moderator" => (moderator_text().to_string(), moderator_keyboard()),
+        "nonmoderator" | "back_nonmoderator" => {
+            (non_moderator_text().to_string(), non_moderator_keyboard())
+        }
+        "about" => (about_text(), category_back_keyboard("back_start")),
+        "back_start" => (start_text(mention), start_keyboard()),
+        "back_help" => (help_text().to_string(), help_keyboard()),
+        _ if data == "cat_game" => (category_text(data).to_string(), category_back_keyboard("back_help")),
+        _ if is_moderator_category(data) => {
+            (category_text(data).to_string(), category_back_keyboard("back_moderator"))
+        }
+        _ if is_non_moderator_category(data) => {
+            (category_text(data).to_string(), category_back_keyboard("back_nonmoderator"))
+        }
+        _ => (category_text(data).to_string(), help_keyboard()),
     }
 }
 
@@ -131,30 +220,10 @@ pub async fn handle_start(bot: Bot, msg: Message, client: &Client) -> Result<(),
         .unwrap_or_else(|| "there".to_string());
     let mention = crate::utils::escape_html(&mention);
 
-    let caption = format!(
-        concat!(
-            "🌸 Hey There... {mention}\n\n",
-            "✿ ∘ ━━━━━━━━┉┅╍\n",
-            "<blockquote>",
-            "My name is 𝗡𝗜𝗖𝗢 𝗥𝗢𝗕𝗜𝗡, and I'm a group management &amp; ",
-            "moderation assistant. I'm here to keep your community organised, ",
-            "secure, and effortlessly under control... quietly, of course.\n\n",
-            "Oh, and yes... Poneglyphs?\n",
-            "Let's just say I have a habit of uncovering things others ",
-            "overlook. After all... \n",
-            "\"History is not erased by silence.\" 📖",
-            "</blockquote>\n",
-            "✿ ∘ ━━━━━━━━━┉┅╍\n\n",
-            "📜 Smart moderation &amp; administration tools\n",
-            "🛡️ Anti-spam, protection, and automation features\n",
-            "📊 Elegant controls to keep your group running smoothly\n\n",
-            "Use /help to discover everything I can do. ✨",
-        ),
-        mention = mention,
-    );
+    let caption = start_text(&mention);
     let keyboard = start_keyboard();
 
-    if let Ok(Some((data, _mime))) = crate::db::assets::get_asset(client, "welcome").await {
+    let msg_id = if let Ok(Some((data, _mime))) = crate::db::assets::get_asset(client, "welcome").await {
         bot.send_photo_file(
             msg.chat.id,
             "welcome.jpg",
@@ -163,33 +232,27 @@ pub async fn handle_start(bot: Bot, msg: Message, client: &Client) -> Result<(),
             Some(crate::telegram::ParseMode::Html),
             Some(keyboard),
         )
-        .await?;
-        return Ok(());
-    }
+        .await?
+    } else {
+        let photo_url = std::env::var("START_PHOTO_URL")
+            .unwrap_or_else(|_| "https://i.imgur.com/example-robin-welcome.jpg".to_string());
 
-    let photo_url = std::env::var("START_PHOTO_URL")
-        .unwrap_or_else(|_| "https://i.imgur.com/example-robin-welcome.jpg".to_string());
+        bot.send_photo(msg.chat.id, photo_url)
+            .caption(Some(caption))
+            .parse_mode(crate::telegram::ParseMode::Html)
+            .reply_markup(keyboard)
+            .await?
+    };
 
-    bot.send_photo(msg.chat.id, photo_url)
-        .caption(Some(caption))
-        .parse_mode(crate::telegram::ParseMode::Html)
-        .reply_markup(keyboard)
-        .await?;
-
+    bot.track_menu(msg.chat.id, msg_id.id() as i64, true);
     Ok(())
 }
 
 pub async fn handle_help(bot: Bot, msg: Message) -> Result<(), String> {
-    let text = concat!(
-        "📖 <b>Nico Robin Bot — Commands</b>\n\n",
-        "🛡️ <b>Moderator Commands</b> — admin &amp; management tools\n",
-        "👤 <b>Non-Moderator Commands</b> — commands for everyone\n\n",
-        "Tap a category to see its commands:",
-    );
     let _ = bot
-        .send_or_edit(
+        .edit_menu_or_send(
             msg.chat.id,
-            text,
+            help_text(),
             Some(ParseMode::Html),
             Some(help_keyboard()),
         )
@@ -483,119 +546,23 @@ pub async fn handle_category_callback(
     let _ = bot.answer_callback_query(&cq.id).await;
 
     if let Some(data) = cq.data {
-        let (chat_id, message_id) = match cq.message.as_ref() {
-            Some(m) => (m.chat.id, m.id()),
+        let (chat_id, message_id, is_photo) = match cq.message.as_ref() {
+            Some(m) => (m.chat.id, m.id() as i64, m.photo.is_some()),
             None => return Ok(()),
         };
 
-        if data == "help" {
-            let text = concat!(
-                "📖 <b>Nico Robin Bot — Commands</b>\n\n",
-                "🛡️ <b>Moderator Commands</b> — admin &amp; management tools\n",
-                "👤 <b>Non-Moderator Commands</b> — commands for everyone\n\n",
-                "Tap a category to see its commands:",
-            );
-            let _ = bot
-                .send_or_edit(chat_id, text, Some(ParseMode::Html), Some(help_keyboard()))
-                .await;
-            return Ok(());
-        }
+        let mention = cq
+            .from
+            .username
+            .as_ref()
+            .map(|un| format!("@{}", un))
+            .unwrap_or_else(|| cq.from.first_name.clone());
+        let mention = crate::utils::escape_html(&mention);
 
-        if data == "moderator" {
-            let text = concat!(
-                "🛡️ <b>Moderator Commands</b> 🛡️\n\n",
-                "Admin &amp; management tools. Tap a category to see its commands:",
-            );
-            let _ = bot
-                .send_or_edit(
-                    chat_id,
-                    text,
-                    Some(ParseMode::Html),
-                    Some(moderator_keyboard()),
-                )
-                .await;
-            return Ok(());
-        }
-
-        if data == "nonmoderator" {
-            let text = concat!(
-                "👤 <b>Non-Moderator Commands</b> 👤\n\n",
-                "Commands available to everyone. Tap a category to see its commands:",
-            );
-            let _ = bot
-                .send_or_edit(
-                    chat_id,
-                    text,
-                    Some(ParseMode::Html),
-                    Some(non_moderator_keyboard()),
-                )
-                .await;
-            return Ok(());
-        }
-
-        if data == "about" {
-            let bot_name = std::env::var("BOT_NAME").unwrap_or_else(|_| "Nico Robin".to_string());
-            let text = format!(
-                concat!(
-                    "🌸 <b>About {}</b> 🌸\n",
-                    "✿ ∘ ━━━━━━━━━┉┅╍\n\n",
-                    "<blockquote>",
-                    "I am a group management &amp; moderation assistant, ",
-                    "built to keep your community organised, secure, ",
-                    "and effortlessly under control.\n\n",
-                    "Whether it's taming spam, managing members, ",
-                    "or just keeping the peace — I've got it covered. ",
-                    "Quietly. Elegantly. Just like the Devil Child herself.",
-                    "</blockquote>\n\n",
-                    "🛠 <b>Capabilities</b>\n",
-                    "• Smart moderation &amp; administration\n",
-                    "• Anti-spam, flood &amp; rate-limit protection\n",
-                    "• Custom auto-replies (filters)\n",
-                    "• Welcome / farewell messages\n",
-                    "• Notes &amp; user profiles\n",
-                    "• Federation support\n",
-                    "• Feature toggles per group\n\n",
-                    "Use /help to explore all commands. ✨",
-                ),
-                bot_name,
-            );
-            let _ = bot
-                .send_or_edit(
-                    chat_id,
-                    &text,
-                    Some(ParseMode::Html),
-                    Some(category_back_keyboard()),
-                )
-                .await;
-            return Ok(());
-        }
-
-        let is_back = data == "back";
-
-        let text = if is_back {
-            concat!(
-                "📖 <b>Nico Robin Bot — Commands</b>\n\n",
-                "🛡️ <b>Moderator Commands</b> — admin &amp; management tools\n",
-                "👤 <b>Non-Moderator Commands</b> — commands for everyone\n\n",
-                "Tap a category to see its commands:",
-            )
-        } else {
-            category_text(&data)
-        };
-        let markup = if is_back {
-            help_keyboard()
-        } else {
-            back_keyboard_for(&data)
-        };
-
-        let payload = serde_json::json!({
-            "chat_id": chat_id,
-            "message_id": message_id,
-            "text": text,
-            "parse_mode": "HTML",
-            "reply_markup": serde_json::to_value(markup).unwrap_or_default(),
-        });
-        let _ = bot.api_post("editMessageText", payload).await;
+        let (text, markup) = page_for(&data, &mention);
+        let _ = bot
+            .edit_menu_message(chat_id, message_id, is_photo, &text, Some(ParseMode::Html), Some(markup))
+            .await;
     }
 
     Ok(())

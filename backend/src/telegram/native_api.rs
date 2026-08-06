@@ -10,6 +10,9 @@ pub struct Bot {
     token: String,
     client: Arc<Client>,
     last_messages: Arc<Mutex<HashMap<i64, (i64, Instant)>>>,
+    /// Per-chat menu message that all in-place UI navigation edits
+    /// (`/start`, `/help`, category callbacks). Value: (message_id, is_photo).
+    menu_messages: Arc<Mutex<HashMap<i64, (i64, bool)>>>,
 }
 
 static SHARED_CLIENT: std::sync::LazyLock<Arc<Client>> = std::sync::LazyLock::new(|| {
@@ -96,6 +99,7 @@ impl Bot {
             token,
             client: SHARED_CLIENT.clone(),
             last_messages: Arc::new(Mutex::new(HashMap::new())),
+            menu_messages: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -255,6 +259,110 @@ impl Bot {
         if let Ok(mut m) = self.last_messages.lock() {
             m.remove(&chat_id);
         }
+    }
+
+    /// Remember which message hosts the bot's navigable menu for this chat.
+    /// `is_photo` tells callers whether edits must go through `editMessageCaption`.
+    pub fn track_menu(&self, chat_id: i64, message_id: i64, is_photo: bool) {
+        if let Ok(mut m) = self.menu_messages.lock() {
+            m.insert(chat_id, (message_id, is_photo));
+        }
+    }
+
+    /// Look up the tracked menu message for this chat, if any.
+    pub fn tracked_menu(&self, chat_id: i64) -> Option<(i64, bool)> {
+        self.menu_messages
+            .lock()
+            .ok()
+            .and_then(|m| m.get(&chat_id).copied())
+    }
+
+    /// Edit an existing message in place, using `editMessageCaption` for photo
+    /// messages and `editMessageText` otherwise. Re-tracks the menu message on
+    /// success so later edits keep targeting the same message.
+    pub async fn edit_menu_message(
+        &self,
+        chat_id: i64,
+        message_id: i64,
+        is_photo: bool,
+        text: &str,
+        parse_mode: Option<crate::telegram::ParseMode>,
+        reply_markup: Option<crate::telegram::update::InlineKeyboardMarkup>,
+    ) -> Result<crate::telegram::update::Message, String> {
+        let method = if is_photo {
+            "editMessageCaption"
+        } else {
+            "editMessageText"
+        };
+        let field = if is_photo { "caption" } else { "text" };
+        let pm_str = parse_mode.map(|pm| match pm {
+            crate::telegram::ParseMode::MarkdownV2 => "MarkdownV2",
+            crate::telegram::ParseMode::Html => "HTML",
+        });
+
+        let mut payload = serde_json::json!({
+            "chat_id": chat_id,
+            "message_id": message_id,
+            field: text,
+        });
+        if let Some(ref pm) = pm_str {
+            payload["parse_mode"] = serde_json::Value::String(pm.to_string());
+        }
+        if let Some(ref rm) = reply_markup {
+            payload["reply_markup"] = serde_json::to_value(rm).map_err(|e| e.to_string())?;
+        }
+        let res = self.api_post(method, payload).await?;
+        let msg: crate::telegram::update::Message =
+            serde_json::from_value(res).map_err(|e| e.to_string())?;
+        self.track_menu(chat_id, message_id, is_photo);
+        Ok(msg)
+    }
+
+    /// Edit the chat's tracked menu message (`/start` photo or help message) to
+    /// show a new page, keeping navigation on a single message. Falls back to
+    /// sending a fresh text message when nothing is tracked or the edit fails.
+    pub async fn edit_menu_or_send(
+        &self,
+        chat_id: i64,
+        text: &str,
+        parse_mode: Option<crate::telegram::ParseMode>,
+        reply_markup: Option<crate::telegram::update::InlineKeyboardMarkup>,
+    ) -> Result<crate::telegram::update::Message, String> {
+        if let Some((message_id, is_photo)) = self.tracked_menu(chat_id) {
+            if let Ok(msg) = self
+                .edit_menu_message(
+                    chat_id,
+                    message_id,
+                    is_photo,
+                    text,
+                    parse_mode,
+                    reply_markup.clone(),
+                )
+                .await
+            {
+                return Ok(msg);
+            }
+        }
+
+        let pm_str = parse_mode.map(|pm| match pm {
+            crate::telegram::ParseMode::MarkdownV2 => "MarkdownV2".to_string(),
+            crate::telegram::ParseMode::Html => "HTML".to_string(),
+        });
+        let mut payload = serde_json::json!({
+            "chat_id": chat_id,
+            "text": text,
+        });
+        if let Some(ref pm) = pm_str {
+            payload["parse_mode"] = serde_json::Value::String(pm.clone());
+        }
+        if let Some(ref rm) = reply_markup {
+            payload["reply_markup"] = serde_json::to_value(rm).map_err(|e| e.to_string())?;
+        }
+        let res = self.api_post("sendMessage", payload).await?;
+        let msg: crate::telegram::update::Message =
+            serde_json::from_value(res).map_err(|e| e.to_string())?;
+        self.track_menu(chat_id, msg.id() as i64, false);
+        Ok(msg)
     }
 
     pub fn reply_or_edit(&self, chat_id: i64, text: impl Into<String>) -> EditOrSendBuilder {
