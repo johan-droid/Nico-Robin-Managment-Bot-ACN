@@ -15,6 +15,7 @@ pub struct Message {
     pub chat: Chat,
     pub date: u64,
     pub text: Option<String>,
+    pub caption: Option<String>,
     pub entities: Option<Vec<MessageEntity>>,
     pub reply_to_message: Option<Box<Message>>,
     pub new_chat_members: Option<Vec<User>>,
@@ -34,7 +35,7 @@ pub struct Message {
 
 impl Message {
     pub fn text(&self) -> Option<&str> {
-        self.text.as_deref()
+        self.text.as_deref().or(self.caption.as_deref())
     }
 
     pub fn from(&self) -> Option<&User> {
