@@ -9,6 +9,7 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Mutex;
 
 const FONT_DATA: &[u8] = include_bytes!("../../assets/DejaVuSans.ttf");
+const FONT_BOLD: &[u8] = include_bytes!("../../assets/DejaVuSans-Bold.ttf");
 
 // ── Per-chat message history (for quoting) ─────────────────────────────
 
@@ -24,6 +25,34 @@ static MESSAGE_HISTORY: std::sync::LazyLock<Mutex<HashMap<i64, VecDeque<HistoryM
 static CHAT_PRUNE_TICKS: std::sync::LazyLock<Mutex<HashMap<i64, u64>>> =
     std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 const PRUNE_EVERY: u64 = 64;
+
+/// Small TTL cache of profile-picture bytes so `/q` doesn't re-download the
+/// same avatar on every quote.
+static AVATAR_CACHE: std::sync::LazyLock<
+    Mutex<HashMap<u64, (std::time::Instant, Option<Vec<u8>>)>>,
+> = std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
+const AVATAR_CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(3600);
+
+/// Fetch a user's profile picture bytes (largest size), caching the result for
+/// an hour. Returns `None` if the user has no public photo.
+async fn fetch_avatar(bot: &Bot, user_id: u64) -> Option<Vec<u8>> {
+    {
+        let cache = AVATAR_CACHE.lock().ok()?;
+        if let Some((ts, bytes)) = cache.get(&user_id) {
+            if ts.elapsed() < AVATAR_CACHE_TTL {
+                return bytes.clone();
+            }
+        }
+    }
+    let bytes = match bot.get_user_profile_photo(user_id).await {
+        Ok(Some(photo)) => bot.download_file(&photo.file_id).await.ok().flatten(),
+        _ => None,
+    };
+    if let Ok(mut cache) = AVATAR_CACHE.lock() {
+        cache.insert(user_id, (std::time::Instant::now(), bytes.clone()));
+    }
+    bytes
+}
 
 /// Stores every text message so `/q` can look up the replied message and the
 /// ones above it. Commands and empty messages are skipped. Writes through to
@@ -45,6 +74,7 @@ pub async fn record_message(client: &tokio_postgres::Client, msg: &Message) {
             .unwrap_or_else(|| from.first_name.clone()),
         text: text.to_string(),
         date: msg.date,
+        avatar: None,
     };
 
     let chat_id = msg.chat.id;
@@ -157,9 +187,31 @@ pub async fn handle_quote(
     };
 
     let start = idx.saturating_sub(n - 1);
-    let selected: Vec<HistoryMessage> = history[start..=idx].to_vec();
+    let mut selected: Vec<HistoryMessage> = history[start..=idx].to_vec();
 
-    let selected_cloned = selected.clone();
+    // Attach profile pictures for every author in the quote (in parallel).
+    let mut avatars: HashMap<u64, Vec<u8>> = HashMap::new();
+    {
+        let mut set = tokio::task::JoinSet::new();
+        for m in &selected {
+            if let std::collections::hash_map::Entry::Vacant(e) = avatars.entry(m.user_id) {
+                e.insert(Vec::new());
+                let bot = bot.clone();
+                let uid = m.user_id;
+                set.spawn(async move { (uid, fetch_avatar(&bot, uid).await) });
+            }
+        }
+        while let Some(res) = set.join_next().await {
+            if let Ok((uid, Some(bytes))) = res {
+                avatars.insert(uid, bytes);
+            }
+        }
+    }
+    for m in &mut selected {
+        m.avatar = avatars.get(&m.user_id).filter(|b| !b.is_empty()).cloned();
+    }
+
+    let selected_cloned = selected;
     let webp_res =
         tokio::task::spawn_blocking(move || render_quote_sticker(&selected_cloned)).await;
     let webp = match webp_res {
@@ -186,20 +238,26 @@ pub async fn handle_quote(
 // ── Quote image rendering ──────────────────────────────────────────────
 
 const WIDTH: u32 = 720;
-const PAD: u32 = 28;
+const PAD_X: u32 = 24;
+const PAD_Y: u32 = 24;
+const AVATAR_SIZE: u32 = 88;
+const AVATAR_GAP: u32 = 16;
 const BUBBLE_PAD_X: u32 = 20;
-const BUBBLE_PAD_Y: u32 = 16;
-const GAP: u32 = 16;
-const RADIUS: u32 = 16;
-const ACCENT_W: u32 = 6;
+const BUBBLE_PAD_Y: u32 = 13;
+const GAP: u32 = 14;
+const RADIUS: f32 = 18.0;
+const RADIUS_SMALL: f32 = 5.0;
 const NAME_SIZE: f32 = 30.0;
 const TEXT_SIZE: f32 = 29.0;
-const NAME_TO_TEXT_GAP: f32 = 8.0;
+const TIME_SIZE: f32 = 21.0;
+const NAME_TO_TEXT_GAP: f32 = 6.0;
 const MAX_TEXT_CHARS: usize = 600;
+const MAX_NAME_CHARS: usize = 30;
 
-const BG: Rgba<u8> = Rgba([24, 26, 34, 255]);
-const BUBBLE: Rgba<u8> = Rgba([36, 39, 52, 255]);
-const TEXT_WHITE: Rgba<u8> = Rgba([233, 235, 244, 255]);
+const BG: Rgba<u8> = Rgba([14, 22, 33, 255]);
+const BUBBLE: Rgba<u8> = Rgba([25, 38, 52, 255]);
+const TEXT_WHITE: Rgba<u8> = Rgba([238, 242, 246, 255]);
+const TIME_GRAY: Rgba<u8> = Rgba([141, 154, 168, 255]);
 
 const PALETTE: [Rgba<u8>; 10] = [
     Rgba([255, 122, 92, 255]),
@@ -353,13 +411,16 @@ fn blend_pixel(img: &mut RgbaImage, x: i32, y: i32, color: Rgba<u8>, alpha: u8) 
     }
 }
 
-fn fill_rounded_rect(
+fn fill_bubble(
     img: &mut RgbaImage,
     x0: u32,
     y0: u32,
     x1: u32,
     y1: u32,
-    radius: u32,
+    r_tl: f32,
+    r_tr: f32,
+    r_br: f32,
+    r_bl: f32,
     color: Rgba<u8>,
 ) {
     let (w, h) = img.dimensions();
@@ -368,19 +429,123 @@ fn fill_rounded_rect(
     }
     let x1 = x1.min(w.saturating_sub(1));
     let y1 = y1.min(h.saturating_sub(1));
-    let radius = radius.min((x1 - x0).min(y1 - y0) / 2);
+    let right = x1 as f32 + 1.0;
+    let bottom = y1 as f32 + 1.0;
     for y in y0..=y1 {
         for x in x0..=x1 {
-            let cx = x.clamp(x0 + radius, x1 - radius);
-            let cy = y.clamp(y0 + radius, y1 - radius);
-            let dx = (x as f32 - cx as f32).abs();
-            let dy = (y as f32 - cy as f32).abs();
-            let rr = radius as f32;
-            if dx * dx + dy * dy <= rr * rr {
+            let fx = x as f32 + 0.5;
+            let fy = y as f32 + 0.5;
+            let inside = if fx < x0 as f32 + r_tl && fy < y0 as f32 + r_tl {
+                (fx - (x0 as f32 + r_tl)).powi(2) + (fy - (y0 as f32 + r_tl)).powi(2) <= r_tl * r_tl
+            } else if fx > right - r_tr && fy < y0 as f32 + r_tr {
+                (fx - (right - r_tr)).powi(2) + (fy - (y0 as f32 + r_tr)).powi(2) <= r_tr * r_tr
+            } else if fx > right - r_br && fy > bottom - r_br {
+                (fx - (right - r_br)).powi(2) + (fy - (bottom - r_br)).powi(2) <= r_br * r_br
+            } else if fx < x0 as f32 + r_bl && fy > bottom - r_bl {
+                (fx - (x0 as f32 + r_bl)).powi(2) + (fy - (bottom - r_bl)).powi(2) <= r_bl * r_bl
+            } else {
+                true
+            };
+            if inside {
                 img.put_pixel(x, y, color);
             }
         }
     }
+}
+
+/// Loads avatar bytes into a `size`×`size` RGBA image.
+fn avatar_square(data: &[u8], size: u32) -> Option<RgbaImage> {
+    let img = image::load_from_memory(data).ok()?.to_rgba8();
+    Some(image::imageops::resize(
+        &img,
+        size,
+        size,
+        image::imageops::FilterType::Lanczos3,
+    ))
+}
+
+/// Draws a profile photo clipped into a circle with anti-aliased edges.
+fn draw_circle_avatar(img: &mut RgbaImage, x: u32, y: u32, size: u32, photo: &RgbaImage) {
+    let r = size as f32 / 2.0;
+    for dy in 0..size {
+        for dx in 0..size {
+            let px = dx as f32 + 0.5 - r;
+            let py = dy as f32 + 0.5 - r;
+            let d = (px * px + py * py).sqrt();
+            if d <= r {
+                let src = photo.get_pixel(dx, dy);
+                let ix = x + dx;
+                let iy = y + dy;
+                if ix < img.width() && iy < img.height() {
+                    let coverage = if d <= r - 0.5 {
+                        1.0
+                    } else {
+                        (r - d + 0.5).clamp(0.0, 1.0)
+                    };
+                    let dst = img.get_pixel_mut(ix, iy);
+                    for i in 0..4 {
+                        dst[i] = (src[i] as f32 * coverage + dst[i] as f32 * (1.0 - coverage)) as u8;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Draws a coloured circle with the user's initial when no photo exists.
+fn draw_avatar_initial(
+    img: &mut RgbaImage,
+    font: FontRef<'static>,
+    x: u32,
+    y: u32,
+    size: u32,
+    color: Rgba<u8>,
+    initial: Option<char>,
+) {
+    let r = size as f32 / 2.0;
+    let cx = x as f32 + r;
+    let cy = y as f32 + r;
+    for dy in 0..size {
+        for dx in 0..size {
+            let px = dx as f32 + 0.5 - r;
+            let py = dy as f32 + 0.5 - r;
+            if px * px + py * py <= r * r {
+                let ix = x + dx;
+                let iy = y + dy;
+                if ix < img.width() && iy < img.height() {
+                    img.put_pixel(ix, iy, color);
+                }
+            }
+        }
+    }
+    let Some(ch) = initial else { return };
+    let scale = size as f32 * 0.52;
+    let scaled = font.into_scaled(PxScale::from(scale));
+    let gid = scaled.glyph_id(ch);
+    let advance = scaled.h_advance(gid);
+    let baseline = cy + (scaled.ascent() + scaled.descent()) / 2.0;
+    let pen_x = cx - advance / 2.0;
+    let glyph = gid.with_scale_and_position(PxScale::from(scale), point(pen_x, baseline));
+    if let Some(outline) = scaled.outline_glyph(glyph) {
+        let bounds = outline.px_bounds();
+        outline.draw(|dx, dy, cov| {
+            let ix = bounds.min.x as i32 + dx as i32;
+            let iy = bounds.min.y as i32 + dy as i32;
+            let alpha = (cov.clamp(0.0, 1.0) * 255.0) as u8;
+            if alpha > 0 {
+                blend_pixel(img, ix, iy, Rgba([255, 255, 255, 255]), alpha);
+            }
+        });
+    }
+}
+
+fn format_time(ts: u64) -> String {
+    use chrono::{Local, TimeZone};
+    Local
+        .timestamp_opt(ts as i64, 0)
+        .single()
+        .map(|dt| dt.format("%-I:%M %p").to_string())
+        .unwrap_or_default()
 }
 
 fn truncate(s: &str, max_chars: usize) -> String {
@@ -394,15 +559,19 @@ fn truncate(s: &str, max_chars: usize) -> String {
 
 fn render_quote_image(messages: &[HistoryMessage]) -> Result<RgbaImage, String> {
     let font = FontRef::try_from_slice(FONT_DATA).map_err(|e| format!("font error: {}", e))?;
-    let bold = font.clone();
+    let bold = FontRef::try_from_slice(FONT_BOLD)
+        .map_err(|e| format!("bold font error: {}", e))?;
     let emoji_font = font.clone();
 
-    let max_text_width = (WIDTH - PAD * 2 - BUBBLE_PAD_X * 2 - ACCENT_W - 4) as f32;
+    let max_text_width = (WIDTH - PAD_X - AVATAR_SIZE - AVATAR_GAP - BUBBLE_PAD_X * 2 - 4) as f32;
 
     struct Row {
         name: String,
         lines: Vec<String>,
         color: Rgba<u8>,
+        avatar: Option<RgbaImage>,
+        initial: Option<char>,
+        time: String,
     }
 
     let mut rows = Vec::with_capacity(messages.len());
@@ -414,7 +583,7 @@ fn render_quote_image(messages: &[HistoryMessage]) -> Result<RgbaImage, String> 
             } else {
                 &m.user_name
             },
-            30,
+            MAX_NAME_CHARS,
         );
         let lines = wrap_text(
             font.clone(),
@@ -423,10 +592,25 @@ fn render_quote_image(messages: &[HistoryMessage]) -> Result<RgbaImage, String> 
             max_text_width,
             &text,
         );
+        let avatar = m
+            .avatar
+            .as_ref()
+            .and_then(|b| avatar_square(b, AVATAR_SIZE));
+        let initial = if avatar.is_none() {
+            name.chars()
+                .find(|c| !c.is_whitespace() && *c != '@')
+                .and_then(|c| c.to_uppercase().next())
+        } else {
+            None
+        };
+        let time = format_time(m.date);
         rows.push(Row {
             name,
             lines,
             color: user_color(m.user_id),
+            avatar,
+            initial,
+            time,
         });
     }
 
@@ -442,43 +626,58 @@ fn render_quote_image(messages: &[HistoryMessage]) -> Result<RgbaImage, String> 
             h += line_h * row.lines.len() as f32;
         }
         h += BUBBLE_PAD_Y as f32;
-        bubble_heights.push(h.ceil() as u32);
+        bubble_heights.push(h.ceil().max(AVATAR_SIZE as f32) as u32);
     }
 
-    let total_h = PAD * 2
-        + bubble_heights.iter().sum::<u32>()
-        + GAP * bubble_heights.len().saturating_sub(1) as u32;
+    let mut total_h = PAD_Y * 2;
+    for (i, bh) in bubble_heights.iter().enumerate() {
+        total_h += *bh;
+        if i + 1 < bubble_heights.len() {
+            total_h += GAP;
+        }
+    }
     let total_h = total_h.max(80);
 
     let mut img = RgbaImage::from_pixel(WIDTH, total_h, BG);
 
-    let mut y = PAD as f32;
-    for (row, bh) in rows.iter().zip(bubble_heights.iter()) {
-        let bubble_x0 = PAD;
-        let bubble_x1 = WIDTH - PAD;
-        let bubble_y0 = y.ceil() as u32;
-        let bubble_y1 = bubble_y0 + bh - 1;
+    let time_scaled = font.clone().into_scaled(PxScale::from(TIME_SIZE));
+    let time_emoji = emoji_font.clone().into_scaled(PxScale::from(TIME_SIZE));
 
-        fill_rounded_rect(
+    let mut y = PAD_Y as f32;
+    for (row, bh) in rows.iter().zip(bubble_heights.iter()) {
+        let avatar_x = PAD_X;
+        let avatar_y = y as u32 + (*bh - AVATAR_SIZE) / 2;
+        match &row.avatar {
+            Some(photo) => draw_circle_avatar(&mut img, avatar_x, avatar_y, AVATAR_SIZE, photo),
+            None => draw_avatar_initial(
+                &mut img,
+                bold.clone(),
+                avatar_x,
+                avatar_y,
+                AVATAR_SIZE,
+                row.color,
+                row.initial,
+            ),
+        }
+
+        let bubble_x0 = PAD_X + AVATAR_SIZE + AVATAR_GAP;
+        let bubble_x1 = WIDTH - PAD_X;
+        let bubble_y0 = y.ceil() as u32;
+        let bubble_y1 = bubble_y0 + *bh - 1;
+        fill_bubble(
             &mut img,
             bubble_x0,
-            bubble_y0,
-            bubble_x0 + ACCENT_W - 1,
-            bubble_y1,
-            4,
-            row.color,
-        );
-        fill_rounded_rect(
-            &mut img,
-            bubble_x0 + ACCENT_W,
             bubble_y0,
             bubble_x1,
             bubble_y1,
             RADIUS,
+            RADIUS,
+            RADIUS,
+            RADIUS_SMALL,
             BUBBLE,
         );
 
-        let text_x = (bubble_x0 + ACCENT_W + BUBBLE_PAD_X) as f32;
+        let text_x = (bubble_x0 + BUBBLE_PAD_X) as f32;
         let name_baseline = (bubble_y0 + BUBBLE_PAD_Y) as f32 + bold_scaled.ascent();
         draw_text_line(
             &mut img,
@@ -493,7 +692,7 @@ fn render_quote_image(messages: &[HistoryMessage]) -> Result<RgbaImage, String> 
 
         let mut tb =
             (bubble_y0 + BUBBLE_PAD_Y) as f32 + name_h + NAME_TO_TEXT_GAP + text_scaled.ascent();
-        for line in &row.lines {
+        for (li, line) in row.lines.iter().enumerate() {
             draw_text_line(
                 &mut img,
                 font.clone(),
@@ -504,6 +703,22 @@ fn render_quote_image(messages: &[HistoryMessage]) -> Result<RgbaImage, String> 
                 tb,
                 line,
             );
+            if li + 1 == row.lines.len() && !row.time.is_empty() {
+                let time_w = measure(&time_scaled, &time_emoji, &row.time);
+                let right_edge = bubble_x1 as f32 - BUBBLE_PAD_X as f32;
+                if time_w <= (right_edge - text_x).max(0.0) {
+                    draw_text_line(
+                        &mut img,
+                        font.clone(),
+                        emoji_font.clone(),
+                        TIME_SIZE,
+                        TIME_GRAY,
+                        right_edge - time_w,
+                        tb,
+                        &row.time,
+                    );
+                }
+            }
             tb += line_h;
         }
 
@@ -564,6 +779,7 @@ mod tests {
                 user_name: "@luffy".into(),
                 text: "I'm gonna be the King of the Pirates!".into(),
                 date: 1,
+                avatar: None,
             },
             HistoryMessage {
                 message_id: 2,
@@ -571,6 +787,7 @@ mod tests {
                 user_name: "@zoro".into(),
                 text: "I got lost again... where is the ship?".into(),
                 date: 2,
+                avatar: None,
             },
             HistoryMessage {
                 message_id: 3,
@@ -578,6 +795,7 @@ mod tests {
                 user_name: "@nami".into(),
                 text: "You idiots! We have to pay the crew's debts — all 300 million beri!".into(),
                 date: 3,
+                avatar: None,
             },
         ];
         let bytes = render_quote(&msgs).unwrap();
@@ -599,6 +817,7 @@ mod tests {
                 user_name: "@luffy".into(),
                 text: "Let's go!! 🚀⚓🏴‍☠️".into(),
                 date: 1,
+                avatar: None,
             },
             HistoryMessage {
                 message_id: 2,
@@ -606,6 +825,7 @@ mod tests {
                 user_name: "@chopper".into(),
                 text: "I'm not a raccoon dog!! 🦌😤".into(),
                 date: 2,
+                avatar: None,
             },
             HistoryMessage {
                 message_id: 3,
@@ -613,6 +833,7 @@ mod tests {
                 user_name: "@robin".into(),
                 text: "The answer is always here. 📚".into(),
                 date: 3,
+                avatar: None,
             },
         ];
         let sticker = render_quote_sticker(&msgs).unwrap();

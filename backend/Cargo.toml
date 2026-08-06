@@ -57,7 +57,7 @@ tokio-postgres-rustls = "0.13"
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
 webpki-roots = "0.26"
 sentry = { version = "0.48.5", default-features = false, features = ["backtrace", "contexts", "panic", "reqwest", "rustls"] }
-image = { version = "0.25", default-features = false, features = ["png", "webp"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 ab_glyph = "0.2"
 subtle = "2.5"
 rand = "0.10.2"

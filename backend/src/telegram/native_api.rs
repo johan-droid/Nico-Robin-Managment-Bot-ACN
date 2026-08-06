@@ -563,6 +563,36 @@ impl Bot {
         Ok(sizes.into_iter().max_by_key(|p| p.width))
     }
 
+    /// Resolve a Telegram `file_id` to its CDN download path (`getFile`).
+    pub async fn get_file_path(&self, file_id: &str) -> Result<Option<String>, String> {
+        let res = self
+            .api_post("getFile", serde_json::json!({ "file_id": file_id }))
+            .await?;
+        Ok(res
+            .get("file_path")
+            .and_then(|p| p.as_str())
+            .map(|s| s.to_string()))
+    }
+
+    /// Download a file's bytes from Telegram's file CDN by its `file_id`.
+    pub async fn download_file(&self, file_id: &str) -> Result<Option<Vec<u8>>, String> {
+        let Some(path) = self.get_file_path(file_id).await? else {
+            return Ok(None);
+        };
+        let url = format!("https://api.telegram.org/file/bot{}/{}", self.token, path);
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        if !resp.status().is_success() {
+            return Ok(None);
+        }
+        let bytes = resp.bytes().await.map_err(|e| e.to_string())?.to_vec();
+        Ok(Some(bytes))
+    }
+
     pub async fn delete_webhook(&self, drop_pending_updates: bool) -> Result<(), String> {
         self.api_post(
             "deleteWebhook",

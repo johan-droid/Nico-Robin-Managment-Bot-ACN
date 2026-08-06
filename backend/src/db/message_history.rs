@@ -11,6 +11,8 @@ pub struct HistoryMessage {
     pub user_name: String,
     pub text: String,
     pub date: u64,
+    /// In-memory profile picture bytes attached at render time (never persisted).
+    pub avatar: Option<Vec<u8>>,
 }
 
 /// Records a message into persistent history. Idempotent on `(chat_id, message_id)`.
@@ -68,6 +70,7 @@ pub async fn get_recent(
             user_name: crate::crypto::try_decrypt(&r.get::<_, String>(2)),
             text: crate::crypto::try_decrypt(&r.get::<_, String>(3)),
             date: r.get::<_, i64>(4) as u64,
+            avatar: None,
         })
         .collect();
 
@@ -100,6 +103,7 @@ pub async fn get_recent_between(
             user_name: crate::crypto::try_decrypt(&r.get::<_, String>(2)),
             text: crate::crypto::try_decrypt(&r.get::<_, String>(3)),
             date: r.get::<_, i64>(4) as u64,
+            avatar: None,
         })
         .collect())
 }
