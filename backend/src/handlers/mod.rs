@@ -352,7 +352,7 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
     }
 
     // For non-command messages, run filter auto-reply checks and security checks
-    if let Some(text) = msg.text() {
+    if let Some(text) = msg.clone().text() {
         // Quiz answer checking with strict timer + anti-cheat
         if !text.starts_with('/') {
             let reply_to = msg.reply_to_message.as_ref().map(|m| m.message_id);
@@ -442,7 +442,7 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                         {
                             return Ok(());
                         }
-                        return core::handle_help_or_about(bot, msg, client, text == "/about").await;
+                        return core::handle_help_or_about(bot, msg.clone(), client, text == "/about").await;
                     }
                     "ban" => {
                         if !require_admin_fast(&bot, &msg, is_admin).await? {
