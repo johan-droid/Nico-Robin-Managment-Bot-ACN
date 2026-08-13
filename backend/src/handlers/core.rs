@@ -146,7 +146,6 @@ fn help_keyboard() -> InlineKeyboardMarkup {
         inline_keyboard: vec![
             vec![_btn("🛡️ Moderator Commands", "moderator")],
             vec![_btn("👤 Non-Moderator Commands", "nonmoderator")],
-            vec![_btn("📜 Poneglyph Games", "cat_game")],
             vec![_btn("🔙 Back", "back_start")],
         ],
     }
