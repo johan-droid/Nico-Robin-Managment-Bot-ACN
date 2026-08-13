@@ -436,13 +436,13 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                     }
                     "crewlb" => return game::crew::handle_crew_leaderboard(bot, msg, client).await,
                     "start" => return core::handle_start(bot, msg, client).await,
-                    "help" => {
+                    "help" | "about" => {
                         if !check_command_rate_limit(client, user_id, "help", 5, &bot, msg.chat.id)
                             .await?
                         {
                             return Ok(());
                         }
-                        return core::handle_help(bot, msg).await;
+                        return core::handle_help_or_about(bot, msg, client, text == "/about").await;
                     }
                     "ban" => {
                         if !require_admin_fast(&bot, &msg, is_admin).await? {
