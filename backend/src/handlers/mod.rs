@@ -442,7 +442,7 @@ pub async fn handle_message(bot: Bot, msg: Message, client: &Client) -> Result<(
                         {
                             return Ok(());
                         }
-                        return core::handle_help_or_about(bot, msg, client, text == "/about").await;
+                        return core::handle_help_or_about(bot, msg.clone(), client, text == "/about").await;
                     }
                     "ban" => {
                         if !require_admin_fast(&bot, &msg, is_admin).await? {
