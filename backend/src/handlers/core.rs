@@ -265,6 +265,35 @@ pub async fn handle_help(bot: Bot, msg: Message) -> Result<(), String> {
     Ok(())
 }
 
+pub async fn handle_help_or_about(bot: Bot, msg: Message, _client: &Client, is_about: bool) -> Result<(), String> {
+    let mention = msg
+        .from()
+        .map(|u| {
+            u.username
+                .as_ref()
+                .map(|un| format!("@{}", un))
+                .unwrap_or_else(|| u.first_name.clone())
+        })
+        .unwrap_or_else(|| "there".to_string());
+    let mention = crate::utils::escape_html(&mention);
+    
+    let (text, keyboard) = if is_about {
+        (about_text(), category_back_keyboard("back_start"))
+    } else {
+        (help_text().to_string(), help_keyboard())
+    };
+    
+    let _ = bot
+        .edit_menu_or_send(
+            msg.chat.id,
+            &text,
+            Some(ParseMode::Html),
+            Some(keyboard),
+        )
+        .await;
+    Ok(())
+}
+
 fn category_text(category: &str) -> &'static str {
     match category {
         "cat_profile" => concat!(
