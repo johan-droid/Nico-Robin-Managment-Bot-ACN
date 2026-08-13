@@ -1,76 +1,66 @@
-# ── Environment & Secret files ──
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.class
+*.exe
+*.dll
+*.so
+*.a
+*.out
+*.swp
+*.swo
+*.tmp
+
+# Dependencies
+node_modules/
+venv/
+.venv/
 .env
 .env.local
 .env.*
-*.env
-!.env.example
-!**/.env.example
-
-# ── Private Keys & Secrets ──
-*.pem
-*.key
-*.p12
-*.pfx
-*.p8
-*.jks
-id_rsa
-id_rsa.pub
-id_ed25519
-id_ed25519.pub
-
-# ── Rust & Build Artifacts ──
 target/
-**/target/
-backend/target/
-**/*.rs.bk
-*.o
-*.obj
-*.so
-*.dll
-*.exe
-*.rlib
-*.dylib
-
-# ── Test Binaries & Temporary Scripts ──
-test_*
-backend/test_*
-*.test
-
-# ── Runtime & Tool Caches ──
-.wrangler/
-backend/.wrangler/
-diagnostics/
-backend/diagnostics/
-quote_*.webp
-quote_*.png
-output_*.png
-
-# ── IDEs & OS Files ──
-.vscode/
-.idea/
-.claude/
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*~
-*.tmp
-*.temp
-
-# ── Logs & Coverage ──
-*.log
-logs/
-.coverage
-htmlcov/
-coverage/
-
-# ── Python / Legacy ──
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.venv/
-venv/
+.gradle/
 .mypy_cache/
 .pytest_cache/
-.ruff_cache/
+dist/
+build/
+
+# Logs and temporary files
+*.log
+coverage/
+htmlcov/
+.coverage
+
+# Editors and IDEs
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Compressed files
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst

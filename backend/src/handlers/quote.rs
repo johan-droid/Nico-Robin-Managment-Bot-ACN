@@ -186,29 +186,57 @@ pub async fn handle_quote(
                 msg.chat.id,
                 "Reply to a message to quote it.\n\n\
                  /q        —  quote the replied message\n\
-                 /q &lt;n&gt;  —  /q2, /q3 … quote n messages above the replied one",
+                 /q <n>  —  /q2, /q3 … quote n messages above the replied one",
             )
             .await?;
             return Ok(());
         }
     };
 
+    // Try to get the replied message from history first
     let history = get_history(client, msg.chat.id).await;
-    let idx = match history.iter().position(|m| m.message_id == replied.id()) {
-        Some(i) => i,
-        None => {
-            bot.send_message(
-                msg.chat.id,
-                "That message is too old to quote (only the latest 500 messages are kept).\n\
-                 Try quoting a more recent message.",
-            )
-            .await?;
-            return Ok(());
+    let idx = history.iter().position(|m| m.message_id == replied.id());
+    
+    // If not found in history, try to fetch directly from DB
+    let mut selected: Vec<HistoryMessage> = if let Some(i) = idx {
+        let start = i.saturating_sub(n - 1);
+        history[start..=i].to_vec()
+    } else {
+        // Message not in recent history - try to fetch it and nearby messages from DB
+        // Get the replied message and up to n-1 messages before it
+        let from_id = replied.id().saturating_sub((n as u64).saturating_sub(1));
+        match crate::db::message_history::get_recent_between(client, msg.chat.id, from_id, replied.id()).await {
+            Ok(msgs) if !msgs.is_empty() => msgs,
+            _ => {
+                // Not in DB either - create a minimal entry from the replied message itself
+                let from_user = replied.from().map(|u| HistoryMessage {
+                    message_id: replied.id(),
+                    user_id: u.id,
+                    user_name: u.username.as_deref().map(|s| format!("@{}", s)).unwrap_or_else(|| u.first_name.clone()),
+                    text: replied.text().unwrap_or("📷 Media").to_string(),
+                    date: replied.date,
+                    avatar: None,
+                });
+                
+                match from_user {
+                    Some(m) => vec![m],
+                    None => {
+                        bot.send_message(
+                            msg.chat.id,
+                            "Could not find the replied message. Please try quoting a different message.",
+                        )
+                        .await?;
+                        return Ok(());
+                    }
+                }
+            }
         }
     };
 
-    let start = idx.saturating_sub(n - 1);
-    let mut selected: Vec<HistoryMessage> = history[start..=idx].to_vec();
+    // Limit to MAX_QUOTE_MESSAGES
+    if selected.len() > MAX_QUOTE_MESSAGES {
+        selected = selected[selected.len() - MAX_QUOTE_MESSAGES..].to_vec();
+    }
 
     // Attach profile pictures for every author in the quote (in parallel).
     let mut avatars: HashMap<u64, Vec<u8>> = HashMap::new();
