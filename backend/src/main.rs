@@ -412,6 +412,11 @@ async fn run_polling(state: NativeState) {
                 }
             }
             Err(e) => {
+                // Check for permanent failures that should not be retried
+                if e.contains("\"error_code\":401") || e.contains("Unauthorized") {
+                    error!(error = %e, "Telegram API returned 401 Unauthorized — bot token is invalid or revoked. Stopping polling.");
+                    break;
+                }
                 debug!(error = %e, "Long-poll timeout (no updates) — retrying");
                 tokio::time::sleep(std::time::Duration::from_millis(250)).await;
             }
