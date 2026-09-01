@@ -204,8 +204,15 @@ async fn main() {
 
     // Seed welcome image into database
     info!("Seeding welcome image into database");
-    let image_path = env::var("WELCOME_IMAGE_PATH")
-        .unwrap_or_else(|_| "Images/photo_2026-07-30_12-26-35.jpg".to_string());
+    let image_path = env::var("WELCOME_IMAGE_PATH").ok().or_else(|| {
+        for candidate in ["Images/photo_2026-07-30_12-26-35.jpg", "backend/Images/photo_2026-07-30_12-26-35.jpg"] {
+            if std::path::Path::new(candidate).exists() {
+                return Some(candidate.to_string());
+            }
+        }
+        None
+    }).unwrap_or_else(|| "Images/photo_2026-07-30_12-26-35.jpg".to_string());
+
     let seed_client = pool
         .get()
         .await
@@ -222,7 +229,7 @@ async fn main() {
             {
                 error!(error = %e, "Failed to seed welcome image");
             } else {
-                info!("Welcome image seeded successfully");
+                info!(path = %image_path, bytes = image_data.len(), "Welcome image seeded successfully");
             }
         }
         Err(e) => {

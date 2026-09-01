@@ -181,5 +181,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("All migrations applied successfully!");
+
+    // Seed welcome image asset into database
+    let image_path = env::var("WELCOME_IMAGE_PATH").ok().or_else(|| {
+        for candidate in ["Images/photo_2026-07-30_12-26-35.jpg", "backend/Images/photo_2026-07-30_12-26-35.jpg"] {
+            if Path::new(candidate).exists() {
+                return Some(candidate.to_string());
+            }
+        }
+        None
+    }).unwrap_or_else(|| "Images/photo_2026-07-30_12-26-35.jpg".to_string());
+
+    if let Ok(image_data) = fs::read(&image_path) {
+        println!("Seeding welcome image asset from {} ({} bytes)...", image_path, image_data.len());
+        let mime_type = "image/jpeg";
+        let key = "welcome";
+        let _ = client
+            .execute(
+                "INSERT INTO bot_assets (key, data, mime_type) VALUES ($1, $2, $3)
+                 ON CONFLICT (key) DO UPDATE SET data = $2, mime_type = $3, updated_at = NOW()",
+                &[&key, &image_data, &mime_type],
+            )
+            .await;
+        println!("Welcome image asset seeded successfully!");
+    } else {
+        println!("Warning: Could not read welcome image from {}", image_path);
+    }
+
     Ok(())
 }

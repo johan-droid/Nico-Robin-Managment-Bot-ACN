@@ -28,6 +28,7 @@ quote_*.png
 output_*.png
 .wrangler/
 diagnostics/
+.neon/
 
 # ── IDEs & OS Files ──
 .vscode/
