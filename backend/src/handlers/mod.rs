@@ -51,12 +51,12 @@ static SWEAR_CACHE: std::sync::LazyLock<
     Mutex<HashMap<i64, (std::sync::Arc<Vec<String>>, Instant)>>,
 > = std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
-/// Minimum interval between consecutive DB writes for the same user/group.
-const CACHE_WRITE_INTERVAL_SECS: u64 = 300; // 5 minutes
-/// TTL for in-memory filter cache.
-const FILTER_CACHE_TTL_SECS: u64 = 30;
-/// TTL for swear-word cache.
-const SWEAR_CACHE_TTL_SECS: u64 = 60;
+/// Minimum interval between consecutive DB writes for the same user/group (1 hour).
+const CACHE_WRITE_INTERVAL_SECS: u64 = 3600;
+/// TTL for in-memory filter cache (10 minutes; invalidated immediately on edit).
+const FILTER_CACHE_TTL_SECS: u64 = 600;
+/// TTL for swear-word cache (10 minutes; invalidated immediately on edit).
+const SWEAR_CACHE_TTL_SECS: u64 = 600;
 
 /// Drops a chat's in-memory filter / swear caches so the next message reloads
 /// them from the DB. Called from `main` after a settings-writing command

@@ -2,10 +2,12 @@
 # Script to update memory.md with latest project status
 # Run this periodically or after significant changes
 
-echo "📊 Checking project status..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
+echo "📊 Checking project status for Nico Robin Management Bot..."
 
 # Check git status
-cd /home/ashutosh/Downloads/Nico\ Robin\ Bot\ ACN
 git status --short
 
 echo ""
@@ -18,9 +20,6 @@ echo "📝 Memory.md last modified:"
 ls -la memory.md
 
 echo ""
-echo "To update memory.md, run the subagent or manually edit the file."
-echo "Key areas to check:"
-echo "  - src/handlers/*.rs (command implementations)"
-echo "  - src/db/*.rs (database functions)"
-echo "  - migrations/*.sql (schema changes)"
-echo "  - Cargo.toml (dependencies)"
+echo "Memory update rules:"
+echo "  - Update memory.md after every major batch / optimization."
+echo "  - Check src/handlers/*.rs, src/db/*.rs, and Cargo.toml for changes."

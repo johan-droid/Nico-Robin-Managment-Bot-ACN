@@ -13,8 +13,9 @@ const FONT_BOLD: &[u8] = include_bytes!("../../assets/DejaVuSans-Bold.ttf");
 
 // ── Per-chat message history (for quoting) ─────────────────────────────
 
-const HISTORY_MAX_PER_CHAT: usize = 500;
+const HISTORY_MAX_PER_CHAT: usize = 150;
 const MAX_QUOTE_MESSAGES: usize = 10;
+const MAX_AVATAR_CACHE_ENTRIES: usize = 200;
 
 /// In-memory cache of the last `HISTORY_MAX_PER_CHAT` text messages per chat.
 /// The authoritative store is the `message_history` table (survives restarts);
@@ -27,7 +28,7 @@ static CHAT_PRUNE_TICKS: std::sync::LazyLock<Mutex<HashMap<i64, u64>>> =
 const PRUNE_EVERY: u64 = 64;
 
 /// Small TTL cache of profile-picture bytes so `/q` doesn't re-download the
-/// same avatar on every quote.
+/// same avatar on every quote. Bounded to `MAX_AVATAR_CACHE_ENTRIES` for low RAM usage.
 static AVATAR_CACHE: std::sync::LazyLock<
     Mutex<HashMap<u64, (std::time::Instant, Option<Vec<u8>>)>>,
 > = std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -49,6 +50,9 @@ async fn fetch_avatar(bot: &Bot, user_id: u64) -> Option<Vec<u8>> {
         _ => None,
     };
     if let Ok(mut cache) = AVATAR_CACHE.lock() {
+        if cache.len() >= MAX_AVATAR_CACHE_ENTRIES {
+            cache.retain(|_, (ts, _)| ts.elapsed() < AVATAR_CACHE_TTL);
+        }
         cache.insert(user_id, (std::time::Instant::now(), bytes.clone()));
     }
     bytes
@@ -119,20 +123,22 @@ pub async fn record_message(client: &tokio_postgres::Client, msg: &Message) {
         count = *c;
     }
 
-    let _ = crate::db::message_history::record_message(
-        client,
-        chat_id,
-        entry.message_id,
-        entry.user_id,
-        &entry.user_name,
-        &entry.text,
-        entry.date,
-    )
-    .await;
+    if crate::config::Settings::global().persist_message_history {
+        let _ = crate::db::message_history::record_message(
+            client,
+            chat_id,
+            entry.message_id,
+            entry.user_id,
+            &entry.user_name,
+            &entry.text,
+            entry.date,
+        )
+        .await;
 
-    if count % PRUNE_EVERY == 0 {
-        let _ = crate::db::message_history::prune_old(client, chat_id, HISTORY_MAX_PER_CHAT as i64)
-            .await;
+        if count % PRUNE_EVERY == 0 {
+            let _ = crate::db::message_history::prune_old(client, chat_id, HISTORY_MAX_PER_CHAT as i64)
+                .await;
+        }
     }
 }
 

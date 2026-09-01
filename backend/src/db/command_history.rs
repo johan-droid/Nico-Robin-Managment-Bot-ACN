@@ -9,6 +9,9 @@ pub async fn log_command(
     success: Option<bool>,
     error_msg: Option<&str>,
 ) {
+    if !crate::config::Settings::global().enable_command_logging {
+        return;
+    }
     let stmt = match client
         .prepare(
             "INSERT INTO command_history (user_id, command, success, error_msg)

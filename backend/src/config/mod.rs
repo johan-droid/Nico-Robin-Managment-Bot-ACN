@@ -16,6 +16,8 @@ pub struct Settings {
     pub nvidia_nim_timeout: u64,
     pub nvidia_nim_rpm: u32,
     pub quiz_timeout_secs: u64,
+    pub persist_message_history: bool,
+    pub enable_command_logging: bool,
 }
 
 static GLOBAL_SETTINGS: OnceLock<Settings> = OnceLock::new();
@@ -64,6 +66,14 @@ impl Settings {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(30),
+            persist_message_history: std::env::var("PERSIST_MESSAGE_HISTORY")
+                .ok()
+                .and_then(|v| v.parse::<bool>().ok())
+                .unwrap_or(false),
+            enable_command_logging: std::env::var("ENABLE_COMMAND_LOGGING")
+                .ok()
+                .and_then(|v| v.parse::<bool>().ok())
+                .unwrap_or(false),
         }
     }
 
@@ -96,6 +106,8 @@ impl Default for Settings {
             nvidia_nim_timeout: 30,
             nvidia_nim_rpm: 40,
             quiz_timeout_secs: 30,
+            persist_message_history: false,
+            enable_command_logging: false,
         }
     }
 }

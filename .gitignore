@@ -1,5 +1,7 @@
-```
-# Compiled and build artifacts
+# ── Rust & Build Artifacts ──
+/target/
+**/target/
+**/*.rs.bk
 *.o
 *.obj
 *.exe
@@ -7,35 +9,40 @@
 *.so
 *.a
 *.out
-target/
 
-# Dependencies
-Cargo.lock
-vendor/
-.cargo/
-
-# Logs and temp files
-*.log
-*.tmp
-*.swp
-
-# Environment
+# ── Environment & Secrets ──
 .env
 .env.local
-*.env.*
+.env.*
+*.env
+!.env.example
 
-# Editors
+# ── Private Keys & Secrets ──
+*.pem
+*.key
+*.p12
+*.pfx
+*.p8
+id_rsa
+id_ed25519
+
+# ── Runtime Output & Generated Assets ──
+quote_*.webp
+quote_*.png
+output_*.png
+.wrangler/
+diagnostics/
+
+# ── IDEs & OS Files ──
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db
 *.swp
 *.swo
 
-# Rust-specific
-**/*.rs.bk
-```
-
-Wait, let me reconsider. The only modified file is `backend/src/main.rs` which is a source file. There are no build artifacts, dependency directories, or temporary files in the change list. Following rule #6, since the changes contain only source files and no build artifacts, dependencies, or temp files, the output should be empty.
-
-```rust
-
-```
+# ── Logs & Temp Files ──
+*.log
+logs/
+*.tmp
+*.temp

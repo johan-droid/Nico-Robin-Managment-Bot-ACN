@@ -10,7 +10,7 @@ struct CacheEntry {
 static FEATURE_CACHE: std::sync::LazyLock<RwLock<HashMap<(i64, String), CacheEntry>>> =
     std::sync::LazyLock::new(|| RwLock::new(HashMap::with_capacity(128)));
 
-const CACHE_TTL_SECS: u64 = 30;
+const CACHE_TTL_SECS: u64 = 600;
 
 pub fn get_cached(group_id: i64, feature: &str) -> Option<bool> {
     let cache = FEATURE_CACHE.read().ok()?;
