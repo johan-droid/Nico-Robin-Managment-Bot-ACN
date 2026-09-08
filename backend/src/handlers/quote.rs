@@ -136,8 +136,9 @@ pub async fn record_message(client: &tokio_postgres::Client, msg: &Message) {
         .await;
 
         if count % PRUNE_EVERY == 0 {
-            let _ = crate::db::message_history::prune_old(client, chat_id, HISTORY_MAX_PER_CHAT as i64)
-                .await;
+            let _ =
+                crate::db::message_history::prune_old(client, chat_id, HISTORY_MAX_PER_CHAT as i64)
+                    .await;
         }
     }
 }
@@ -243,7 +244,7 @@ pub async fn handle_quote(
     // Try to get the replied message from history first
     let history = get_history(client, msg.chat.id).await;
     let idx = history.iter().position(|m| m.message_id == replied.id());
-    
+
     // If not found in history, try to fetch directly from DB
     let mut selected: Vec<HistoryMessage> = if let Some(i) = idx {
         let start = i.saturating_sub(n - 1);
@@ -252,19 +253,30 @@ pub async fn handle_quote(
         // Message not in recent history - try to fetch it and nearby messages from DB
         // Get the replied message and up to n-1 messages before it
         let from_id = replied.id().saturating_sub((n as u64).saturating_sub(1));
-        match crate::db::message_history::get_recent_between(client, msg.chat.id, from_id, replied.id()).await {
+        match crate::db::message_history::get_recent_between(
+            client,
+            msg.chat.id,
+            from_id,
+            replied.id(),
+        )
+        .await
+        {
             Ok(msgs) if !msgs.is_empty() => msgs,
             _ => {
                 // Not in DB either - create a minimal entry from the replied message itself
                 let from_user = replied.from().map(|u| HistoryMessage {
                     message_id: replied.id(),
                     user_id: u.id,
-                    user_name: u.username.as_deref().map(|s| format!("@{}", s)).unwrap_or_else(|| u.first_name.clone()),
+                    user_name: u
+                        .username
+                        .as_deref()
+                        .map(|s| format!("@{}", s))
+                        .unwrap_or_else(|| u.first_name.clone()),
                     text: replied.text().unwrap_or("📷 Media").to_string(),
                     date: replied.date,
                     avatar: None,
                 });
-                
+
                 match from_user {
                     Some(m) => vec![m],
                     None => {

@@ -265,20 +265,20 @@ pub async fn handle_help(bot: Bot, msg: Message) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn handle_help_or_about(bot: Bot, msg: Message, _client: &Client, is_about: bool) -> Result<(), String> {
+pub async fn handle_help_or_about(
+    bot: Bot,
+    msg: Message,
+    _client: &Client,
+    is_about: bool,
+) -> Result<(), String> {
     let (text, keyboard) = if is_about {
         (about_text(), category_back_keyboard("back_start"))
     } else {
         (help_text().to_string(), help_keyboard())
     };
-    
+
     let _ = bot
-        .edit_menu_or_send(
-            msg.chat.id,
-            &text,
-            Some(ParseMode::Html),
-            Some(keyboard),
-        )
+        .edit_menu_or_send(msg.chat.id, &text, Some(ParseMode::Html), Some(keyboard))
         .await;
     Ok(())
 }
