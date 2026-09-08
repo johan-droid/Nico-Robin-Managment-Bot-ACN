@@ -189,6 +189,7 @@ pub async fn handle_quote(
         Some(m) => m.clone(),
         None => {
             // No reply - get the last message from history
+            let history = get_history(client, msg.chat.id).await;
             if history.is_empty() {
                 bot.send_message(
                     msg.chat.id,
@@ -199,32 +200,34 @@ pub async fn handle_quote(
             }
             // Get the last message from history and create a pseudo-message
             if let Some(last_msg) = history.last() {
-                let mut fake_msg = Message::default();
-                fake_msg.message_id = last_msg.message_id;
-                fake_msg.date = last_msg.date;
-                fake_msg.chat = msg.chat.clone();
-                
-                // Parse user_name to extract username if present
-                let (first_name, username) = if let Some(at_pos) = last_msg.user_name.find('@') {
-                    if at_pos == 0 && last_msg.user_name.len() > 1 {
-                        // It's a username like @user
-                        (last_msg.user_name[1..].to_string(), Some(last_msg.user_name[1..].to_string()))
-                    } else {
-                        (last_msg.user_name.clone(), None)
-                    }
-                } else {
-                    (last_msg.user_name.clone(), None)
+                let mut fake_msg = Message {
+                    message_id: last_msg.message_id,
+                    from: Some(crate::telegram::update::User {
+                        id: last_msg.user_id as u64,
+                        is_bot: false,
+                        first_name: last_msg.user_name.clone(),
+                        username: None,
+                    }),
+                    date: last_msg.date,
+                    chat: msg.chat.clone(),
+                    text: Some(last_msg.text.clone()),
+                    caption: None,
+                    entities: None,
+                    reply_to_message: None,
+                    new_chat_members: None,
+                    left_chat_member: None,
+                    photo: None,
+                    video: None,
+                    animation: None,
+                    sticker: None,
+                    document: None,
+                    voice: None,
+                    audio: None,
+                    video_note: None,
+                    poll: None,
+                    forward_date: None,
+                    forward_from: None,
                 };
-                
-                fake_msg.from = Some(crate::telegram::update::User {
-                    id: last_msg.user_id as u64,
-                    is_bot: false,
-                    first_name,
-                    last_name: None,
-                    username,
-                    language_code: None,
-                });
-                fake_msg.text = Some(last_msg.text.clone());
                 fake_msg
             } else {
                 bot.send_message(
@@ -238,6 +241,7 @@ pub async fn handle_quote(
     };
 
     // Try to get the replied message from history first
+    let history = get_history(client, msg.chat.id).await;
     let idx = history.iter().position(|m| m.message_id == replied.id());
     
     // If not found in history, try to fetch directly from DB
