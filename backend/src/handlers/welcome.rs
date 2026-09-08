@@ -27,15 +27,29 @@ fn welcome_ok(chat_id: i64, member_id: i64) -> bool {
 
 pub async fn handle_setwelcome(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
-    let content = text.strip_prefix("/setwelcome ").unwrap_or("");
+    let content = text.strip_prefix("/setwelcome ").unwrap_or("").trim();
+    
     if content.is_empty() {
-        bot.send_message(
-            msg.chat.id,
-            "Usage: /setwelcome <message>\nVariables: {user}, {group}, {count}",
-        )
-        .await?;
+        // If no message provided, show current welcome message or indicate none is set
+        let chat_id = msg.chat.id;
+        match crate::db::welcome::get_welcome_settings(client, chat_id).await {
+            Ok(Some(settings)) => {
+                if let Some(ref welcome) = settings.welcome_message {
+                    let _ = bot.send_message(msg.chat.id, format!("Current welcome message:\n{}", welcome)).await;
+                } else {
+                    let _ = bot.send_message(msg.chat.id, "No welcome message set. Send /setwelcome <message> to set one.\nVariables: {user}, {group}, {count}").await;
+                }
+            }
+            Ok(None) => {
+                let _ = bot.send_message(msg.chat.id, "No welcome message set. Send /setwelcome <message> to set one.\nVariables: {user}, {group}, {count}").await;
+            }
+            Err(e) => {
+                let _ = bot.send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string()))).await;
+            }
+        }
         return Ok(());
     }
+    
     let chat_id = msg.chat.id;
     match crate::db::welcome::set_welcome_message(client, chat_id, content).await {
         Ok(_) => {
@@ -103,12 +117,29 @@ pub async fn handle_welcome_preview(bot: Bot, msg: Message, client: &Client) -> 
 
 pub async fn handle_setwelcomedm(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
-    let content = text.strip_prefix("/setwelcomedm ").unwrap_or("");
+    let content = text.strip_prefix("/setwelcomedm ").unwrap_or("").trim();
+    
     if content.is_empty() {
-        bot.send_message(msg.chat.id, "Usage: /setwelcomedm <message>")
-            .await?;
+        // If no message provided, show current welcome DM message or indicate none is set
+        let chat_id = msg.chat.id;
+        match crate::db::welcome::get_welcome_settings(client, chat_id).await {
+            Ok(Some(settings)) => {
+                if let Some(ref dm) = settings.welcome_dm_message {
+                    let _ = bot.send_message(msg.chat.id, format!("Current welcome DM message:\n{}", dm)).await;
+                } else {
+                    let _ = bot.send_message(msg.chat.id, "No welcome DM message set. Send /setwelcomedm <message> to set one.").await;
+                }
+            }
+            Ok(None) => {
+                let _ = bot.send_message(msg.chat.id, "No welcome DM message set. Send /setwelcomedm <message> to set one.").await;
+            }
+            Err(e) => {
+                let _ = bot.send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string()))).await;
+            }
+        }
         return Ok(());
     }
+    
     let chat_id = msg.chat.id;
     match crate::db::welcome::set_welcome_dm_message(client, chat_id, content).await {
         Ok(_) => {
@@ -130,12 +161,29 @@ pub async fn handle_setwelcomedm(bot: Bot, msg: Message, client: &Client) -> Res
 
 pub async fn handle_setfarewell(bot: Bot, msg: Message, client: &Client) -> Result<(), String> {
     let text = msg.text().unwrap_or("");
-    let content = text.strip_prefix("/setfarewell ").unwrap_or("");
+    let content = text.strip_prefix("/setfarewell ").unwrap_or("").trim();
+    
     if content.is_empty() {
-        bot.send_message(msg.chat.id, "Usage: /setfarewell <message>")
-            .await?;
+        // If no message provided, show current farewell message or indicate none is set
+        let chat_id = msg.chat.id;
+        match crate::db::welcome::get_welcome_settings(client, chat_id).await {
+            Ok(Some(settings)) => {
+                if let Some(ref farewell) = settings.farewell_message {
+                    let _ = bot.send_message(msg.chat.id, format!("Current farewell message:\n{}", farewell)).await;
+                } else {
+                    let _ = bot.send_message(msg.chat.id, "No farewell message set. Send /setfarewell <message> to set one.").await;
+                }
+            }
+            Ok(None) => {
+                let _ = bot.send_message(msg.chat.id, "No farewell message set. Send /setfarewell <message> to set one.").await;
+            }
+            Err(e) => {
+                let _ = bot.send_message(msg.chat.id, format!("Error: {}", escape_md_v2(&e.to_string()))).await;
+            }
+        }
         return Ok(());
     }
+    
     let chat_id = msg.chat.id;
     match crate::db::welcome::set_farewell_message(client, chat_id, content).await {
         Ok(_) => {
