@@ -1,7 +1,5 @@
-# ── Rust & Build Artifacts ──
-/target/
-**/target/
-**/*.rs.bk
+```
+# Compiled and build artifacts
 *.o
 *.obj
 *.exe
@@ -10,40 +8,51 @@
 *.a
 *.out
 
-# ── Environment & Secrets ──
-.env
-.env.local
-.env.*
-*.env
-!.env.example
+# Dependencies
+target/
+**/target/
 
-# ── Private Keys & Secrets ──
-*.pem
-*.key
-*.p12
-*.pfx
-*.p8
-id_rsa
-id_ed25519
+# Logs and temp files
+*.log
+*.tmp
 
-# ── Runtime Output & Generated Assets ──
-quote_*.webp
-quote_*.png
-output_*.png
-.wrangler/
-diagnostics/
-.neon/
-
-# ── IDEs & OS Files ──
+# Editors
 .vscode/
 .idea/
-.DS_Store
-Thumbs.db
 *.swp
 *.swo
 
-# ── Logs & Temp Files ──
-*.log
-logs/
-*.tmp
-*.temp
+# Environment
+.env
+.env.local
+*.env.*
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# Compression
+*.zip
+*.gz
+*.tar
+*.tgz
+*.bz2
+*.xz
+*.7z
+*.rar
+*.zst
+*.lz4
+*.lzh
+*.cab
+*.arj
+*.rpm
+*.deb
+*.Z
+*.lz
+*.lzo
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tar.zst
+```

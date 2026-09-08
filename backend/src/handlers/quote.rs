@@ -188,19 +188,56 @@ pub async fn handle_quote(
     let replied = match msg.reply_to_message() {
         Some(m) => m.clone(),
         None => {
-            bot.send_message(
-                msg.chat.id,
-                "Reply to a message to quote it.\n\n\
-                 /q        —  quote the replied message\n\
-                 /q <n>  —  /q2, /q3 … quote n messages above the replied one",
-            )
-            .await?;
-            return Ok(());
+            // No reply - get the last message from history
+            if history.is_empty() {
+                bot.send_message(
+                    msg.chat.id,
+                    "No messages in history to quote. Reply to a message or send more messages first.",
+                )
+                .await?;
+                return Ok(());
+            }
+            // Get the last message from history and create a pseudo-message
+            if let Some(last_msg) = history.last() {
+                let mut fake_msg = Message::default();
+                fake_msg.message_id = last_msg.message_id;
+                fake_msg.date = last_msg.date;
+                fake_msg.chat = msg.chat.clone();
+                
+                // Parse user_name to extract username if present
+                let (first_name, username) = if let Some(at_pos) = last_msg.user_name.find('@') {
+                    if at_pos == 0 && last_msg.user_name.len() > 1 {
+                        // It's a username like @user
+                        (last_msg.user_name[1..].to_string(), Some(last_msg.user_name[1..].to_string()))
+                    } else {
+                        (last_msg.user_name.clone(), None)
+                    }
+                } else {
+                    (last_msg.user_name.clone(), None)
+                };
+                
+                fake_msg.from = Some(crate::telegram::update::User {
+                    id: last_msg.user_id as u64,
+                    is_bot: false,
+                    first_name,
+                    last_name: None,
+                    username,
+                    language_code: None,
+                });
+                fake_msg.text = Some(last_msg.text.clone());
+                fake_msg
+            } else {
+                bot.send_message(
+                    msg.chat.id,
+                    "Could not find the message to quote. Please try replying to a message instead.",
+                )
+                .await?;
+                return Ok(());
+            }
         }
     };
 
     // Try to get the replied message from history first
-    let history = get_history(client, msg.chat.id).await;
     let idx = history.iter().position(|m| m.message_id == replied.id());
     
     // If not found in history, try to fetch directly from DB
