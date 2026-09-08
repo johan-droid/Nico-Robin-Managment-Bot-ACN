@@ -1,1 +1,42 @@
-Nothing should be ignored based on the provided file changes. The modification of `backend/src/handlers/quote.rs` is a source code file and doesn't require any ignore rules.
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.class
+*.exe
+*.dll
+*.so
+*.a
+*.out
+# Dependencies
+.venv/
+venv/
+node_modules/
+.mypy_cache/
+.pytest_cache/
+target/
+.gradle/
+dist/
+build/
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+# Environment
+.env
+.env.local
+*.env.*
+# Editors
+.vscode/
+.idea/
+# Coverage
+coverage/
+htmlcov/
+.coverage
+# System files
+.DS_Store
+Thumbs.db
+```

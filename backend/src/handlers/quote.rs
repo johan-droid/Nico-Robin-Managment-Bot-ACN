@@ -200,7 +200,7 @@ pub async fn handle_quote(
             }
             // Get the last message from history and create a pseudo-message
             if let Some(last_msg) = history.last() {
-                let mut fake_msg = Message {
+                let fake_msg = Message {
                     message_id: last_msg.message_id,
                     from: Some(crate::telegram::update::User {
                         id: last_msg.user_id as u64,
