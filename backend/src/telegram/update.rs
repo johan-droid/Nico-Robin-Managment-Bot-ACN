@@ -60,7 +60,41 @@ pub struct User {
     pub id: u64,
     pub is_bot: bool,
     pub first_name: String,
+    pub last_name: Option<String>,
     pub username: Option<String>,
+}
+
+pub fn resolve_display_name(
+    first_name: Option<&str>,
+    last_name: Option<&str>,
+    username: Option<&str>,
+) -> String {
+    let fn_clean = first_name.map(|s| s.trim()).filter(|s| !s.is_empty());
+    let ln_clean = last_name.map(|s| s.trim()).filter(|s| !s.is_empty());
+
+    match (fn_clean, ln_clean) {
+        (Some(f), Some(l)) => format!("{} {}", f, l),
+        (Some(f), None) => f.to_string(),
+        (None, Some(l)) => l.to_string(),
+        (None, None) => {
+            if let Some(u) = username.map(|s| s.trim()).filter(|s| !s.is_empty()) {
+                let u_stripped = u.strip_prefix('@').unwrap_or(u);
+                format!("@{}", u_stripped)
+            } else {
+                "Unknown".to_string()
+            }
+        }
+    }
+}
+
+impl User {
+    pub fn display_name(&self) -> String {
+        resolve_display_name(
+            Some(&self.first_name),
+            self.last_name.as_deref(),
+            self.username.as_deref(),
+        )
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -185,5 +219,35 @@ impl ChatPermissions {
             can_pin_messages: Some(true),
             can_manage_topics: Some(true),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolve_display_name() {
+        assert_eq!(
+            resolve_display_name(Some("Shinei"), Some("Nouzen"), Some("shinei_nouzen")),
+            "Shinei Nouzen"
+        );
+        assert_eq!(
+            resolve_display_name(Some("Alice"), None, Some("alice_w")),
+            "Alice"
+        );
+        assert_eq!(
+            resolve_display_name(None, None, Some("only_username")),
+            "@only_username"
+        );
+        assert_eq!(
+            resolve_display_name(None, None, Some("@prefixed_username")),
+            "@prefixed_username"
+        );
+        assert_eq!(resolve_display_name(None, None, None), "Unknown");
+        assert_eq!(
+            resolve_display_name(Some(" "), Some(""), Some("fallback")),
+            "@fallback"
+        );
     }
 }

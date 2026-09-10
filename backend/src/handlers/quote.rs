@@ -86,17 +86,25 @@ pub async fn record_message(client: &tokio_postgres::Client, msg: &Message) {
         return;
     };
 
-    if text.trim().is_empty() {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
         return;
     }
+    // Skip recording /q commands (e.g. /q, /q 2, /q2, /q@bot, /q2@bot, etc.)
+    if let Some(rest) = trimmed.strip_prefix("/q") {
+        let after_q = rest.trim_start();
+        if after_q.is_empty()
+            || after_q.starts_with('@')
+            || after_q.chars().next().is_some_and(|c| c.is_ascii_digit())
+        {
+            return;
+        }
+    }
+
     let entry = HistoryMessage {
         message_id: msg.id(),
         user_id: from.id,
-        user_name: from
-            .username
-            .as_deref()
-            .map(|u| format!("@{}", u))
-            .unwrap_or_else(|| from.first_name.clone()),
+        user_name: from.display_name(),
         text: text.to_string(),
         date: msg.date,
         avatar: None,
@@ -169,14 +177,29 @@ async fn get_history(client: &tokio_postgres::Client, chat_id: i64) -> Vec<Histo
 }
 
 fn parse_quote_count(text: &str) -> usize {
-    let t = text.trim();
-    let t = t.strip_prefix('/').unwrap_or(t);
-    let t = t.strip_prefix('q').unwrap_or(t);
-    let t = t.split('@').next().unwrap_or(t).trim();
-    if t.is_empty() {
+    let trimmed = text.trim();
+    // Expect /q or /q1, /q 2, /q2@bot, etc.
+    let mut parts = trimmed.split_whitespace();
+    let first_word = parts.next().unwrap_or("");
+    let first_clean = first_word.split('@').next().unwrap_or(first_word);
+
+    if first_clean == "/q" {
+        if let Some(arg) = parts.next() {
+            let arg_clean = arg.split('@').next().unwrap_or(arg);
+            if let Ok(val) = arg_clean.parse::<usize>() {
+                return val.clamp(1, MAX_QUOTE_MESSAGES);
+            }
+        }
         return 1;
     }
-    t.parse::<usize>().unwrap_or(1).clamp(1, MAX_QUOTE_MESSAGES)
+
+    if let Some(suffix) = first_clean.strip_prefix("/q") {
+        if let Ok(val) = suffix.parse::<usize>() {
+            return val.clamp(1, MAX_QUOTE_MESSAGES);
+        }
+    }
+
+    1
 }
 
 pub async fn handle_quote(
@@ -186,12 +209,59 @@ pub async fn handle_quote(
 ) -> Result<(), String> {
     let n = parse_quote_count(msg.text().unwrap_or(""));
 
-    let replied = match msg.reply_to_message() {
-        Some(m) => m.clone(),
-        None => {
-            // No reply - get the last message from history
+    let mut selected: Vec<HistoryMessage> = match msg.reply_to_message() {
+        Some(replied) => {
+            // Reply mode: quote the replied message M and up to n-1 messages immediately preceding M.
             let history = get_history(client, msg.chat.id).await;
-            if history.is_empty() {
+            if let Some(i) = history.iter().position(|m| m.message_id == replied.id()) {
+                let start = i.saturating_sub(n - 1);
+                history[start..=i].to_vec()
+            } else {
+                // Try database lookup around replied message
+                let from_id = replied.id().saturating_sub((n as u64).saturating_sub(1));
+                match crate::db::message_history::get_recent_between(
+                    client,
+                    msg.chat.id,
+                    from_id,
+                    replied.id(),
+                )
+                .await
+                {
+                    Ok(msgs) if !msgs.is_empty() => msgs,
+                    _ => {
+                        let from_user = replied.from().map(|u| HistoryMessage {
+                            message_id: replied.id(),
+                            user_id: u.id,
+                            user_name: u.display_name(),
+                            text: replied.text().unwrap_or("📷 Media").to_string(),
+                            date: replied.date,
+                            avatar: None,
+                        });
+
+                        match from_user {
+                            Some(m) => vec![m],
+                            None => {
+                                bot.send_message(
+                                    msg.chat.id,
+                                    "Could not find the replied message. Please try quoting a different message.",
+                                )
+                                .await?;
+                                return Ok(());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None => {
+            // Non-reply mode: quote the previous N eligible messages immediately preceding /q
+            let history = get_history(client, msg.chat.id).await;
+            let filtered: Vec<HistoryMessage> = history
+                .into_iter()
+                .filter(|m| m.message_id < msg.id())
+                .collect();
+
+            if filtered.is_empty() {
                 bot.send_message(
                     msg.chat.id,
                     "No messages in history to quote. Reply to a message or send more messages first.",
@@ -199,102 +269,15 @@ pub async fn handle_quote(
                 .await?;
                 return Ok(());
             }
-            // Get the last message from history and create a pseudo-message
-            if let Some(last_msg) = history.last() {
-                let fake_msg = Message {
-                    message_id: last_msg.message_id,
-                    from: Some(crate::telegram::update::User {
-                        id: last_msg.user_id as u64,
-                        is_bot: false,
-                        first_name: last_msg.user_name.clone(),
-                        username: None,
-                    }),
-                    date: last_msg.date,
-                    chat: msg.chat.clone(),
-                    text: Some(last_msg.text.clone()),
-                    caption: None,
-                    entities: None,
-                    reply_to_message: None,
-                    new_chat_members: None,
-                    left_chat_member: None,
-                    photo: None,
-                    video: None,
-                    animation: None,
-                    sticker: None,
-                    document: None,
-                    voice: None,
-                    audio: None,
-                    video_note: None,
-                    poll: None,
-                    forward_date: None,
-                    forward_from: None,
-                };
-                fake_msg
-            } else {
-                bot.send_message(
-                    msg.chat.id,
-                    "Could not find the message to quote. Please try replying to a message instead.",
-                )
-                .await?;
-                return Ok(());
-            }
+
+            let start = filtered.len().saturating_sub(n);
+            filtered[start..].to_vec()
         }
     };
 
-    // Try to get the replied message from history first
-    let history = get_history(client, msg.chat.id).await;
-    let idx = history.iter().position(|m| m.message_id == replied.id());
-
-    // If not found in history, try to fetch directly from DB
-    let mut selected: Vec<HistoryMessage> = if let Some(i) = idx {
-        let start = i.saturating_sub(n - 1);
-        history[start..=i].to_vec()
-    } else {
-        // Message not in recent history - try to fetch it and nearby messages from DB
-        // Get the replied message and up to n-1 messages before it
-        let from_id = replied.id().saturating_sub((n as u64).saturating_sub(1));
-        match crate::db::message_history::get_recent_between(
-            client,
-            msg.chat.id,
-            from_id,
-            replied.id(),
-        )
-        .await
-        {
-            Ok(msgs) if !msgs.is_empty() => msgs,
-            _ => {
-                // Not in DB either - create a minimal entry from the replied message itself
-                let from_user = replied.from().map(|u| HistoryMessage {
-                    message_id: replied.id(),
-                    user_id: u.id,
-                    user_name: u
-                        .username
-                        .as_deref()
-                        .map(|s| format!("@{}", s))
-                        .unwrap_or_else(|| u.first_name.clone()),
-                    text: replied.text().unwrap_or("📷 Media").to_string(),
-                    date: replied.date,
-                    avatar: None,
-                });
-
-                match from_user {
-                    Some(m) => vec![m],
-                    None => {
-                        bot.send_message(
-                            msg.chat.id,
-                            "Could not find the replied message. Please try quoting a different message.",
-                        )
-                        .await?;
-                        return Ok(());
-                    }
-                }
-            }
-        }
-    };
-
-    // Limit to MAX_QUOTE_MESSAGES
     if selected.len() > MAX_QUOTE_MESSAGES {
-        selected = selected[selected.len() - MAX_QUOTE_MESSAGES..].to_vec();
+        let start = selected.len() - MAX_QUOTE_MESSAGES;
+        selected = selected[start..].to_vec();
     }
 
     // Attach profile pictures for every author in the quote (in parallel).
@@ -706,7 +689,8 @@ fn render_quote_image(messages: &[HistoryMessage]) -> Result<RgbaImage, String> 
             .and_then(|b| avatar_square(b, AVATAR_SIZE));
         let initial = if avatar.is_none() {
             name.chars()
-                .find(|c| !c.is_whitespace() && *c != '@')
+                .find(|c| c.is_alphanumeric())
+                .or_else(|| name.chars().find(|c| !c.is_whitespace() && *c != '@'))
                 .and_then(|c| c.to_uppercase().next())
         } else {
             None
@@ -952,7 +936,59 @@ mod tests {
     }
 
     #[test]
-    fn parse_quote_count_variants() {
+    fn parse_quote_count_comprehensive() {
+        assert_eq!(parse_quote_count("/q"), 1);
+        assert_eq!(parse_quote_count("/q 1"), 1);
+        assert_eq!(parse_quote_count("/q 2"), 2);
+        assert_eq!(parse_quote_count("/q2"), 2);
+        assert_eq!(parse_quote_count("/q 5"), 5);
+        assert_eq!(parse_quote_count("/q 10"), 10);
+        assert_eq!(parse_quote_count("/q 999"), MAX_QUOTE_MESSAGES);
+        assert_eq!(parse_quote_count("/q abc"), 1);
+        assert_eq!(parse_quote_count("/q -1"), 1);
+        assert_eq!(parse_quote_count("/q 0"), 1);
+        assert_eq!(parse_quote_count("/q2@botname"), 2);
+        assert_eq!(parse_quote_count("/q 3@botname"), 3);
+    }
+
+    #[test]
+    fn render_display_names_and_unicode() {
+        let msgs = vec![
+            HistoryMessage {
+                message_id: 1,
+                user_id: 101,
+                user_name: "Shinei Nouzen".into(),
+                text: "Why are we doing this?".into(),
+                date: 1000,
+                avatar: None,
+            },
+            HistoryMessage {
+                message_id: 2,
+                user_id: 102,
+                user_name: "Alice Smith".into(),
+                text: "Because it needs to be done. 🎯".into(),
+                date: 1005,
+                avatar: None,
+            },
+            HistoryMessage {
+                message_id: 3,
+                user_id: 103,
+                user_name: "光月モモの助".into(),
+                text: "I will be the Shogun of Wano!".into(),
+                date: 1010,
+                avatar: None,
+            },
+        ];
+        let bytes = render_quote(&msgs).expect("render_quote should succeed");
+        assert!(bytes.len() > 1000);
+
+        let sticker = render_quote_sticker(&msgs).expect("render_quote_sticker should succeed");
+        assert_eq!(&sticker[..4], b"RIFF");
+        assert_eq!(&sticker[8..12], b"WEBP");
+    }
+
+    #[test]
+    fn parse_quote_count_variants_legacy() {
         assert_eq!(parse_quote_count("/q"), 1);
         assert_eq!(parse_quote_count("/q2"), 2);
         assert_eq!(parse_quote_count("/q3"), 3);
